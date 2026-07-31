@@ -1,201 +1,117 @@
-# WF-003 / P01 — Novel Workspace Provisioner
+# WF-003 P01 - Novel Workspace Provisioner
 
 ## Purpose
 
-WF-003 P01 receives canonical novel metadata from WF-002 P02 and produces a
-logical Novel Studio workspace plan. It generates folder and file manifests; it
-does **not** create physical folders or files and does not write to a remote
-system.
+This n8n sub-workflow turns validated novel metadata into the logical workspace
+contract used by later WF-003 parts. It plans the standard folder and file
+manifests only; it does not create folders or files in a storage system.
 
-## Dependencies and restrictions
-
-- Requires the canonical metadata output of **WF-002 P02 / Output**.
-- No credentials, APIs, databases, Google Drive, Google Sheets, AI, OpenAI, or
-  LLM services are used.
-- No external packages are required.
-- Every transformation node uses plain JavaScript in an n8n Code node.
-- Workspace UUID generation uses the local `uuidHelper()` implementation rather
-  than a built-in cryptographic UUID method.
-
-## Architecture
+## Workflow
 
 ```text
-Workflow Trigger (Execute Workflow Trigger; Accept all data)
-→ Validate Metadata (Code)
-→ Generate Folder Structure (Code)
-→ Generate File Manifest (Code)
-→ Generate Workspace Object (Code)
-→ Output (Code)
+Workflow Trigger (Accept all data)
+  → Validate Metadata
+  → Generate Folder Structure
+  → Generate File Manifest
+  → Generate Workspace Object
+  → Output
 ```
 
-## Input contract
+All five transformation nodes are Code nodes containing only JavaScript. The
+workflow uses no credentials, APIs, databases, Google services, external
+packages, or cryptographic APIs.
 
-The preferred canonical contract is:
+## Input
+
+Pass either a `metadata` object or the equivalent fields at the top level:
 
 ```json
 {
-  "route": "novel.metadata.created",
   "metadata": {
     "novel_uuid": "6fc48e62-f59d-4c46-93a2-1807c3cd07c2",
     "novel_slug": "the-glass-city",
     "novel_title": "The Glass City",
     "novel_genre": "fantasy",
-    "created_at": "2026-07-31T00:00:00.000Z",
     "created_by": "Novel Studio"
   }
 }
 ```
 
-For compatibility with the current WF-002 P02 output, the validator also accepts
-`uuid`, `slug`, `title`, and `genre` as aliases and normalizes them to the
-preferred `novel_*` names. When `created_by` is absent, it defaults to
-`Novel Studio`.
+For compatibility with WF-002 P02, `uuid`, `slug`, `title`, and `genre` are
+accepted as aliases for their `novel_*` equivalents. `created_by` defaults to
+`Novel Studio`. Validation stops execution with a descriptive error when a
+required normalized value is empty.
 
-## Generated folder structure
+## Output
 
-```text
-Novel/
-├── 01_Source/
-├── 02_Chapters/
-├── 03_Canon/
-├── 04_Characters/
-├── 05_World/
-├── 06_Outline/
-├── 07_Assets/
-├── 08_Publish/
-└── 09_Backup/
-```
-
-Each folder manifest entry contains `order`, `path`, and `status: planned`.
-The file manifest contains starter definitions for workspace documentation,
-source notes, canonical metadata, canon, characters, world-building, outline,
-publishing, and backup manifests. These are definitions only—no storage API is
-called.
-
-## Output contract
-
-Successful input produces:
+A successful execution returns exactly this shape (generated values are shown
+as empty strings):
 
 ```json
 {
-  "route": "novel.workspace.provisioned",
-  "workspace_uuid": "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx",
-  "workspace_name": "the-glass-city-workspace",
-  "folder_manifest": [
-    { "order": 0, "path": "Novel/", "status": "planned" },
-    { "order": 1, "path": "Novel/01_Source/", "status": "planned" }
-  ],
-  "file_manifest": [
-    {
-      "path": "Novel/README.md",
-      "purpose": "Workspace overview",
-      "status": "planned"
-    }
-  ],
+  "route": "workspace.created",
   "status": "ready",
-  "next_workflow": "WF-003 P02",
-  "validation_errors": []
+  "workspace": {
+    "workspace_uuid": "",
+    "workspace_name": "",
+    "novel_uuid": "",
+    "novel_slug": "",
+    "novel_title": "",
+    "novel_genre": "",
+    "root_folder_name": "",
+    "folder_manifest": [
+      "01_Source",
+      "02_Chapters",
+      "03_Canon",
+      "04_Characters",
+      "05_World",
+      "06_Outline",
+      "07_Assets",
+      "08_Publish",
+      "09_Backup"
+    ],
+    "file_manifest": [
+      "Novel.json",
+      "Metadata.json",
+      "README.md",
+      "StoryBible.md",
+      "CharacterIndex.json",
+      "CanonIndex.json",
+      "WorldIndex.json",
+      "Outline.md",
+      "PublishLog.json"
+    ],
+    "workspace_version": "1.0",
+    "created_at": "",
+    "created_by": ""
+  },
+  "next_workflow": "WF-003-P02"
 }
 ```
 
-The arrays above are abbreviated. The actual output contains all ten folder
-entries and nine file entries. Invalid input produces
-`route: novel.workspace.invalid`, `status: invalid`, an empty `next_workflow`,
-and populated `validation_errors`.
+`workspace_uuid` is a locally generated UUID v4-shaped identifier using the
+project's `Math.random()` fallback approach and no cryptographic UUID API.
+`workspace_name` is `<novel_title> Workspace`, `root_folder_name` is the novel
+slug, and `created_at` is the workspace creation time in ISO 8601 format.
 
-## Import instructions
+## Import and test
 
-1. Make `WF-003_P01_v1.0.json` available to the computer running your browser.
-2. In n8n 2.29 or later, follow:
+1. In n8n 2.29 or newer, select **Workflows → Import from File** and import
+   `WF-003_P01_v1.0.json`.
+2. Save the imported workflow. No credentials need configuration.
+3. Call it from an Execute Workflow node and pass the example input above.
+4. Confirm all six nodes execute once and that Output matches the documented
+   contract.
+5. Run it again and confirm that `workspace_uuid` and `created_at` are newly
+   generated.
+6. Remove `novel_title` and confirm Validate Metadata stops with a missing-field
+   error.
 
-   **n8n → Workflows → Import from File → `WF-003_P01_v1.0.json`**
+## Compatibility and limitations
 
-3. Select the file from `workflows/WF-003/P01/` and save the workflow.
-4. No credentials need to be configured.
-
-## Connection with WF-002 P02
-
-```text
-WF-002 P02 - Novel Metadata Builder
-Output
-↓
-Execute Workflow node
-↓
-WF-003 P01 - Novel Workspace Provisioner
-Workflow Trigger
-```
-
-Configure the Execute Workflow node to pass all input data unchanged and wait
-for this sub-workflow to complete.
-
-## Complete test procedure
-
-1. Import and save WF-003 P01.
-2. Create a temporary caller containing **Manual Trigger → Edit Fields (Set) →
-   Execute Workflow**.
-3. Configure Execute Workflow to call **WF-003 P01 - Novel Workspace
-   Provisioner**, accept all input data, and wait for completion.
-4. Put the preferred input-contract example above into the Edit Fields node and
-   execute the caller.
-5. Inspect every node and confirm that exactly one item flows through the six-node
-   chain.
-6. At **Validate Metadata**, confirm `metadata_valid: true`, an empty
-   `validation_errors`, and populated `canonical_metadata`.
-7. At **Generate Folder Structure**, confirm ten folder entries in the required
-   order.
-8. At **Generate File Manifest**, confirm nine planned file definitions.
-9. At **Generate Workspace Object**, confirm a UUID-shaped `workspace_uuid`, the
-   name `the-glass-city-workspace`, `status: ready`, and `next_workflow: WF-003
-   P02`.
-10. At **Output**, verify the complete output contract and confirm that a second
-    run generates a different workspace UUID.
-
-### Compatibility test with WF-002 P02
-
-Use this current upstream shape:
-
-```json
-{
-  "route": "novel.metadata.created",
-  "target": "WF-003-P01",
-  "status": "ready",
-  "metadata": {
-    "novel_id": "NS-NOV-000001",
-    "uuid": "6fc48e62-f59d-4c46-93a2-1807c3cd07c2",
-    "slug": "the-glass-city",
-    "title": "The Glass City",
-    "genre": "fantasy",
-    "status": "draft",
-    "created_at": "2026-07-31T00:00:00.000Z",
-    "updated_at": "2026-07-31T00:00:00.000Z",
-    "workflow_version": "WF-002-P02-v1"
-  }
-}
-```
-
-Confirm it produces the same valid workspace output and defaults `created_by` to
-`Novel Studio`.
-
-### Invalid-input test
-
-Change `route` to `command.help` and remove `metadata.novel_title`. Confirm that
-the workflow does not intentionally throw, `status` is `invalid`,
-`next_workflow` is empty, and `validation_errors` contains both invalid-route and
-missing-title messages.
-
-## Known limitations
-
-- Manifests describe a future workspace but do not create physical resources.
-- The local UUID helper uses timestamp, high-resolution time, and `Math.random()`;
-  it is suitable for temporary workspace identifiers but is not a cryptographic
-  UUID generator. A centrally managed UUID Helper can replace its implementation
-  without changing the output contract.
-- File contents, checksums, sizes, and storage identifiers are deferred to later
-  Parts.
-- `workspace_name` is derived from the canonical novel slug and is not checked
-  for collisions.
-
-## n8n compatibility
-
-Designed for n8n 2.29 and later. It uses only the core Execute Workflow Trigger
-and Code nodes and requires no credentials, community nodes, or external modules.
+- Designed for n8n 2.29+ with the core Execute Workflow Trigger and Code nodes.
+- The trigger uses `inputSource: passthrough`, displayed as **Accept all data**.
+- The manifests are plans only; physical workspace provisioning belongs to a
+  later workflow part.
+- The UUID fallback is not cryptographically secure and should not be used as a
+  security token.
