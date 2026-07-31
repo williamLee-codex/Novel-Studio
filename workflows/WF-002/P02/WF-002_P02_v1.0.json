@@ -1,0 +1,224 @@
+{
+  "name": "WF-002 P02 - Novel Metadata Builder",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "61b61066-19dc-4278-bfed-1e722eb37a60",
+      "name": "Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const errors = [];\nconst contextIsObject = $json.context && typeof $json.context === 'object' && !Array.isArray($json.context);\n\nif ($json.route !== 'novel.create.intake') {\n  errors.push('Invalid route: expected novel.create.intake.');\n}\nif ($json.target !== 'WF-002-P02') {\n  errors.push('Invalid target: expected WF-002-P02.');\n}\nif ($json.status !== 'ready') {\n  errors.push('Invalid status: expected ready.');\n}\nif ($json.is_valid === false) {\n  errors.push('Intake was marked invalid.');\n}\nif (!contextIsObject) {\n  errors.push('Invalid context: expected an object.');\n}\n\nconst title = contextIsObject && typeof $json.context.novel_title === 'string'\n  ? $json.context.novel_title.trim()\n  : '';\nif (!title) {\n  errors.push('Novel title is required.');\n}\n\nreturn [{\n  json: {\n    ...$json,\n    intake_valid: errors.length === 0,\n    intake_errors: errors,\n  },\n}];"
+      },
+      "id": "cfdd816a-fe1f-4164-a4e4-c30d74e23b1c",
+      "name": "Validate Intake",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const context = $json.context && typeof $json.context === 'object' && !Array.isArray($json.context)\n  ? $json.context\n  : {};\nconst timestamp = new Date().toISOString();\n\nreturn [{\n  json: {\n    ...$json,\n    metadata_draft: {\n      novel_id: 'NS-NOV-000001',\n      title: typeof context.novel_title === 'string' ? context.novel_title.trim() : '',\n      genre: typeof context.novel_genre === 'string' ? context.novel_genre.trim() : '',\n      status: 'draft',\n      created_at: timestamp,\n      updated_at: timestamp,\n      workflow_version: 'WF-002-P02-v1',\n    },\n  },\n}];"
+      },
+      "id": "523362d3-e7f4-46cc-9625-8c49f127af5f",
+      "name": "Generate Metadata",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {\n    ...$json,\n    generated_uuid: crypto.randomUUID(),\n  },\n}];"
+      },
+      "id": "111347fd-6ed7-4d4e-9647-7edc1938a5d7",
+      "name": "Generate UUID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const title = String($json.metadata_draft?.title ?? '');\nconst asciiSlug = title\n  .normalize('NFKD')\n  .replace(/[\\u0300-\\u036f]/g, '')\n  .toLowerCase()\n  .replace(/[^a-z0-9]+/g, '-')\n  .replace(/^-+|-+$/g, '')\n  .slice(0, 80)\n  .replace(/-+$/g, '');\nconst fallbackSuffix = String($json.generated_uuid ?? '')\n  .replace(/-/g, '')\n  .slice(0, 8)\n  .toLowerCase();\n\nreturn [{\n  json: {\n    ...$json,\n    generated_slug: asciiSlug || `novel-${fallbackSuffix}`,\n  },\n}];"
+      },
+      "id": "cd90420b-8e5f-498e-90db-24f2b08e6b82",
+      "name": "Generate Slug",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {\n    ...$json,\n    novel: {\n      novel_id: $json.metadata_draft.novel_id,\n      uuid: $json.generated_uuid,\n      slug: $json.generated_slug,\n      title: $json.metadata_draft.title,\n      genre: $json.metadata_draft.genre,\n      status: $json.metadata_draft.status,\n      created_at: $json.metadata_draft.created_at,\n      updated_at: $json.metadata_draft.updated_at,\n      workflow_version: $json.metadata_draft.workflow_version,\n    },\n  },\n}];"
+      },
+      "id": "cf299e29-0af5-42ec-ab33-63d317fd722a",
+      "name": "Create Novel Object",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c862e9da-1a1a-44d0-986a-1233860a80de",
+              "name": "route",
+              "value": "={{ $json.intake_valid ? 'novel.metadata.created' : 'novel.metadata.invalid' }}",
+              "type": "string"
+            },
+            {
+              "id": "12e091d3-02b8-474a-9365-2bcfb77d256f",
+              "name": "target",
+              "value": "={{ $json.intake_valid ? 'WF-003-P01' : '' }}",
+              "type": "string"
+            },
+            {
+              "id": "9424f256-0fd9-438f-adfb-8bcc5aa287e2",
+              "name": "status",
+              "value": "={{ $json.intake_valid ? 'ready' : 'invalid' }}",
+              "type": "string"
+            },
+            {
+              "id": "05e66bf0-3e39-4529-a61d-a3fbc9b81881",
+              "name": "validation_errors",
+              "value": "={{ $json.intake_errors }}",
+              "type": "array"
+            },
+            {
+              "id": "469e18fa-af93-457f-aaed-3667106ed874",
+              "name": "metadata",
+              "value": "={{ $json.novel }}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "beab1648-3010-483f-ac3f-cc686349f536",
+      "name": "Output",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1440,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## WF-002 P02 — Novel Metadata Builder\nPure transformation only.\n\n**Input:** WF-002 P01 valid intake contract\n**Output:** canonical metadata for WF-003 P01\n\nNo API, database, Drive, Sheets, or credentials.\n\nReserved ID prefixes: `NS-NOV`, `NS-CHR`, `NS-CHP`, `NS-BIB`, `NS-WLD`, `NS-SCN`, `NS-VID`.",
+        "height": 300,
+        "width": 430,
+        "color": 5
+      },
+      "id": "7079f4ed-e8e0-4b8a-b5a7-f38ce8a605fe",
+      "name": "Workflow Notes",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -300
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Validate Intake",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Intake": {
+      "main": [
+        [
+          {
+            "node": "Generate Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Metadata": {
+      "main": [
+        [
+          {
+            "node": "Generate UUID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate UUID": {
+      "main": [
+        [
+          {
+            "node": "Generate Slug",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Slug": {
+      "main": [
+        [
+          {
+            "node": "Create Novel Object",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Novel Object": {
+      "main": [
+        [
+          {
+            "node": "Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "05ec31dc-0339-4aab-9245-d7c0b2ac91ce",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
