@@ -1,0 +1,190 @@
+{
+  "name": "WF-002 P01 - Create Novel Intake",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "3829ad52-716f-4d9e-a977-0d8a3c715985",
+      "name": "Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const errors = [];\n\nif ($json.route !== 'command.new') {\n  errors.push('Invalid route: expected command.new.');\n}\nif ($json.status !== 'ready') {\n  errors.push('Invalid status: expected ready.');\n}\nif (!$json.payload || typeof $json.payload !== 'object' || Array.isArray($json.payload)) {\n  errors.push('Invalid payload: expected an object.');\n} else if ($json.payload.command !== 'new') {\n  errors.push('Invalid payload command: expected new.');\n}\n\nreturn [{\n  json: {\n    ...$json,\n    route_valid: errors.length === 0,\n    route_error: errors.join(' '),\n  },\n}];"
+      },
+      "id": "fda661c6-4460-47c6-802c-2049e9fd7d22",
+      "name": "Validate Route",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const payload = $json.payload && typeof $json.payload === 'object' && !Array.isArray($json.payload)\n  ? $json.payload\n  : {};\nconst commandArgs = Array.isArray(payload.command_args) ? payload.command_args : [];\nconst argumentText = typeof payload.argument_text === 'string' ? payload.argument_text.trim() : '';\n\nlet novelTitleRaw = '';\nlet novelGenreRaw = '';\n\nif (commandArgs.length > 0) {\n  novelTitleRaw = commandArgs[0] == null ? '' : String(commandArgs[0]);\n  novelGenreRaw = commandArgs.length > 1 && commandArgs[1] != null ? String(commandArgs[1]) : '';\n} else if (argumentText) {\n  novelTitleRaw = argumentText;\n}\n\nreturn [{\n  json: {\n    ...$json,\n    novel_title_raw: novelTitleRaw,\n    novel_genre_raw: novelGenreRaw,\n  },\n}];"
+      },
+      "id": "e5fd4dd3-d5ba-4cf6-852e-bc6b39424edc",
+      "name": "Extract Novel Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const normalizeSpaces = (value) => String(value ?? '').trim().replace(/\\s+/gu, ' ');\nconst quotePairs = new Map([\n  ['\\\"', '\\\"'],\n  [\"'\", \"'\"],\n  ['“', '”'],\n  ['‘', '’'],\n  ['「', '」'],\n  ['『', '』'],\n]);\n\nlet novelTitle = normalizeSpaces($json.novel_title_raw);\nconst closingQuote = quotePairs.get(novelTitle[0]);\nif (closingQuote && novelTitle.length >= 2 && novelTitle.endsWith(closingQuote)) {\n  novelTitle = normalizeSpaces(novelTitle.slice(1, -closingQuote.length));\n}\n\nreturn [{\n  json: {\n    ...$json,\n    novel_title: novelTitle,\n    novel_genre: normalizeSpaces($json.novel_genre_raw),\n  },\n}];"
+      },
+      "id": "dc72daf8-e49c-4cb8-a59a-0790c916386c",
+      "name": "Normalize Novel Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const validationErrors = [];\nconst titleLength = Array.from($json.novel_title ?? '').length;\nconst genreLength = Array.from($json.novel_genre ?? '').length;\n\nif ($json.route_valid !== true) {\n  validationErrors.push($json.route_error || 'Invalid route input.');\n}\nif (titleLength < 1) {\n  validationErrors.push('Novel title is required.');\n} else if (titleLength > 120) {\n  validationErrors.push('Novel title must not exceed 120 characters.');\n}\nif (genreLength > 40) {\n  validationErrors.push('Novel genre must not exceed 40 characters.');\n}\n\nreturn [{\n  json: {\n    ...$json,\n    is_valid: validationErrors.length === 0,\n    validation_errors: validationErrors,\n  },\n}];"
+      },
+      "id": "c730b706-f77c-4e4b-8cb0-10f0f5277097",
+      "name": "Validate Novel Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "070d8119-35cf-4e36-90b4-588246492dc2",
+              "name": "route",
+              "value": "novel.create.intake",
+              "type": "string"
+            },
+            {
+              "id": "6d311dc8-516e-43d9-8c84-9b4f96a651b1",
+              "name": "target",
+              "value": "={{ $json.is_valid ? 'WF-002-P02' : '' }}",
+              "type": "string"
+            },
+            {
+              "id": "d7ea05ef-1017-4857-905b-56644477eebe",
+              "name": "status",
+              "value": "={{ $json.is_valid ? 'ready' : 'invalid' }}",
+              "type": "string"
+            },
+            {
+              "id": "3b5291f1-f2a9-451c-87fa-277fc6f1848d",
+              "name": "is_valid",
+              "value": "={{ $json.is_valid }}",
+              "type": "boolean"
+            },
+            {
+              "id": "4446a932-bd02-4f7c-875b-4005e47adb09",
+              "name": "validation_errors",
+              "value": "={{ $json.validation_errors }}",
+              "type": "array"
+            },
+            {
+              "id": "6da689f2-f525-4dd1-b357-a9f4e5ab97c5",
+              "name": "context",
+              "value": "={{ { source_workflow: 'WF-002', source_part: 'P01', telegram_update_id: $json.payload?.telegram_update_id ?? 0, telegram_chat_id: $json.payload?.telegram_chat_id ?? 0, telegram_user_id: $json.payload?.telegram_user_id ?? 0, novel_title: $json.novel_title, novel_genre: $json.novel_genre, received_at: $json.payload?.received_at ?? '' } }}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "3e701792-c940-49d9-8c67-aab3845f2e10",
+      "name": "Create Intake Output",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1200,
+        0
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Validate Route",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Route": {
+      "main": [
+        [
+          {
+            "node": "Extract Novel Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Novel Input": {
+      "main": [
+        [
+          {
+            "node": "Normalize Novel Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Novel Input": {
+      "main": [
+        [
+          {
+            "node": "Validate Novel Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Novel Input": {
+      "main": [
+        [
+          {
+            "node": "Create Intake Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "c96dfebc-8d6b-429e-a05e-4e2e02c6d8a3",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

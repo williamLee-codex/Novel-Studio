@@ -1,0 +1,40 @@
+{
+  "route": "workspace.created",
+  "status": "ready",
+  "workspace": {
+    "workspace_uuid": "6b827e36-af95-4af8-a8af-2f1a7ea449f2",
+    "workspace_name": "the-glass-city-workspace",
+    "novel_uuid": "6fc48e62-f59d-4c46-93a2-1807c3cd07c2",
+    "novel_slug": "the-glass-city",
+    "novel_title": "The Glass City",
+    "novel_genre": "fantasy",
+    "root_folder_name": "Novel",
+    "folder_manifest": [
+      "01_Source",
+      "02_Chapters",
+      "03_Canon",
+      "04_Characters",
+      "05_World",
+      "06_Outline",
+      "07_Assets",
+      "08_Publish",
+      "09_Backup"
+    ],
+    "file_manifest": [
+      "Novel.json",
+      "Metadata.json",
+      "README.md",
+      "StoryBible.md",
+      "CharacterIndex.json",
+      "CanonIndex.json",
+      "WorldIndex.json",
+      "Outline.md",
+      "PublishLog.json"
+    ],
+    "workspace_version": "1.0",
+    "created_at": "2026-07-31T00:00:00.000Z",
+    "created_by": "Novel Studio"
+  },
+  "next_workflow": "WF-003-P02",
+  "validation_errors": []
+}

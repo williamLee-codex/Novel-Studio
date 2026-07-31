@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="1040" viewBox="0 0 1400 1040">
+<rect width="1400" height="1040" fill="#0d1117"/>
+<style>text{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:25px;fill:#c9d1d9}.title{font-size:31px;font-weight:bold;fill:#58a6ff}.pass{fill:#3fb950}</style>
+<text x="55" y="58" class="title">Novel Studio — WF-003 P01 Contract Execution</text>
+<text x="55" y="106" class="">Local JavaScript validation harness</text>
+<text x="55" y="143" class=""></text>
+<text x="55" y="180" class="pass">PASS  route</text>
+<text x="55" y="217" class="pass">PASS  status</text>
+<text x="55" y="254" class="pass">PASS  next_workflow</text>
+<text x="55" y="291" class="pass">PASS  workspace_fields</text>
+<text x="55" y="328" class="pass">PASS  folder_manifest</text>
+<text x="55" y="365" class="pass">PASS  file_manifest</text>
+<text x="55" y="402" class="pass">PASS  uuid</text>
+<text x="55" y="439" class="pass">PASS  uuid_unique</text>
+<text x="55" y="476" class="pass">PASS  version</text>
+<text x="55" y="513" class="pass">PASS  errors</text>
+<text x="55" y="550" class="pass">PASS  invalid_contract</text>
+<text x="55" y="587" class="pass">PASS  all 11 contract checks</text>
+<text x="55" y="624" class=""></text>
+<text x="55" y="661" class="">OUTPUT CONTRACT</text>
+<text x="55" y="698" class="">route: workspace.created</text>
+<text x="55" y="735" class="">status: ready</text>
+<text x="55" y="772" class="">workspace.workspace_name: the-glass-city-workspace</text>
+<text x="55" y="809" class="">workspace.folder_manifest: 9/9 exact entries</text>
+<text x="55" y="846" class="">workspace.file_manifest: 9/9 exact entries</text>
+<text x="55" y="883" class="">workspace.workspace_version: 1.0</text>
+<text x="55" y="920" class="">next_workflow: WF-003-P02</text>
+<text x="55" y="957" class=""></text>
+<text x="55" y="994" class="pass">Execution completed successfully.</text>
+</svg>
