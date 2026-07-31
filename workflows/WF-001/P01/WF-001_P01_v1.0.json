@@ -1,0 +1,210 @@
+{
+  "name": "WF-001 P01 - Telegram Command Intake",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "id": "e37a226e-0807-4a48-b459-6f79a6d2ddcb",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "40b96704-cdb0-46f6-ae42-2f61bc06ad63"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "5dc66f3c-81d4-4c94-8275-c789ac061ccd",
+              "name": "workflow_id",
+              "value": "WF-001",
+              "type": "string"
+            },
+            {
+              "id": "b9082319-a42e-4af8-ac24-7e3df33827c0",
+              "name": "part_id",
+              "value": "P01",
+              "type": "string"
+            },
+            {
+              "id": "f8c4a04e-fe5f-48cb-94bd-11283ee02ea1",
+              "name": "telegram_update_id",
+              "value": "={{ $json.update_id }}",
+              "type": "number"
+            },
+            {
+              "id": "0fca1b4f-f769-4a09-950f-cfabd85acabc",
+              "name": "telegram_chat_id",
+              "value": "={{ $json.message.chat.id }}",
+              "type": "number"
+            },
+            {
+              "id": "798798d1-7c76-4f3c-bb3f-00c790787ad8",
+              "name": "telegram_user_id",
+              "value": "={{ $json.message.from.id }}",
+              "type": "number"
+            },
+            {
+              "id": "78f17910-ce33-4805-b4bf-79ad2af0da21",
+              "name": "telegram_text",
+              "value": "={{ $json.message.text || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "92ac0ff7-e485-4925-b259-7ac476bce09b",
+              "name": "received_at",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b73cdf7f-d6d6-46d1-9d3e-4ac40f769bcf",
+      "name": "Initialize Variables",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const text = String($json.telegram_text ?? '').trim();\nconst match = text.match(/^\\/([a-zA-Z0-9_-]+)(?:@[a-zA-Z0-9_]+)?(?:\\s+([\\s\\S]*))?$/);\nconst command = match ? match[1].toLowerCase() : '';\nconst argumentText = match?.[2]?.trim() ?? '';\nconst args = argumentText\n  ? (argumentText.match(/(?:[^\\s\\\"]+|\\\"[^\\\"]*\\\")+/g) ?? []).map((value) => value.replace(/^\\\"|\\\"$/g, ''))\n  : [];\n\nreturn [{\n  json: {\n    ...$json,\n    command,\n    argument_text: argumentText,\n    arguments: args,\n    parse_success: Boolean(match),\n  },\n}];"
+      },
+      "id": "606b21c0-5d33-42a9-831e-ee39781868b5",
+      "name": "Parse Telegram Command",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const routes = {\n  new: 'WF-002',\n  status: 'WF-003',\n  help: 'WF-004',\n};\nconst nextWorkflow = routes[$json.command] ?? null;\nlet validationError = null;\n\nif (!$json.parse_success) {\n  validationError = 'Message must begin with a Telegram command such as /new.';\n} else if (!nextWorkflow) {\n  validationError = `Unsupported command: /${$json.command}`;\n}\n\nreturn [{\n  json: {\n    ...$json,\n    is_valid: validationError === null,\n    validation_error: validationError,\n    next_workflow: nextWorkflow,\n  },\n}];"
+      },
+      "id": "cce41f40-fc36-472b-bd7f-23eb049c64a6",
+      "name": "Validate Command",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a3531dd8-a7f5-4bf6-b9dd-83c06d462898",
+              "name": "route",
+              "value": "={{ $json.is_valid ? 'command.' + $json.command : 'command.invalid' }}",
+              "type": "string"
+            },
+            {
+              "id": "094dfdcf-08cc-435f-ac36-c53d9d4c12df",
+              "name": "next_workflow",
+              "value": "={{ $json.next_workflow || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "3d4eea91-b69e-43aa-b018-d75d75007029",
+              "name": "is_valid",
+              "value": "={{ $json.is_valid }}",
+              "type": "boolean"
+            },
+            {
+              "id": "38b9ddc8-5228-4515-a7a3-9c47b79ded8f",
+              "name": "validation_error",
+              "value": "={{ $json.validation_error || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "103b75bc-8829-4741-a64a-006e049881d8",
+              "name": "payload",
+              "value": "={{ { workflow_id: $json.workflow_id, source_part: $json.part_id, telegram_update_id: $json.telegram_update_id, telegram_chat_id: $json.telegram_chat_id, telegram_user_id: $json.telegram_user_id, command: $json.command, argument_text: $json.argument_text, arguments: $json.arguments, received_at: $json.received_at } }}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "1fbf515a-7e7b-40fe-bf02-86c55f1c1316",
+      "name": "Router Output",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        960,
+        0
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Initialize Variables",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Initialize Variables": {
+      "main": [
+        [
+          {
+            "node": "Parse Telegram Command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Telegram Command": {
+      "main": [
+        [
+          {
+            "node": "Validate Command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Command": {
+      "main": [
+        [
+          {
+            "node": "Router Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "79b0e809-0682-4fc4-9343-7cf5439bcfde",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
