@@ -9,134 +9,66 @@
       "name": "Workflow Trigger",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
-      "position": [
-        0,
-        0
-      ]
+      "position": [0, 0]
     },
     {
       "parameters": {
-        "jsCode": "const errors = [];\nconst metadata = $json.metadata && typeof $json.metadata === 'object' && !Array.isArray($json.metadata)\n  ? $json.metadata\n  : {};\n\nif ($json.route !== 'novel.metadata.created') {\n  errors.push('Invalid route: expected novel.metadata.created.');\n}\nif (!$json.metadata || typeof $json.metadata !== 'object' || Array.isArray($json.metadata)) {\n  errors.push('Invalid metadata: expected an object.');\n}\n\nconst canonicalMetadata = {\n  novel_uuid: String(metadata.novel_uuid ?? metadata.uuid ?? '').trim(),\n  novel_slug: String(metadata.novel_slug ?? metadata.slug ?? '').trim(),\n  novel_title: String(metadata.novel_title ?? metadata.title ?? '').trim(),\n  novel_genre: String(metadata.novel_genre ?? metadata.genre ?? '').trim(),\n  created_at: String(metadata.created_at ?? '').trim(),\n  created_by: String(metadata.created_by ?? 'Novel Studio').trim(),\n};\n\nif (!canonicalMetadata.novel_uuid) errors.push('metadata.novel_uuid is required.');\nif (!canonicalMetadata.novel_slug) errors.push('metadata.novel_slug is required.');\nif (!canonicalMetadata.novel_title) errors.push('metadata.novel_title is required.');\nif (!canonicalMetadata.created_at || Number.isNaN(Date.parse(canonicalMetadata.created_at))) {\n  errors.push('metadata.created_at must be a valid ISO 8601 timestamp.');\n}\nif (!canonicalMetadata.created_by) errors.push('metadata.created_by is required.');\n\nreturn [{\n  json: {\n    ...$json,\n    metadata_valid: errors.length === 0,\n    validation_errors: errors,\n    canonical_metadata: canonicalMetadata,\n  },\n}];"
+        "jsCode": "const source = $json.metadata && typeof $json.metadata === 'object' && !Array.isArray($json.metadata)\n  ? $json.metadata\n  : $json;\n\nconst metadata = {\n  novel_uuid: String(source.novel_uuid ?? source.uuid ?? '').trim(),\n  novel_slug: String(source.novel_slug ?? source.slug ?? '').trim(),\n  novel_title: String(source.novel_title ?? source.title ?? '').trim(),\n  novel_genre: String(source.novel_genre ?? source.genre ?? '').trim(),\n  created_by: String(source.created_by ?? $json.created_by ?? 'Novel Studio').trim(),\n};\n\nconst missing = Object.entries(metadata)\n  .filter(([, value]) => !value)\n  .map(([field]) => field);\n\nif (missing.length > 0) {\n  throw new Error(`Missing required novel metadata: ${missing.join(', ')}`);\n}\n\nreturn [{ json: { metadata } }];"
       },
       "id": "14eb74df-63f3-4093-a849-e5ea5dccba2c",
       "name": "Validate Metadata",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        240,
-        0
-      ]
+      "position": [240, 0]
     },
     {
       "parameters": {
-        "jsCode": "const folderNames = [\n  'Novel/',\n  'Novel/01_Source/',\n  'Novel/02_Chapters/',\n  'Novel/03_Canon/',\n  'Novel/04_Characters/',\n  'Novel/05_World/',\n  'Novel/06_Outline/',\n  'Novel/07_Assets/',\n  'Novel/08_Publish/',\n  'Novel/09_Backup/',\n];\n\nreturn [{\n  json: {\n    ...$json,\n    generated_folder_manifest: folderNames.map((path, index) => ({\n      order: index,\n      path,\n      status: 'planned',\n    })),\n  },\n}];"
+        "jsCode": "const folderManifest = [\n  '01_Source',\n  '02_Chapters',\n  '03_Canon',\n  '04_Characters',\n  '05_World',\n  '06_Outline',\n  '07_Assets',\n  '08_Publish',\n  '09_Backup',\n];\n\nreturn [{ json: { ...$json, folder_manifest: folderManifest } }];"
       },
       "id": "11be0793-9898-4dd7-b023-61c178e4e02c",
       "name": "Generate Folder Structure",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        480,
-        0
-      ]
+      "position": [480, 0]
     },
     {
       "parameters": {
-        "jsCode": "const files = [\n  { path: 'Novel/README.md', purpose: 'Workspace overview' },\n  { path: 'Novel/01_Source/source-notes.md', purpose: 'Raw source notes' },\n  { path: 'Novel/03_Canon/novel-metadata.json', purpose: 'Canonical novel metadata' },\n  { path: 'Novel/03_Canon/canon.md', purpose: 'Canonical story facts' },\n  { path: 'Novel/04_Characters/characters.json', purpose: 'Character manifest' },\n  { path: 'Novel/05_World/world.json', purpose: 'World-building manifest' },\n  { path: 'Novel/06_Outline/outline.md', purpose: 'Novel outline' },\n  { path: 'Novel/08_Publish/publish-manifest.json', purpose: 'Publishing manifest' },\n  { path: 'Novel/09_Backup/backup-manifest.json', purpose: 'Backup manifest' },\n];\n\nreturn [{\n  json: {\n    ...$json,\n    generated_file_manifest: files.map((file) => ({\n      ...file,\n      status: 'planned',\n    })),\n  },\n}];"
+        "jsCode": "const fileManifest = [\n  'Novel.json',\n  'Metadata.json',\n  'README.md',\n  'StoryBible.md',\n  'CharacterIndex.json',\n  'CanonIndex.json',\n  'WorldIndex.json',\n  'Outline.md',\n  'PublishLog.json',\n];\n\nreturn [{ json: { ...$json, file_manifest: fileManifest } }];"
       },
       "id": "08b57b44-ec40-4c0c-a40d-cfa05bd73719",
       "name": "Generate File Manifest",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        720,
-        0
-      ]
+      "position": [720, 0]
     },
     {
       "parameters": {
-        "jsCode": "function uuidHelper() {\n  let timestamp = Date.now();\n  let highResolution = typeof performance !== 'undefined' && typeof performance.now === 'function'\n    ? Math.floor(performance.now() * 1000)\n    : 0;\n\n  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (token) => {\n    let random = Math.random() * 16;\n    if (timestamp > 0) {\n      random = (timestamp + random) % 16 | 0;\n      timestamp = Math.floor(timestamp / 16);\n    } else {\n      random = (highResolution + random) % 16 | 0;\n      highResolution = Math.floor(highResolution / 16);\n    }\n    return (token === 'x' ? random : (random & 0x3) | 0x8).toString(16);\n  });\n}\n\nconst metadata = $json.canonical_metadata ?? {};\nconst safeName = metadata.novel_slug || metadata.novel_uuid || 'unassigned-novel';\nconst isReady = $json.metadata_valid === true;\n\nreturn [{\n  json: {\n    ...$json,\n    workspace: {\n      workspace_uuid: uuidHelper(),\n      workspace_name: `${safeName}-workspace`,\n      folder_manifest: $json.generated_folder_manifest,\n      file_manifest: $json.generated_file_manifest,\n      status: isReady ? 'ready' : 'invalid',\n      next_workflow: isReady ? 'WF-003 P02' : '',\n    },\n  },\n}];"
+        "jsCode": "function createUuid() {\n  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (character) => {\n    const randomValue = Math.floor(Math.random() * 16);\n    const value = character === 'x' ? randomValue : (randomValue & 0x3) | 0x8;\n    return value.toString(16);\n  });\n}\n\nconst { metadata, folder_manifest, file_manifest } = $json;\nconst workspaceName = `${metadata.novel_title} Workspace`;\n\nreturn [{\n  json: {\n    workspace: {\n      workspace_uuid: createUuid(),\n      workspace_name: workspaceName,\n      novel_uuid: metadata.novel_uuid,\n      novel_slug: metadata.novel_slug,\n      novel_title: metadata.novel_title,\n      novel_genre: metadata.novel_genre,\n      root_folder_name: metadata.novel_slug,\n      folder_manifest,\n      file_manifest,\n      workspace_version: '1.0',\n      created_at: new Date().toISOString(),\n      created_by: metadata.created_by,\n    },\n  },\n}];"
       },
       "id": "734266fd-6ff3-442d-a660-c082c9ab0073",
       "name": "Generate Workspace Object",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        960,
-        0
-      ]
+      "position": [960, 0]
     },
     {
       "parameters": {
-        "jsCode": "const workspace = $json.workspace ?? {};\n\nreturn [{\n  json: {\n    route: $json.metadata_valid ? 'novel.workspace.provisioned' : 'novel.workspace.invalid',\n    workspace_uuid: workspace.workspace_uuid ?? '',\n    workspace_name: workspace.workspace_name ?? '',\n    folder_manifest: workspace.folder_manifest ?? [],\n    file_manifest: workspace.file_manifest ?? [],\n    status: workspace.status ?? 'invalid',\n    next_workflow: workspace.next_workflow ?? '',\n    validation_errors: $json.validation_errors ?? [],\n  },\n}];"
+        "jsCode": "return [{\n  json: {\n    route: 'workspace.created',\n    status: 'ready',\n    workspace: $json.workspace,\n    next_workflow: 'WF-003-P02',\n  },\n}];"
       },
       "id": "05ee6595-1845-4a49-a5d4-40e94d5119ea",
       "name": "Output",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        1200,
-        0
-      ]
+      "position": [1200, 0]
     }
   ],
   "pinData": {},
   "connections": {
-    "Workflow Trigger": {
-      "main": [
-        [
-          {
-            "node": "Validate Metadata",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Validate Metadata": {
-      "main": [
-        [
-          {
-            "node": "Generate Folder Structure",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Generate Folder Structure": {
-      "main": [
-        [
-          {
-            "node": "Generate File Manifest",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Generate File Manifest": {
-      "main": [
-        [
-          {
-            "node": "Generate Workspace Object",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Generate Workspace Object": {
-      "main": [
-        [
-          {
-            "node": "Output",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    }
+    "Workflow Trigger": { "main": [[{ "node": "Validate Metadata", "type": "main", "index": 0 }]] },
+    "Validate Metadata": { "main": [[{ "node": "Generate Folder Structure", "type": "main", "index": 0 }]] },
+    "Generate Folder Structure": { "main": [[{ "node": "Generate File Manifest", "type": "main", "index": 0 }]] },
+    "Generate File Manifest": { "main": [[{ "node": "Generate Workspace Object", "type": "main", "index": 0 }]] },
+    "Generate Workspace Object": { "main": [[{ "node": "Output", "type": "main", "index": 0 }]] }
   },
   "active": false,
   "settings": {
