@@ -1,0 +1,470 @@
+{
+  "name": "WF-012 - Knowledge Integrity Manager v2",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "d512dd01-6cee-4d9b-af7e-8b03d2c3b1f6",
+      "name": "Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const root=$json&&typeof $json==='object'&&!Array.isArray($json)?$json:{};const isObj=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);const p=isObj(root.persistence)?root.persistence:null;const errors=Array.isArray(root.validation_errors)?[...root.validation_errors]:[];if(root.schema_version!=='1.0')errors.push('Invalid schema_version: expected 1.0.');if(root.route!=='knowledge.persistence.completed')errors.push('Invalid route: expected knowledge.persistence.completed.');if(root.status!=='ready')errors.push('Invalid status: expected ready.');if(root.is_valid!==true)errors.push('Input persistence result must be valid.');if(!p)errors.push('persistence must be an object.');if(p&&p.persistence_status!=='completed')errors.push('persistence.persistence_status must be completed.');for(const field of ['story_bible_uuid','novel_uuid','workspace_uuid'])if(!p||typeof p[field]!=='string'||!p[field].trim())errors.push(`persistence.${field} is required.`);if(!isObj(root.summary))errors.push('summary must be an object.');if(!Array.isArray(root.files))errors.push('files must be an array.');if(!isObj(root.context))errors.push('context must be an object.');return[{json:{...root,input_contract_valid:errors.length===0,validation_errors:errors,issues:errors.map((message,index)=>({severity:'critical',code:`PERSISTENCE_CONTRACT_${index+1}`,message}))}}];"
+      },
+      "id": "68ca5bb0-49bd-457d-a116-a75a61a3c5be",
+      "name": "Validate Persistence Route",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const root=$json&&typeof $json==='object'?$json:{};const p=root.persistence&&typeof root.persistence==='object'&&!Array.isArray(root.persistence)?root.persistence:{};const c=root.context&&typeof root.context==='object'&&!Array.isArray(root.context)?root.context:{};const summary=root.summary&&typeof root.summary==='object'&&!Array.isArray(root.summary)?{...root.summary}:{};const files=Array.isArray(root.files)?root.files.map(x=>x&&typeof x==='object'?{...x}:x):[];const persistence_context={persistence_id:String(p.persistence_id??''),story_bible_uuid:String(p.story_bible_uuid??''),novel_uuid:String(p.novel_uuid??''),workspace_uuid:String(p.workspace_uuid??''),chapter_uuid:String(c.chapter_uuid??''),chapter_number:Number.isInteger(c.chapter_number)?c.chapter_number:0,chapter_title:String(c.chapter_title??''),provider:String(p.provider??''),persistence_status:String(p.persistence_status??''),knowledge_root_folder_id:String(p.knowledge_root_folder_id??''),knowledge_root_folder_url:String(p.knowledge_root_folder_url??''),executed_at:String(p.executed_at??''),summary,files};return[{json:{...root,persistence_context}}];"
+      },
+      "id": "ee1fca4b-f675-4595-9e85-5ff28c27a222",
+      "name": "Extract Persistence Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const root=$json&&typeof $json==='object'?$json:{};const c=root.context&&typeof root.context==='object'&&!Array.isArray(root.context)?root.context:{};const isObj=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);let source=null;if(isObj(root.knowledge_snapshot))source=root.knowledge_snapshot;else if(isObj(c.knowledge_snapshot))source=c.knowledge_snapshot;else if(isObj(root.story_bible))source={story_bible:root.story_bible};else if(isObj(c.story_bible))source={story_bible:c.story_bible};const available=source!==null;const raw=source??{};const sb=isObj(raw.story_bible)?raw.story_bible:{};const sections=isObj(sb.sections)?sb.sections:{};const conflictsRaw=isObj(raw.conflicts)?raw.conflicts:isObj(sections.conflicts)?sections.conflicts:{};const knowledge_snapshot={story_bible:{...sb},canon:isObj(raw.canon)?{...raw.canon}:isObj(sections.canon)?{...sections.canon}:{},characters:(Array.isArray(raw.characters)?raw.characters:Array.isArray(sections.characters)?sections.characters:[]).map(x=>isObj(x)?{...x}:{}),worlds:(Array.isArray(raw.worlds)?raw.worlds:Array.isArray(raw.world)?raw.world:Array.isArray(sections.world)?sections.world:[]).map(x=>isObj(x)?{...x}:{}),timeline:(Array.isArray(raw.timeline)?raw.timeline:Array.isArray(sections.timeline)?sections.timeline:[]).map(x=>isObj(x)?{...x}:{}),conflicts:{character_conflicts:Array.isArray(conflictsRaw.character_conflicts)?conflictsRaw.character_conflicts.map(x=>isObj(x)?{...x}:{}):[],world_conflicts:Array.isArray(conflictsRaw.world_conflicts)?conflictsRaw.world_conflicts.map(x=>isObj(x)?{...x}:{}):[],timeline_conflicts:Array.isArray(conflictsRaw.timeline_conflicts)?conflictsRaw.timeline_conflicts.map(x=>isObj(x)?{...x}:{}):[]}};const issues=[...(Array.isArray(root.issues)?root.issues:[])];if(!available)issues.push({severity:'info',code:'KNOWLEDGE_SNAPSHOT_ABSENT',message:'Optional knowledge snapshot was not supplied; knowledge-level checks were skipped.'});return[{json:{...root,knowledge_snapshot_available:available,knowledge_snapshot,issues}}];"
+      },
+      "id": "f8b7108b-92eb-48ea-957f-9bdb6c2b3d43",
+      "name": "Extract Knowledge Snapshot",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const required=['StoryBible.json','StoryBible.md','Canon.json','Characters.json','World.json','Timeline.json','Conflicts.json','KnowledgeIndex.json','KnowledgePersistenceManifest.json'];const files=Array.isArray($json.persistence_context?.files)?$json.persistence_context.files:[];const issues=[...($json.issues??[])],missing=[],failed=[],duplicates=[];let verified=0;for(const name of required){const matches=files.map((value,index)=>({value:value&&typeof value==='object'?value:{},index})).filter(x=>String(x.value.file_name??'')===name);if(!matches.length){missing.push(name);issues.push({severity:'critical',code:'REQUIRED_FILE_MISSING',file_name:name,message:`Required knowledge file ${name} is missing.`});continue}if(matches.length>1){duplicates.push({file_name:name,source_indices:matches.map(x=>x.index)});issues.push({severity:'error',code:'DUPLICATE_FILE_RESULT',file_name:name,message:`Required knowledge file ${name} has duplicate results.`})}const good=matches.some(x=>x.value.status==='success'&&String(x.value.resource_id??'').trim()&&String(x.value.relative_path??'').trim());if(good)verified++;else{failed.push(name);issues.push({severity:'critical',code:'REQUIRED_FILE_FAILED',file_name:name,message:`Required knowledge file ${name} was not persisted successfully.`})}}return[{json:{...$json,required_file_names:required,required_files_verified:verified,missing_required_files:missing,failed_required_files:failed,duplicate_file_results:duplicates,issues}}];"
+      },
+      "id": "765aaebe-4a74-432a-9ef6-fc6832d7444d",
+      "name": "Validate Required Files",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const s=$json.persistence_context?.summary&&typeof $json.persistence_context.summary==='object'?$json.persistence_context.summary:{};const files=Array.isArray($json.persistence_context?.files)?$json.persistence_context.files:[];const issues=[...($json.issues??[])],found=[];const add=(field,message,expected,actual)=>{const issue={severity:'error',code:'PERSISTENCE_SUMMARY_MISMATCH',field,message,expected,actual};found.push(issue);issues.push(issue)};if(s.required_files!==9)add('required_files','required_files must equal 9.',9,s.required_files);if(s.failed_required_files!==0)add('failed_required_files','failed_required_files must equal 0.',0,s.failed_required_files);if(s.successful_required_files!==9)add('successful_required_files','successful_required_files must equal 9.',9,s.successful_required_files);const total=Number(s.total_files),success=Number(s.successful_files),failed=Number(s.failed_files),skipped=Number(s.skipped_files),required=Number(s.required_files),optional=Number(s.optional_files);if(![total,success,failed,skipped].every(Number.isFinite)||success+failed+skipped!==total)add('total_files','File status counts must sum to total_files.',total,success+failed+skipped);if(![total,required,optional].every(Number.isFinite)||required+optional!==total)add('optional_files','required_files plus optional_files must equal total_files.',total,required+optional);const actual={successful_files:files.filter(x=>x?.status==='success').length,failed_files:files.filter(x=>x?.status==='failed').length,skipped_files:files.filter(x=>x?.status==='skipped').length,total_files:files.length};for(const f of Object.keys(actual))if(Number(s[f])!==actual[f])add(f,`${f} does not match file results.`,actual[f],s[f]);return[{json:{...$json,persistence_summary_issues:found,issues}}];"
+      },
+      "id": "75d6fc60-21cc-4728-b5e1-3e3e7f4a078e",
+      "name": "Validate Persistence Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const files=Array.isArray($json.persistence_context?.files)?$json.persistence_context.files:[];const required=new Set($json.required_file_names??[]);const issues=[...($json.issues??[])],invalid=[];const add=(index,name,field,message)=>{const x={source_index:index,file_name:name,field,message};invalid.push(x);issues.push({severity:required.has(name)?'error':'info',code:'INVALID_FILE_RESULT',...x})};files.forEach((raw,index)=>{const f=raw&&typeof raw==='object'?raw:{};const name=String(f.file_name??'');if(!name)add(index,name,'file_name','file_name must be non-empty.');if(!String(f.relative_path??'').trim())add(index,name,'relative_path','relative_path must be non-empty.');if(!['success','failed','skipped'].includes(f.status))add(index,name,'status','status must be success, failed, or skipped.');if(f.status==='success'&&!String(f.resource_id??'').trim())add(index,name,'resource_id','resource_id is required for successful files.');if(f.status==='failed'&&!String(f.error_message??'').trim())add(index,name,'error_message','error_message is required for failed files.');if(f.executed_at!==undefined&&f.executed_at!==null&&f.executed_at!==''&&Number.isNaN(Date.parse(String(f.executed_at))))add(index,name,'executed_at','executed_at must be a valid timestamp.');if(!required.has(name)&&f.status==='failed')issues.push({severity:'info',code:'OPTIONAL_FILE_FAILED',file_name:name,message:`Optional file ${name||'(unnamed)'} failed.`})});return[{json:{...$json,invalid_file_results:invalid,issues}}];"
+      },
+      "id": "c1ff3c21-d259-4adf-8786-c07f85221aff",
+      "name": "Validate File Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "if(!$json.knowledge_snapshot_available)return[{json:{...$json,identifier_issues:[]}}];const k=$json.knowledge_snapshot??{},p=$json.persistence_context??{},issues=[...($json.issues??[])],found=[];const add=(severity,collection,index,field,message)=>{const x={severity,collection,source_index:index,field,message};found.push(x);issues.push({code:'IDENTIFIER_ISSUE',...x})};const sb=k.story_bible&&typeof k.story_bible==='object'?k.story_bible:{};for(const f of ['story_bible_uuid','novel_uuid','workspace_uuid'])if(!String(sb[f]??'').trim())add('critical','story_bible',0,f,`Story Bible ${f} is required.`);const check=(collection,items,idField,nameField)=>{(Array.isArray(items)?items:[]).forEach((o,i)=>{for(const f of [idField,nameField,'novel_uuid','workspace_uuid'])if(!String(o?.[f]??'').trim())add(f==='novel_uuid'||f==='workspace_uuid'?'critical':'error',collection,i,f,`${collection}.${f} is required.`);if(String(o?.novel_uuid??'')!==p.novel_uuid)add('critical',collection,i,'novel_uuid',`${collection} novel_uuid does not match persistence novel_uuid.`);if(String(o?.workspace_uuid??'')!==p.workspace_uuid)add('critical',collection,i,'workspace_uuid',`${collection} workspace_uuid does not match persistence workspace_uuid.`)})};check('characters',k.characters,'character_uuid','character_name');check('worlds',k.worlds,'world_uuid','world_name');(Array.isArray(k.timeline)?k.timeline:[]).forEach((o,i)=>{for(const f of ['timeline_uuid','event_name','novel_uuid','workspace_uuid'])if(!String(o?.[f]??'').trim())add(f==='novel_uuid'||f==='workspace_uuid'?'critical':'error','timeline',i,f,`timeline.${f} is required.`);if(!String(o?.source_chapter_uuid??'').trim())add('error','timeline',i,'source_chapter_uuid','timeline.source_chapter_uuid is required.');if(!Number.isInteger(o?.chapter_number)||o.chapter_number<0)add('error','timeline',i,'chapter_number','timeline.chapter_number must be a non-negative integer.');if(String(o?.novel_uuid??'')!==p.novel_uuid)add('critical','timeline',i,'novel_uuid','timeline novel_uuid does not match persistence novel_uuid.');if(String(o?.workspace_uuid??'')!==p.workspace_uuid)add('critical','timeline',i,'workspace_uuid','timeline workspace_uuid does not match persistence workspace_uuid.')});for(const [name,items] of [['characters',k.characters],['worlds',k.worlds],['timeline',k.timeline]])if(Array.isArray(items)&&items.length===0)issues.push({severity:'info',code:'EMPTY_KNOWLEDGE_COLLECTION',collection:name,message:`Knowledge collection ${name} is empty.`});return[{json:{...$json,identifier_issues:found,issues}}];"
+      },
+      "id": "ecbbc73a-7e5e-4383-89fe-93fdd0979d41",
+      "name": "Validate Knowledge Identifiers",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "if(!$json.knowledge_snapshot_available)return[{json:{...$json,duplicate_identifiers:[],duplicate_knowledge_keys:[]}}];const k=$json.knowledge_snapshot??{},issues=[...($json.issues??[])],ids=[],keys=[];const norm=v=>String(v??'').trim().toLocaleLowerCase().replace(/\\s+/g,' ');const detect=(items,field,collection,target,severity,code,keyFn=o=>norm(o?.[field]))=>{const seen=new Map();(Array.isArray(items)?items:[]).forEach((o,i)=>{const key=keyFn(o);if(!key)return;if(seen.has(key)){const x={collection,field,value:key,source_indices:[seen.get(key),i]};target.push(x);issues.push({severity,code,...x,message:`Duplicate ${collection} ${field}: ${key}.`})}else seen.set(key,i)})};detect(k.characters,'character_uuid','characters',ids,'error','DUPLICATE_IDENTIFIER');detect(k.worlds,'world_uuid','worlds',ids,'error','DUPLICATE_IDENTIFIER');detect(k.timeline,'timeline_uuid','timeline',ids,'error','DUPLICATE_IDENTIFIER');detect(k.characters,'character_name','characters',keys,'warning','DUPLICATE_KNOWLEDGE_KEY');detect(k.worlds,'world_type+world_name','worlds',keys,'warning','DUPLICATE_KNOWLEDGE_KEY',o=>`${norm(o?.world_type)}|${norm(o?.world_name)}`);detect(k.timeline,'event_name+chapter_number+event_order','timeline',keys,'warning','DUPLICATE_KNOWLEDGE_KEY',o=>`${norm(o?.event_name)}|${o?.chapter_number}|${o?.event_order}`);return[{json:{...$json,duplicate_identifiers:ids,duplicate_knowledge_keys:keys,issues}}];"
+      },
+      "id": "23f0c266-280b-42f2-8341-8f0244c65d9f",
+      "name": "Detect Duplicate Identifiers",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "if(!$json.knowledge_snapshot_available)return[{json:{...$json,unresolved_character_references:[]}}];const k=$json.knowledge_snapshot??{},norm=v=>String(v??'').trim().toLocaleLowerCase().replace(/\\s+/g,' '),known=new Set(),issues=[...($json.issues??[])],found=[];for(const c of Array.isArray(k.characters)?k.characters:[]){for(const v of [c?.character_name,...(Array.isArray(c?.aliases)?c.aliases:typeof c?.aliases==='string'?[c.aliases]:[])]){const n=norm(v);if(n)known.add(n)}}for(const t of Array.isArray(k.timeline)?k.timeline:[]){const values=Array.isArray(t?.participants)?t.participants:typeof t?.participants==='string'?[t.participants]:[];for(const value of values){const n=norm(value);if(n&&!known.has(n)){const x={reference_type:'timeline_participant',reference_value:String(value),timeline_uuid:String(t?.timeline_uuid??''),event_name:String(t?.event_name??''),chapter_number:Number.isInteger(t?.chapter_number)?t.chapter_number:0};found.push(x);issues.push({severity:'warning',code:'UNKNOWN_TIMELINE_PARTICIPANT',...x,message:`Unknown timeline participant: ${value}.`})}}}return[{json:{...$json,unresolved_character_references:found,issues}}];"
+      },
+      "id": "74f1337a-ada5-41ad-b2d4-87ded6889e1f",
+      "name": "Validate Character References",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2160,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "if(!$json.knowledge_snapshot_available)return[{json:{...$json,unresolved_world_references:[]}}];const k=$json.knowledge_snapshot??{},norm=v=>String(v??'').trim().toLocaleLowerCase().replace(/\\s+/g,' '),locations=new Set(),factions=new Set(),locTypes=new Set(['location','region','building','battlefield','forbidden_area','environment','other']),facTypes=new Set(['faction','sect','kingdom','dynasty','organization','race','other']),issues=[...($json.issues??[])],found=[];for(const w of Array.isArray(k.worlds)?k.worlds:[]){const type=norm(w?.world_type);const values=[w?.world_name,w?.location_name,w?.faction_name,...(Array.isArray(w?.aliases)?w.aliases:typeof w?.aliases==='string'?[w.aliases]:[])].map(norm).filter(Boolean);if(locTypes.has(type))for(const v of values)locations.add(v);if(facTypes.has(type))for(const v of values)factions.add(v)}const refs=(v)=>Array.isArray(v)?v:typeof v==='string'?[v]:[];for(const t of Array.isArray(k.timeline)?k.timeline:[]){for(const [type,values,index] of [['timeline_location',refs(t?.locations??t?.location),locations],['timeline_faction',refs(t?.factions??t?.faction),factions]])for(const value of values){const n=norm(value);if(n&&!index.has(n)){const x={reference_type:type,reference_value:String(value),timeline_uuid:String(t?.timeline_uuid??''),event_name:String(t?.event_name??''),chapter_number:Number.isInteger(t?.chapter_number)?t.chapter_number:0};found.push(x);issues.push({severity:'warning',code:type==='timeline_location'?'UNKNOWN_TIMELINE_LOCATION':'UNKNOWN_TIMELINE_FACTION',...x,message:`Unknown ${type.replace('_',' ')}: ${value}.`})}}}return[{json:{...$json,unresolved_world_references:found,issues}}];"
+      },
+      "id": "049709ff-dc21-4afd-bf87-82a6e8d94315",
+      "name": "Validate World References",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2400,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "if(!$json.knowledge_snapshot_available)return[{json:{...$json,timeline_order_issues:[]}}];const timeline=Array.isArray($json.knowledge_snapshot?.timeline)?$json.knowledge_snapshot.timeline:[],issues=[...($json.issues??[])],found=[],orders=new Map();let prev=null;const add=(severity,code,index,t,message)=>{const x={severity,code,source_index:index,timeline_uuid:String(t?.timeline_uuid??''),chapter_number:t?.chapter_number??null,event_order:t?.event_order??null,message};found.push(x);issues.push(x)};timeline.forEach((t,i)=>{const ch=t?.chapter_number,order=t?.event_order;if(!Number.isInteger(ch)||ch<0)add('error','INVALID_CHAPTER_NUMBER',i,t,'chapter_number must be a non-negative integer.');if(!Number.isInteger(order)||order<0)add('error','INVALID_EVENT_ORDER',i,t,'event_order must be a non-negative integer.');if(!String(t?.event_name??'').trim())add('error','EMPTY_EVENT_NAME',i,t,'event_name must be non-empty.');if(!String(t?.source_chapter_uuid??'').trim()&&!($json.identifier_issues??[]).some(x=>x.collection==='timeline'&&x.source_index===i&&x.field==='source_chapter_uuid'))add('error','MISSING_CHAPTER_REFERENCE',i,t,'source_chapter_uuid is required.');if(prev&&Number.isInteger(ch)&&Number.isInteger(order)&&(ch<prev.chapter||(ch===prev.chapter&&order<prev.order)))add('warning',ch<prev.chapter?'CHAPTER_NUMBER_REGRESSION':'TIMELINE_OUT_OF_ORDER',i,t,'Timeline record is not in ascending chapter and event order.');if(Number.isInteger(ch)&&Number.isInteger(order)){const key=`${ch}|${order}`;if(orders.has(key))add('warning','DUPLICATE_EVENT_ORDER',i,t,'Duplicate event_order within the same chapter.');else orders.set(key,i);prev={chapter:ch,order}}});return[{json:{...$json,timeline_order_issues:found,issues}}];"
+      },
+      "id": "fbe52b36-b1fa-4796-992e-18284cdaf075",
+      "name": "Validate Timeline Ordering",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2640,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "if(!$json.knowledge_snapshot_available)return[{json:{...$json,unresolved_conflicts:[]}}];const c=$json.knowledge_snapshot?.conflicts&&typeof $json.knowledge_snapshot.conflicts==='object'?$json.knowledge_snapshot.conflicts:{},issues=[...($json.issues??[])],found=[];for(const type of ['character_conflicts','world_conflicts','timeline_conflicts'])for(const raw of Array.isArray(c[type])?c[type]:[]){const x=raw&&typeof raw==='object'?raw:{};const normalized={conflict_type:String(x.conflict_type??type.replace(/_conflicts$/,'')),entity_name:String(x.entity_name??x.character_name??x.world_name??x.event_name??''),field:String(x.field??''),existing_value:x.existing_value??null,incoming_value:x.incoming_value??null,source_reference:String(x.source_reference??x.source_chapter_uuid??'')};found.push(normalized);issues.push({severity:'warning',code:'UNRESOLVED_KNOWLEDGE_CONFLICT',...normalized,message:`Preserved unresolved ${normalized.conflict_type} conflict.`})}return[{json:{...$json,unresolved_conflicts:found,issues}}];"
+      },
+      "id": "01564f8c-18bc-4aaf-89f9-1e461eb49432",
+      "name": "Collect Unresolved Conflicts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2880,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const issues=Array.isArray($json.issues)?$json.issues:[];const counts={critical:0,error:0,warning:0,info:0};for(const issue of issues)if(Object.hasOwn(counts,issue?.severity))counts[issue.severity]++;const score=Math.max(0,Math.min(100,100-counts.critical*25-counts.error*10-counts.warning*3));const grade=score>=95?'excellent':score>=85?'good':score>=70?'attention_required':score>=50?'degraded':'critical';const readiness=counts.critical?'blocked':counts.error?'review_required':'ready';const k=$json.knowledge_snapshot??{};const integrity_summary={integrity_score:score,integrity_grade:grade,readiness,total_issues:issues.length,critical_issues:counts.critical,error_issues:counts.error,warning_issues:counts.warning,info_issues:counts.info,required_files_expected:9,required_files_verified:Number($json.required_files_verified??0),knowledge_snapshot_available:$json.knowledge_snapshot_available===true,characters_checked:$json.knowledge_snapshot_available&&Array.isArray(k.characters)?k.characters.length:0,worlds_checked:$json.knowledge_snapshot_available&&Array.isArray(k.worlds)?k.worlds.length:0,timeline_events_checked:$json.knowledge_snapshot_available&&Array.isArray(k.timeline)?k.timeline.length:0,unresolved_conflicts:Array.isArray($json.unresolved_conflicts)?$json.unresolved_conflicts.length:0,unresolved_character_references:Array.isArray($json.unresolved_character_references)?$json.unresolved_character_references.length:0,unresolved_world_references:Array.isArray($json.unresolved_world_references)?$json.unresolved_world_references.length:0};return[{json:{...$json,integrity_score:score,integrity_grade:grade,readiness,integrity_summary}}];"
+      },
+      "id": "34faafe7-082c-4c59-9cb7-1db5e196b37b",
+      "name": "Calculate Integrity Score",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3120,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "if($json.input_contract_valid!==true)return[{json:{...$json,integrity_report:null}}];let seed=Date.now();const id='xxxxxxxx'.replace(/x/g,()=>{const r=(seed+Math.random()*16)%16|0;seed=Math.floor(seed/16);return r.toString(16)});const p=$json.persistence_context??{};const report={integrity_report_uuid:`INT-${id}`,story_bible_uuid:String(p.story_bible_uuid??''),novel_uuid:String(p.novel_uuid??''),workspace_uuid:String(p.workspace_uuid??''),integrity_version:'1.0',readiness:String($json.readiness??'blocked'),integrity_score:Number($json.integrity_score??0),integrity_grade:String($json.integrity_grade??'critical'),issues:Array.isArray($json.issues)?$json.issues:[],missing_required_files:Array.isArray($json.missing_required_files)?$json.missing_required_files:[],failed_required_files:Array.isArray($json.failed_required_files)?$json.failed_required_files:[],invalid_file_results:Array.isArray($json.invalid_file_results)?$json.invalid_file_results:[],identifier_issues:Array.isArray($json.identifier_issues)?$json.identifier_issues:[],duplicate_identifiers:Array.isArray($json.duplicate_identifiers)?$json.duplicate_identifiers:[],duplicate_knowledge_keys:Array.isArray($json.duplicate_knowledge_keys)?$json.duplicate_knowledge_keys:[],unresolved_character_references:Array.isArray($json.unresolved_character_references)?$json.unresolved_character_references:[],unresolved_world_references:Array.isArray($json.unresolved_world_references)?$json.unresolved_world_references:[],timeline_order_issues:Array.isArray($json.timeline_order_issues)?$json.timeline_order_issues:[],unresolved_conflicts:Array.isArray($json.unresolved_conflicts)?$json.unresolved_conflicts:[],summary:$json.integrity_summary??{},created_at:new Date().toISOString(),created_by:'Novel Studio WF-012'};return[{json:{...$json,integrity_report:report}}];"
+      },
+      "id": "6ce4e44f-d71a-4182-b50c-1e60c1a12f99",
+      "name": "Build Integrity Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3360,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const validInput=$json.input_contract_valid===true;const readiness=String($json.readiness??'blocked');const status=!validInput?'error':readiness;const isValid=validInput&&readiness!=='blocked';const p=$json.persistence_context&&typeof $json.persistence_context==='object'?$json.persistence_context:{};const context=validInput&&readiness==='ready'?{story_bible_uuid:String(p.story_bible_uuid??''),novel_uuid:String(p.novel_uuid??''),workspace_uuid:String(p.workspace_uuid??''),chapter_uuid:String(p.chapter_uuid??''),chapter_number:Number.isInteger(p.chapter_number)?p.chapter_number:0,chapter_title:String(p.chapter_title??'')}:{};return[{json:{schema_version:'1.0',workflow_version:'2.0',route:'knowledge.integrity.completed',target:'WF-013',status,is_valid:isValid,validation_errors:Array.isArray($json.validation_errors)?$json.validation_errors:[],integrity_report:validInput?($json.integrity_report??null):null,context}}];"
+      },
+      "id": "eee96a3c-c776-4ab2-a7f5-35b7b6034aad",
+      "name": "Build Final Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3600,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Integrity Intake\nValidate the WF-011 contract and normalize optional knowledge input.",
+        "height": 440,
+        "width": 960,
+        "color": 7
+      },
+      "id": "2292d461-0520-4002-9751-d3ad71ee9af1",
+      "name": "Intake",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Persistence Verification\nVerify required files, declared summary counts, and every file result.",
+        "height": 440,
+        "width": 760,
+        "color": 5
+      },
+      "id": "3537b9c3-8552-4cd4-8d56-b5f9aa458461",
+      "name": "Persistence Verification",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        880,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Knowledge Integrity Checks\nDeterministic identifiers, duplicates, references, timeline, and conflicts.",
+        "height": 440,
+        "width": 1440,
+        "color": 4
+      },
+      "id": "240259b4-4261-4fc1-9b64-4890ca21ff7d",
+      "name": "Knowledge Integrity Checks",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1640,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Scoring\nApply severity penalties and derive readiness.",
+        "height": 440,
+        "width": 480,
+        "color": 6
+      },
+      "id": "47d32a4b-20c9-4e75-94ea-b72ae5090bc3",
+      "name": "Scoring",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        3080,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Output\nBuild one integrity report and the WF-013 contract.",
+        "height": 440,
+        "width": 720,
+        "color": 3
+      },
+      "id": "6c1ee092-ac45-431e-a68a-d93ff68e0cdc",
+      "name": "Output",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        3560,
+        80
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Validate Persistence Route",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Persistence Route": {
+      "main": [
+        [
+          {
+            "node": "Extract Persistence Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Persistence Context": {
+      "main": [
+        [
+          {
+            "node": "Extract Knowledge Snapshot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Knowledge Snapshot": {
+      "main": [
+        [
+          {
+            "node": "Validate Required Files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Required Files": {
+      "main": [
+        [
+          {
+            "node": "Validate Persistence Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Persistence Summary": {
+      "main": [
+        [
+          {
+            "node": "Validate File Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate File Results": {
+      "main": [
+        [
+          {
+            "node": "Validate Knowledge Identifiers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Knowledge Identifiers": {
+      "main": [
+        [
+          {
+            "node": "Detect Duplicate Identifiers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Detect Duplicate Identifiers": {
+      "main": [
+        [
+          {
+            "node": "Validate Character References",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Character References": {
+      "main": [
+        [
+          {
+            "node": "Validate World References",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate World References": {
+      "main": [
+        [
+          {
+            "node": "Validate Timeline Ordering",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Timeline Ordering": {
+      "main": [
+        [
+          {
+            "node": "Collect Unresolved Conflicts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect Unresolved Conflicts": {
+      "main": [
+        [
+          {
+            "node": "Calculate Integrity Score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Integrity Score": {
+      "main": [
+        [
+          {
+            "node": "Build Integrity Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Integrity Report": {
+      "main": [
+        [
+          {
+            "node": "Build Final Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "bf72633e-54f4-4bd6-9111-de6f13065191",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}
