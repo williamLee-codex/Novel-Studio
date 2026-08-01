@@ -1,0 +1,294 @@
+{
+  "name": "WF-004 - Chapter Manager v2",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "e5b037b5-ab60-4e56-b450-12a0838fc990",
+      "name": "Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const validationErrors = [];\nconst isCurrentRoute = $json.route === 'chapter.create.requested';\nconst isLegacyRoute = $json.route === 'workspace.persistence.prepared';\nconst currentContextValid = $json.context !== null && typeof $json.context === 'object' && !Array.isArray($json.context);\nconst legacyContextValid = $json.persistence !== null && typeof $json.persistence === 'object' && !Array.isArray($json.persistence);\n\nif ($json.schema_version !== '1.0' && !(isLegacyRoute && $json.schema_version == null)) {\n  validationErrors.push('Invalid schema_version: expected 1.0.');\n}\nif (!isCurrentRoute && !isLegacyRoute) {\n  validationErrors.push('Invalid route: expected chapter.create.requested.');\n}\nif ($json.status !== 'ready') {\n  validationErrors.push('Invalid status: expected ready.');\n}\nif (isCurrentRoute && !currentContextValid) {\n  validationErrors.push('Invalid context: expected an object.');\n}\nif (isLegacyRoute && !legacyContextValid) {\n  validationErrors.push('Invalid legacy persistence context: expected an object.');\n}\n\nreturn [{ json: { ...$json, input_contract: isLegacyRoute ? 'legacy_p01' : 'v2', validation_errors: validationErrors } }];"
+      },
+      "id": "a0e5f24f-ed53-42b9-b690-f34a9b005c66",
+      "name": "Validate Chapter Route",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const isLegacy = $json.input_contract === 'legacy_p01';\nconst context = !isLegacy && $json.context && typeof $json.context === 'object' && !Array.isArray($json.context) ? $json.context : {};\nconst persistence = isLegacy && $json.persistence && typeof $json.persistence === 'object' && !Array.isArray($json.persistence) ? $json.persistence : {};\nconst chapter = isLegacy && $json.chapter && typeof $json.chapter === 'object' && !Array.isArray($json.chapter) ? $json.chapter : {};\n\nreturn [{ json: {\n  validation_errors: $json.validation_errors ?? [],\n  raw_chapter_input: {\n    workspace_uuid: isLegacy ? (chapter.workspace_uuid ?? $json.workspace_uuid ?? persistence.workspace_uuid) : context.workspace_uuid,\n    novel_uuid: isLegacy ? (chapter.novel_uuid ?? $json.novel_uuid ?? persistence.novel_uuid) : context.novel_uuid,\n    chapter_number: isLegacy ? (chapter.chapter_number ?? $json.chapter_number) : context.chapter_number,\n    chapter_title: isLegacy ? (chapter.chapter_title ?? $json.chapter_title ?? '') : context.chapter_title,\n    created_at: isLegacy ? (chapter.created_at ?? $json.created_at ?? '') : context.created_at,\n  },\n} }];"
+      },
+      "id": "a1788ab2-1353-4cba-8352-54205b1cb469",
+      "name": "Extract Chapter Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $json.raw_chapter_input ?? {};\nconst titleExists = Object.prototype.hasOwnProperty.call(input, 'chapter_title');\nreturn [{ json: {\n  validation_errors: $json.validation_errors ?? [],\n  normalized_input: {\n    workspace_uuid: typeof input.workspace_uuid === 'string' ? input.workspace_uuid.trim() : '',\n    novel_uuid: typeof input.novel_uuid === 'string' ? input.novel_uuid.trim() : '',\n    chapter_number: input.chapter_number,\n    chapter_title: typeof input.chapter_title === 'string' ? input.chapter_title.trim().replace(/\\s+/gu, ' ') : '',\n    created_at: typeof input.created_at === 'string' ? input.created_at.trim() : '',\n  },\n  chapter_title_type_valid: titleExists && typeof input.chapter_title === 'string',\n} }];"
+      },
+      "id": "173a15df-149a-4d15-96fc-f8e81c157d96",
+      "name": "Normalize Chapter Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const validationErrors = [...($json.validation_errors ?? [])];\nconst input = $json.normalized_input ?? {};\nif (!input.workspace_uuid) validationErrors.push('workspace_uuid is required.');\nif (!input.novel_uuid) validationErrors.push('novel_uuid is required.');\nif (!Number.isInteger(input.chapter_number) || input.chapter_number < 1) validationErrors.push('chapter_number must be a positive integer.');\nif ($json.chapter_title_type_valid !== true) validationErrors.push('chapter_title must be a string; an empty string is allowed.');\nreturn [{ json: { ...$json, is_valid: validationErrors.length === 0, validation_errors: validationErrors } }];"
+      },
+      "id": "2f68dbf7-3976-472c-9a09-2e46bc9b33d2",
+      "name": "Validate Chapter Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "function uuidHelper() {\n  let timestamp = Date.now();\n  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (token) => {\n    const randomValue = (timestamp + Math.random() * 16) % 16 | 0;\n    timestamp = Math.floor(timestamp / 16);\n    return (token === 'x' ? randomValue : (randomValue & 0x3) | 0x8).toString(16);\n  });\n}\nif ($json.is_valid !== true) return [{ json: { ...$json, generated_metadata: null } }];\nconst input = $json.normalized_input;\nconst padded = String(input.chapter_number).padStart(4, '0');\nconst timestamp = new Date().toISOString();\nreturn [{ json: { ...$json, generated_metadata: {\n  chapter_uuid: `CHP-${uuidHelper().replace(/-/g, '').slice(0, 8)}`,\n  chapter_slug: `chapter-${padded}`,\n  chapter_number: input.chapter_number,\n  chapter_order: input.chapter_number,\n  chapter_title: input.chapter_title,\n  chapter_filename: `${padded}.md`,\n  chapter_version: '1.0',\n  workflow_version: '2.0',\n  workspace_uuid: input.workspace_uuid,\n  novel_uuid: input.novel_uuid,\n  created_at: timestamp,\n  updated_at: timestamp,\n  created_by: 'Novel Studio WF-004',\n} } }];"
+      },
+      "id": "31e89f5a-fbd6-41bb-be8a-3dcd25c6e300",
+      "name": "Generate Chapter Metadata",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "if ($json.is_valid !== true) return [{ json: { ...$json, chapter: null } }];\nconst m = $json.generated_metadata;\nreturn [{ json: { is_valid: true, validation_errors: [], chapter: {\n  chapter_uuid: m.chapter_uuid, chapter_slug: m.chapter_slug, chapter_number: m.chapter_number,\n  chapter_order: m.chapter_order, chapter_title: m.chapter_title, chapter_filename: m.chapter_filename,\n  chapter_version: m.chapter_version, workspace_uuid: m.workspace_uuid, novel_uuid: m.novel_uuid,\n  created_at: m.created_at, updated_at: m.updated_at, created_by: m.created_by,\n} } }];"
+      },
+      "id": "e858b6df-5fba-4611-abcf-9a6b94483631",
+      "name": "Normalize Chapter Metadata",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "if ($json.is_valid !== true) return [{ json: { ...$json, generated_workspace: null } }];\nconst padded = String($json.chapter.chapter_number).padStart(4, '0');\nreturn [{ json: { ...$json, generated_workspace: {\n  chapter_directory: `02_Chapters/${padded}`, draft_file: `${padded}.md`, notes_file: 'notes.md',\n  assets_directory: 'assets', images_directory: 'images', exports_directory: 'exports',\n  logs_directory: 'logs', metadata_file: 'chapter.json', workspace_version: '1.0',\n} } }];"
+      },
+      "id": "30f48c40-dd69-451e-b046-bc1b920c5840",
+      "name": "Generate Chapter Workspace",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "if ($json.is_valid !== true) return [{ json: { ...$json, workspace: null } }];\nconst w = $json.generated_workspace;\nreturn [{ json: { ...$json, workspace: {\n  chapter_directory: w.chapter_directory, draft_file: w.draft_file, notes_file: w.notes_file,\n  assets_directory: w.assets_directory, images_directory: w.images_directory,\n  exports_directory: w.exports_directory, logs_directory: w.logs_directory,\n  metadata_file: w.metadata_file, workspace_version: w.workspace_version,\n} } }];"
+      },
+      "id": "0afbdfe8-d057-4131-aed2-97792b92f850",
+      "name": "Normalize Chapter Workspace",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "if ($json.is_valid !== true) return [{ json: { ...$json, generated_persistence: null } }];\nreturn [{ json: { ...$json, generated_persistence: {\n  storage_provider: 'local', storage_strategy: 'deferred', storage_status: 'pending',\n  pending_operations: ['create_chapter_directory','create_draft_file','create_notes_file','create_assets_directory','create_images_directory','create_exports_directory','create_logs_directory','create_metadata_file'],\n  persistence_version: '1.0',\n} } }];"
+      },
+      "id": "ee82cd96-174b-442f-98eb-911b7035c874",
+      "name": "Generate Chapter Persistence",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2160,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "if ($json.is_valid !== true) return [{ json: { ...$json, persistence: null } }];\nconst p = $json.generated_persistence;\nreturn [{ json: { ...$json, persistence: {\n  storage_provider: p.storage_provider, storage_strategy: p.storage_strategy,\n  storage_status: p.storage_status, pending_operations: [...p.pending_operations],\n  persistence_version: p.persistence_version,\n} } }];"
+      },
+      "id": "a874e9f8-55d6-4733-a86f-dd52568e40c9",
+      "name": "Normalize Chapter Persistence",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2400,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const isValid = $json.is_valid === true;\nreturn [{ json: {\n  schema_version: '1.0', workflow_version: '2.0', route: 'chapter.persistence.created',\n  target: 'WF-005', status: isValid ? 'ready' : 'error', is_valid: isValid,\n  validation_errors: $json.validation_errors ?? [],\n  chapter: isValid ? $json.chapter : null,\n  workspace: isValid ? $json.workspace : null,\n  persistence: isValid ? $json.persistence : null,\n} }];"
+      },
+      "id": "179d35f0-37f9-49ae-9611-4d976a1b7098",
+      "name": "Build Final Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2640,
+        0
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Validate Chapter Route",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Chapter Route": {
+      "main": [
+        [
+          {
+            "node": "Extract Chapter Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Chapter Input": {
+      "main": [
+        [
+          {
+            "node": "Normalize Chapter Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Chapter Input": {
+      "main": [
+        [
+          {
+            "node": "Validate Chapter Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Chapter Input": {
+      "main": [
+        [
+          {
+            "node": "Generate Chapter Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Chapter Metadata": {
+      "main": [
+        [
+          {
+            "node": "Normalize Chapter Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Chapter Metadata": {
+      "main": [
+        [
+          {
+            "node": "Generate Chapter Workspace",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Chapter Workspace": {
+      "main": [
+        [
+          {
+            "node": "Normalize Chapter Workspace",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Chapter Workspace": {
+      "main": [
+        [
+          {
+            "node": "Generate Chapter Persistence",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Chapter Persistence": {
+      "main": [
+        [
+          {
+            "node": "Normalize Chapter Persistence",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Chapter Persistence": {
+      "main": [
+        [
+          {
+            "node": "Build Final Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "2bf710a2-40b6-4b78-9b07-124219e1c2b0",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

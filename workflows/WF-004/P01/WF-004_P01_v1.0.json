@@ -1,0 +1,150 @@
+{
+  "name": "WF-004 P01 - Create Chapter Intake",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "ad6f333e-9ef5-43f6-b0cf-258911fd5754",
+      "name": "Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const validationErrors = [];\n\nif ($json.route !== 'workspace.persistence.prepared') {\n  validationErrors.push('Invalid route: expected workspace.persistence.prepared.');\n}\nif ($json.status !== 'ready') {\n  validationErrors.push('Invalid status: expected ready.');\n}\n\nreturn [{\n  json: {\n    ...$json,\n    validation_errors: validationErrors,\n  },\n}];"
+      },
+      "id": "cd097469-0342-4fb5-9bd7-bba418d93c53",
+      "name": "Validate Chapter Route",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const persistence = $json.persistence && typeof $json.persistence === 'object' && !Array.isArray($json.persistence)\n  ? $json.persistence\n  : {};\nconst chapter = $json.chapter && typeof $json.chapter === 'object' && !Array.isArray($json.chapter)\n  ? $json.chapter\n  : {};\n\nreturn [{\n  json: {\n    ...$json,\n    chapter_input: {\n      workspace_uuid: chapter.workspace_uuid ?? $json.workspace_uuid ?? persistence.workspace_uuid,\n      novel_uuid: chapter.novel_uuid ?? $json.novel_uuid ?? persistence.novel_uuid,\n      chapter_number: chapter.chapter_number ?? $json.chapter_number,\n      chapter_title: chapter.chapter_title ?? $json.chapter_title ?? '',\n    },\n  },\n}];"
+      },
+      "id": "f8735840-c52f-4cd1-a248-a3238bf2e04b",
+      "name": "Extract Chapter Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $json.chapter_input ?? {};\nconst normalizedNumber = typeof input.chapter_number === 'string' && input.chapter_number.trim() !== ''\n  ? Number(input.chapter_number.trim())\n  : input.chapter_number;\nconst titleTypeValid = input.chapter_title == null || typeof input.chapter_title === 'string';\n\nreturn [{\n  json: {\n    ...$json,\n    normalized_chapter: {\n      workspace_uuid: typeof input.workspace_uuid === 'string' ? input.workspace_uuid.trim() : '',\n      novel_uuid: typeof input.novel_uuid === 'string' ? input.novel_uuid.trim() : '',\n      chapter_number: normalizedNumber,\n      chapter_title: typeof input.chapter_title === 'string'\n        ? input.chapter_title.trim().replace(/\\s+/gu, ' ')\n        : '',\n    },\n    chapter_title_type_valid: titleTypeValid,\n  },\n}];"
+      },
+      "id": "0a29255a-b9b0-4b7f-a19d-c5a79cd36c45",
+      "name": "Normalize Chapter Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const validationErrors = Array.isArray($json.validation_errors)\n  ? [...$json.validation_errors]\n  : [];\nconst chapter = $json.normalized_chapter ?? {};\n\nif (!chapter.workspace_uuid) {\n  validationErrors.push('workspace_uuid is required.');\n}\nif (!chapter.novel_uuid) {\n  validationErrors.push('novel_uuid is required.');\n}\nif (!Number.isInteger(chapter.chapter_number) || chapter.chapter_number < 1) {\n  validationErrors.push('chapter_number must be a positive integer.');\n}\nif ($json.chapter_title_type_valid !== true) {\n  validationErrors.push('chapter_title must be a string; an empty string is allowed.');\n}\n\nreturn [{\n  json: {\n    ...$json,\n    is_valid: validationErrors.length === 0,\n    validation_errors: validationErrors,\n  },\n}];"
+      },
+      "id": "b9282f9b-e7fe-49ba-b07f-6acc8416a917",
+      "name": "Validate Chapter Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const isValid = $json.is_valid === true;\nconst output = {\n  route: 'chapter.create.intake',\n  status: isValid ? 'ready' : 'invalid',\n  is_valid: isValid,\n  validation_errors: $json.validation_errors ?? [],\n};\n\nif (isValid) {\n  output.target = 'WF-004-P02';\n  output.context = {\n    workspace_uuid: $json.normalized_chapter.workspace_uuid,\n    novel_uuid: $json.normalized_chapter.novel_uuid,\n    chapter_number: $json.normalized_chapter.chapter_number,\n    chapter_title: $json.normalized_chapter.chapter_title,\n    created_at: new Date().toISOString(),\n  };\n}\n\nreturn [{ json: output }];"
+      },
+      "id": "e1e5614f-4a08-47c6-bc12-8302d5a100af",
+      "name": "Create Intake Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        0
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Validate Chapter Route",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Chapter Route": {
+      "main": [
+        [
+          {
+            "node": "Extract Chapter Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Chapter Input": {
+      "main": [
+        [
+          {
+            "node": "Normalize Chapter Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Chapter Input": {
+      "main": [
+        [
+          {
+            "node": "Validate Chapter Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Chapter Input": {
+      "main": [
+        [
+          {
+            "node": "Create Intake Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "dd599e73-d138-4eaa-89c0-b737d88234e6",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
