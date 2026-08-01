@@ -1,0 +1,82 @@
+{
+  "name": "WF-003 P01 - Novel Workspace Provisioner",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "33b73251-1b58-4643-a677-e22bc53207f2",
+      "name": "Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const source = $json.metadata && typeof $json.metadata === 'object' && !Array.isArray($json.metadata)\n  ? $json.metadata\n  : $json;\n\nconst metadata = {\n  novel_uuid: String(source.novel_uuid ?? source.uuid ?? '').trim(),\n  novel_slug: String(source.novel_slug ?? source.slug ?? '').trim(),\n  novel_title: String(source.novel_title ?? source.title ?? '').trim(),\n  novel_genre: String(source.novel_genre ?? source.genre ?? '').trim(),\n  created_by: String(source.created_by ?? $json.created_by ?? 'Novel Studio').trim(),\n};\n\nconst missing = Object.entries(metadata)\n  .filter(([, value]) => !value)\n  .map(([field]) => field);\n\nif (missing.length > 0) {\n  throw new Error(`Missing required novel metadata: ${missing.join(', ')}`);\n}\n\nreturn [{ json: { metadata } }];"
+      },
+      "id": "14eb74df-63f3-4093-a849-e5ea5dccba2c",
+      "name": "Validate Metadata",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [240, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const folderManifest = [\n  '01_Source',\n  '02_Chapters',\n  '03_Canon',\n  '04_Characters',\n  '05_World',\n  '06_Outline',\n  '07_Assets',\n  '08_Publish',\n  '09_Backup',\n];\n\nreturn [{ json: { ...$json, folder_manifest: folderManifest } }];"
+      },
+      "id": "11be0793-9898-4dd7-b023-61c178e4e02c",
+      "name": "Generate Folder Structure",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const fileManifest = [\n  'Novel.json',\n  'Metadata.json',\n  'README.md',\n  'StoryBible.md',\n  'CharacterIndex.json',\n  'CanonIndex.json',\n  'WorldIndex.json',\n  'Outline.md',\n  'PublishLog.json',\n];\n\nreturn [{ json: { ...$json, file_manifest: fileManifest } }];"
+      },
+      "id": "08b57b44-ec40-4c0c-a40d-cfa05bd73719",
+      "name": "Generate File Manifest",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [720, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "function createUuid() {\n  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (character) => {\n    const randomValue = Math.floor(Math.random() * 16);\n    const value = character === 'x' ? randomValue : (randomValue & 0x3) | 0x8;\n    return value.toString(16);\n  });\n}\n\nconst { metadata, folder_manifest, file_manifest } = $json;\nconst workspaceName = `${metadata.novel_title} Workspace`;\n\nreturn [{\n  json: {\n    workspace: {\n      workspace_uuid: createUuid(),\n      workspace_name: workspaceName,\n      novel_uuid: metadata.novel_uuid,\n      novel_slug: metadata.novel_slug,\n      novel_title: metadata.novel_title,\n      novel_genre: metadata.novel_genre,\n      root_folder_name: metadata.novel_slug,\n      folder_manifest,\n      file_manifest,\n      workspace_version: '1.0',\n      created_at: new Date().toISOString(),\n      created_by: metadata.created_by,\n    },\n  },\n}];"
+      },
+      "id": "734266fd-6ff3-442d-a660-c082c9ab0073",
+      "name": "Generate Workspace Object",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [960, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {\n    route: 'workspace.created',\n    status: 'ready',\n    workspace: $json.workspace,\n    next_workflow: 'WF-003-P02',\n  },\n}];"
+      },
+      "id": "05ee6595-1845-4a49-a5d4-40e94d5119ea",
+      "name": "Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1200, 0]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Workflow Trigger": { "main": [[{ "node": "Validate Metadata", "type": "main", "index": 0 }]] },
+    "Validate Metadata": { "main": [[{ "node": "Generate Folder Structure", "type": "main", "index": 0 }]] },
+    "Generate Folder Structure": { "main": [[{ "node": "Generate File Manifest", "type": "main", "index": 0 }]] },
+    "Generate File Manifest": { "main": [[{ "node": "Generate Workspace Object", "type": "main", "index": 0 }]] },
+    "Generate Workspace Object": { "main": [[{ "node": "Output", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "ff1e005b-d6f5-489e-b1a0-098e51bd4c37",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

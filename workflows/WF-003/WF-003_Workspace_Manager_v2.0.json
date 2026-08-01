@@ -1,0 +1,342 @@
+{
+  "name": "WF-003 - Workspace Manager v2",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "3093a1e2-c002-477f-b547-f53bdc5d23cf",
+      "name": "Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const validationErrors = [];\nconst novelIsObject = $json.novel !== null && typeof $json.novel === 'object' && !Array.isArray($json.novel);\nconst contextIsObject = $json.context !== null && typeof $json.context === 'object' && !Array.isArray($json.context);\nconst novel = novelIsObject ? $json.novel : {};\nif ($json.schema_version !== '1.0') validationErrors.push('Invalid schema_version: expected 1.0.');\nif ($json.route !== 'novel.metadata.created') validationErrors.push('Invalid route: expected novel.metadata.created.');\nif ($json.status !== 'ready') validationErrors.push('Invalid status: expected ready.');\nif ($json.is_valid !== true) validationErrors.push('Input contract must be valid.');\nif (!novelIsObject) validationErrors.push('Invalid novel: expected an object.');\nfor (const field of ['novel_uuid','novel_slug','novel_title','novel_status']) {\n  if (typeof novel[field] !== 'string' || !novel[field].trim()) validationErrors.push(`novel.${field} is required.`);\n}\nif (!contextIsObject) validationErrors.push('Invalid context: expected an object.');\nreturn [{ json: { ...$json, is_valid: validationErrors.length === 0, validation_errors: validationErrors } }];"
+      },
+      "id": "42bd2587-5223-44f1-9681-8cbfb4670b79",
+      "name": "Validate Novel Metadata",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const novel = $json.novel && typeof $json.novel === 'object' && !Array.isArray($json.novel) ? $json.novel : {};\nconst context = $json.context && typeof $json.context === 'object' && !Array.isArray($json.context) ? $json.context : {};\nconst toNumber = (value) => { const number = Number(value); return Number.isFinite(number) ? number : 0; };\nreturn [{ json: {\n  is_valid: $json.is_valid === true, validation_errors: $json.validation_errors ?? [],\n  novel_uuid: typeof novel.novel_uuid === 'string' ? novel.novel_uuid.trim() : '',\n  novel_id: novel.novel_id ?? null,\n  novel_slug: typeof novel.novel_slug === 'string' ? novel.novel_slug.trim() : '',\n  novel_title: typeof novel.novel_title === 'string' ? novel.novel_title.trim() : '',\n  novel_genre: typeof novel.novel_genre === 'string' ? novel.novel_genre.trim() : '',\n  novel_status: typeof novel.novel_status === 'string' ? novel.novel_status.trim() : '',\n  novel_created_at: typeof novel.created_at === 'string' ? novel.created_at : '',\n  novel_updated_at: typeof novel.updated_at === 'string' ? novel.updated_at : '',\n  novel_created_by: typeof novel.created_by === 'string' ? novel.created_by : '',\n  telegram_update_id: toNumber(context.telegram_update_id), telegram_chat_id: toNumber(context.telegram_chat_id),\n  telegram_user_id: toNumber(context.telegram_user_id), received_at: typeof context.received_at === 'string' ? context.received_at : '',\n} }];"
+      },
+      "id": "a513814e-bc30-4689-8d3e-4434b73317c6",
+      "name": "Extract Novel Metadata",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "function uuidHelper() {\n  let timestamp = Date.now();\n  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (token) => {\n    const randomValue = (timestamp + Math.random() * 16) % 16 | 0;\n    timestamp = Math.floor(timestamp / 16);\n    return (token === 'x' ? randomValue : (randomValue & 0x3) | 0x8).toString(16);\n  });\n}\nif ($json.is_valid !== true) return [{ json: { ...$json, workspace_uuid: '' } }];\nreturn [{ json: { ...$json, workspace_uuid: `WS-${uuidHelper().replace(/-/g, '').slice(0, 8)}` } }];"
+      },
+      "id": "9e515b59-0b6e-41b1-a6d8-cead9652c19c",
+      "name": "Generate Workspace UUID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "if ($json.is_valid !== true) return [{ json: { ...$json, workspace_name: '', root_folder_name: '' } }];\nconst safeSlug = $json.novel_slug.toLowerCase().replace(/[^a-z0-9-]+/gu, '-').replace(/^-+|-+$/gu, '').replace(/-{2,}/gu, '-');\nconst fallback = `novel-${$json.workspace_uuid.replace(/^WS-/u, '').toLowerCase()}`;\nreturn [{ json: { ...$json, workspace_name: $json.novel_title, root_folder_name: safeSlug || fallback } }];"
+      },
+      "id": "f275c3d1-bc07-43ef-b360-5e8cee7d7a00",
+      "name": "Generate Workspace Names",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const folderManifest = ['01_Source','02_Chapters','03_Canon','04_Characters','05_World','06_Outline','07_Assets','08_Publish','09_Backup'];\nreturn [{ json: { ...$json, folder_manifest: $json.is_valid === true ? folderManifest : [] } }];"
+      },
+      "id": "328fd8dc-0b65-4bfa-ae2f-a87d04a69885",
+      "name": "Generate Folder Manifest",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const fileManifest = ['Novel.json','Metadata.json','README.md','StoryBible.md','CharacterIndex.json','CanonIndex.json','WorldIndex.json','Outline.md','PublishLog.json'];\nreturn [{ json: { ...$json, file_manifest: $json.is_valid === true ? fileManifest : [] } }];"
+      },
+      "id": "0cf5e7ac-6509-4da0-b33a-dbc3df1e44b6",
+      "name": "Generate File Manifest",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "if ($json.is_valid !== true) return [{ json: { ...$json, workspace_draft: null } }];\nconst timestamp = new Date().toISOString();\nreturn [{ json: { ...$json, workspace_draft: {\n  workspace_uuid: $json.workspace_uuid, workspace_name: $json.workspace_name,\n  novel_uuid: $json.novel_uuid, novel_id: $json.novel_id, novel_slug: $json.novel_slug,\n  novel_title: $json.novel_title, novel_genre: $json.novel_genre, novel_status: $json.novel_status,\n  root_folder_name: $json.root_folder_name, folder_manifest: [...$json.folder_manifest], file_manifest: [...$json.file_manifest],\n  workspace_version: '1.0', created_at: timestamp, updated_at: timestamp, created_by: 'Novel Studio WF-003',\n} } }];"
+      },
+      "id": "9abd076e-9163-49f4-927d-347c6e329ed0",
+      "name": "Build Workspace Object",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const validationErrors = [...($json.validation_errors ?? [])];\nif ($json.is_valid === true) {\n  const workspace = $json.workspace_draft ?? {};\n  for (const field of ['workspace_uuid','workspace_name','novel_uuid','novel_slug','novel_title','root_folder_name','workspace_version','created_at']) {\n    if (typeof workspace[field] !== 'string' || !workspace[field].trim()) validationErrors.push(`workspace.${field} is required.`);\n  }\n  if (!Array.isArray(workspace.folder_manifest)) validationErrors.push('workspace.folder_manifest must be an array.');\n  if (!Array.isArray(workspace.file_manifest)) validationErrors.push('workspace.file_manifest must be an array.');\n}\nreturn [{ json: { ...$json, is_valid: validationErrors.length === 0, validation_errors: validationErrors } }];"
+      },
+      "id": "81835cda-da45-431a-aa53-220ab5e3cbd9",
+      "name": "Validate Workspace Object",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "if ($json.is_valid !== true) return [{ json: { ...$json, folder_operations: [] } }];\nconst workspace = $json.workspace_draft;\nconst operations = [{ operation_id: 'FOLDER-001', operation_type: 'create_folder', relative_path: '', folder_name: workspace.root_folder_name, sequence: 1, required: true }];\nworkspace.folder_manifest.forEach((folderName, index) => operations.push({\n  operation_id: `FOLDER-${String(index + 2).padStart(3, '0')}`, operation_type: 'create_folder',\n  relative_path: workspace.root_folder_name, folder_name: folderName, sequence: index + 2, required: true,\n}));\nreturn [{ json: { ...$json, folder_operations: operations } }];"
+      },
+      "id": "074aa090-cb4a-42c5-bdcb-074d5a10e207",
+      "name": "Build Folder Operations",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2160,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "if ($json.is_valid !== true) return [{ json: { ...$json, file_operations: [] } }];\nconst workspace = $json.workspace_draft;\nconst content = {\n  'Novel.json': '{}', 'Metadata.json': '{}', 'README.md': `# ${workspace.novel_title}`,\n  'StoryBible.md': '# Story Bible', 'CharacterIndex.json': '[]', 'CanonIndex.json': '[]',\n  'WorldIndex.json': '[]', 'Outline.md': '# Outline', 'PublishLog.json': '[]',\n};\nconst operations = workspace.file_manifest.map((fileName, index) => ({\n  operation_id: `FILE-${String(index + 1).padStart(3, '0')}`, operation_type: 'create_file',\n  relative_path: workspace.root_folder_name, file_name: fileName,\n  content_type: fileName.endsWith('.json') ? 'application/json' : 'text/markdown',\n  initial_content: content[fileName], sequence: index + 1, required: true,\n}));\nreturn [{ json: { ...$json, file_operations: operations } }];"
+      },
+      "id": "5a7362c7-07cc-42bb-9485-47c953040e52",
+      "name": "Build File Operations",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2400,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "function uuidHelper() {\n  let timestamp = Date.now();\n  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (token) => {\n    const randomValue = (timestamp + Math.random() * 16) % 16 | 0;\n    timestamp = Math.floor(timestamp / 16);\n    return (token === 'x' ? randomValue : (randomValue & 0x3) | 0x8).toString(16);\n  });\n}\nif ($json.is_valid !== true) return [{ json: { ...$json, persistence_plan_draft: null } }];\nreturn [{ json: { ...$json, persistence_plan_draft: {\n  persistence_plan_id: `PLAN-${uuidHelper().replace(/-/g, '').slice(0, 8)}`,\n  provider: 'unassigned', persistence_mode: 'deferred', workspace_uuid: $json.workspace_draft.workspace_uuid,\n  root_folder_name: $json.workspace_draft.root_folder_name, folder_operations: $json.folder_operations,\n  file_operations: $json.file_operations, total_operations: $json.folder_operations.length + $json.file_operations.length,\n  created_at: new Date().toISOString(),\n} } }];"
+      },
+      "id": "d9880bb6-3a4f-4f8a-88e2-86a1e5454da2",
+      "name": "Build Persistence Plan",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2640,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const context = { telegram_update_id: $json.telegram_update_id, telegram_chat_id: $json.telegram_chat_id, telegram_user_id: $json.telegram_user_id, received_at: $json.received_at };\nif ($json.is_valid !== true) return [{ json: { is_valid: false, validation_errors: $json.validation_errors ?? [], workspace: null, persistence_plan: null, context } }];\nconst w = $json.workspace_draft;\nconst p = $json.persistence_plan_draft;\nreturn [{ json: { is_valid: true, validation_errors: [], workspace: {\n  workspace_uuid: w.workspace_uuid, workspace_name: w.workspace_name, novel_uuid: w.novel_uuid, novel_id: w.novel_id,\n  novel_slug: w.novel_slug, novel_title: w.novel_title, novel_genre: w.novel_genre, novel_status: w.novel_status,\n  root_folder_name: w.root_folder_name, folder_manifest: w.folder_manifest, file_manifest: w.file_manifest,\n  workspace_version: w.workspace_version, created_at: w.created_at, updated_at: w.updated_at, created_by: w.created_by,\n}, persistence_plan: {\n  persistence_plan_id: p.persistence_plan_id, provider: p.provider, persistence_mode: p.persistence_mode,\n  workspace_uuid: p.workspace_uuid, root_folder_name: p.root_folder_name,\n  folder_operations: p.folder_operations, file_operations: p.file_operations,\n  total_operations: p.total_operations, created_at: p.created_at,\n}, context } }];"
+      },
+      "id": "55fae819-dd23-4778-b854-3c1e7c605897",
+      "name": "Normalize Workspace Contract",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2880,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const isValid = $json.is_valid === true;\nreturn [{ json: {\n  schema_version: '1.0', workflow_version: '2.0', route: 'workspace.persistence.requested', target: 'WF-004',\n  status: isValid ? 'ready' : 'error', is_valid: isValid, validation_errors: $json.validation_errors ?? [],\n  workspace: isValid ? $json.workspace : null, persistence_plan: isValid ? $json.persistence_plan : null,\n  context: $json.context,\n} }];"
+      },
+      "id": "caa95022-c5a7-4e83-992c-725c3c847f23",
+      "name": "Build Final Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3120,
+        0
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Validate Novel Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Novel Metadata": {
+      "main": [
+        [
+          {
+            "node": "Extract Novel Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Novel Metadata": {
+      "main": [
+        [
+          {
+            "node": "Generate Workspace UUID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Workspace UUID": {
+      "main": [
+        [
+          {
+            "node": "Generate Workspace Names",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Workspace Names": {
+      "main": [
+        [
+          {
+            "node": "Generate Folder Manifest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Folder Manifest": {
+      "main": [
+        [
+          {
+            "node": "Generate File Manifest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate File Manifest": {
+      "main": [
+        [
+          {
+            "node": "Build Workspace Object",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Workspace Object": {
+      "main": [
+        [
+          {
+            "node": "Validate Workspace Object",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Workspace Object": {
+      "main": [
+        [
+          {
+            "node": "Build Folder Operations",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Folder Operations": {
+      "main": [
+        [
+          {
+            "node": "Build File Operations",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build File Operations": {
+      "main": [
+        [
+          {
+            "node": "Build Persistence Plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Persistence Plan": {
+      "main": [
+        [
+          {
+            "node": "Normalize Workspace Contract",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Workspace Contract": {
+      "main": [
+        [
+          {
+            "node": "Build Final Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "60ea43f1-e0a9-411a-a41c-11ba0404d080",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
