@@ -1,0 +1,723 @@
+{
+  "name": "WF-011 - Knowledge Persistence Manager v2",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "1cf4ceee-047a-4a2a-a481-b1283776e655",
+      "name": "Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const errors=[];const isObj=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);const sb=isObj($json.story_bible)?$json.story_bible:null;if($json.schema_version!=='1.0')errors.push('Invalid schema_version: expected 1.0.');if($json.route!=='story_bible.created')errors.push('Invalid route: expected story_bible.created.');if($json.status!=='ready')errors.push('Invalid status: expected ready.');if($json.is_valid!==true)errors.push('Input contract must be valid.');if(!sb)errors.push('story_bible must be an object.');for(const f of ['story_bible_uuid','novel_uuid','workspace_uuid'])if(!sb||typeof sb[f]!=='string'||!sb[f].trim())errors.push(`story_bible.${f} is required.`);if(!sb||!isObj(sb.sections))errors.push('story_bible.sections must be an object.');if(!isObj($json.context))errors.push('context must be an object.');return[{json:{...$json,contract_valid:errors.length===0,validation_errors:errors}}];"
+      },
+      "id": "b32ca1e1-6110-4bf4-a5a6-ab79500ef3e9",
+      "name": "Validate Story Bible Route",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const sb=$json.story_bible&&typeof $json.story_bible==='object'?$json.story_bible:{};const c=$json.context&&typeof $json.context==='object'?$json.context:{};const suppliedRoot=typeof $json.existing_root_folder_id==='string'?$json.existing_root_folder_id.trim():typeof c.existing_root_folder_id==='string'?c.existing_root_folder_id.trim():'';return[{json:{contract_valid:$json.contract_valid===true,validation_errors:$json.validation_errors??[],existing_root_folder_id:suppliedRoot,workspace_folder_map:$json.workspace_folder_map&&typeof $json.workspace_folder_map==='object'?$json.workspace_folder_map:{},story_bible:sb,story_context:{story_bible_uuid:String(sb.story_bible_uuid??''),novel_uuid:String(sb.novel_uuid??''),workspace_uuid:String(sb.workspace_uuid??''),chapter_uuid:String(c.chapter_uuid??''),chapter_number:Number.isInteger(c.chapter_number)?c.chapter_number:0,chapter_title:String(c.chapter_title??''),story_bible_version:String(sb.story_bible_version??''),created_at:String(sb.created_at??''),updated_at:String(sb.updated_at??''),created_by:String(sb.created_by??''),sections:sb.sections,index:sb.index,summary:sb.summary,invalid_knowledge_records:Array.isArray($json.invalid_knowledge_records)?$json.invalid_knowledge_records:[]}}}];"
+      },
+      "id": "e0092a83-d48b-47e9-bf65-ce608a5c481e",
+      "name": "Extract Story Bible Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const errors=[...$json.validation_errors];const isObj=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);const s=$json.story_context.sections;if(!isObj(s?.overview))errors.push('sections.overview must be an object.');if(!isObj(s?.canon))errors.push('sections.canon must be an object.');for(const f of ['characters','world','timeline'])if(!Array.isArray(s?.[f]))errors.push(`sections.${f} must be an array.`);if(!isObj(s?.conflicts))errors.push('sections.conflicts must be an object.');if(!isObj($json.story_context.index))errors.push('index must be an object.');if(!isObj($json.story_context.summary))errors.push('summary must be an object.');if(!Array.isArray($json.story_context.invalid_knowledge_records))errors.push('invalid_knowledge_records must be an array.');return[{json:{...$json,contract_valid:$json.contract_valid&&errors.length===0,validation_errors:errors}}];"
+      },
+      "id": "693dcbd8-2353-4f6f-b914-b78960ab16d4",
+      "name": "Validate Story Bible Object",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const errors=[...$json.validation_errors];if($json.contract_valid&&!$json.existing_root_folder_id)errors.push('existing_root_folder_id is required; refusing arbitrary Google Drive placement.');const valid=$json.contract_valid&&errors.length===0;function id(){let t=Date.now();return'xxxxxxxx'.replace(/x/g,()=>{const r=(t+Math.random()*16)%16|0;t=Math.floor(t/16);return r.toString(16)})}return[{json:{...$json,request_valid:valid,validation_errors:errors,persistence_id:valid?`KPS-${id()}`:'',requested_at:new Date().toISOString(),knowledge_root_plan:{existing_root_folder_id:$json.existing_root_folder_id,required_paths:['03_Canon','03_Canon/Knowledge','04_Characters','05_World','06_Outline','09_Backup']}}}];"
+      },
+      "id": "8c91d333-0ee4-4513-a6f6-f1168b3db2d4",
+      "name": "Resolve Knowledge Root Folder",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const defs=[['StoryBible.json','03_Canon/Knowledge','application/json',true],['StoryBible.md','03_Canon/Knowledge','text/markdown',true],['Canon.json','03_Canon/Knowledge','application/json',true],['Characters.json','04_Characters','application/json',true],['World.json','05_World','application/json',true],['Timeline.json','03_Canon/Knowledge','application/json',true],['Conflicts.json','03_Canon/Knowledge','application/json',true],['KnowledgeIndex.json','03_Canon/Knowledge','application/json',true],['KnowledgePersistenceManifest.json','03_Canon/Knowledge','application/json',true],['StoryBible.backup.json','09_Backup','application/json',false]];const manifest=defs.map((d,i)=>({operation_id:`KNOWLEDGE-FILE-${String(i+1).padStart(3,'0')}`,operation_type:'create_or_update_file',file_name:d[0],relative_path:`${d[1]}/${d[0]}`,parent_folder_reference:d[1],content_type:d[2],content:'',required:d[3],overwrite_strategy:'replace_existing',sequence:i+1,status:'pending'}));return[{json:{...$json,file_manifest:manifest}}];"
+      },
+      "id": "179ff393-c7cb-4b8e-93b8-e8ec0f9e7280",
+      "name": "Build Knowledge File Manifest",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const sb=$json.story_bible;const s=sb.sections;const empty='本節目前無資料。';const show=v=>v===undefined||v===null||v===''?'':String(v);const canon=Object.keys(s.canon).length?`\\n\\`\\`\\`json\\n${JSON.stringify(s.canon,null,2)}\\n\\`\\`\\``:empty;const chars=s.characters.length?s.characters.map(x=>`- Name: ${show(x.character_name)}\\n  - Identity: ${show(x.identity)}\\n  - Realm: ${show(x.realm)}\\n  - First appearance chapter: ${show(x.first_appearance_chapter)}\\n  - Alive status: ${show(x.is_alive)}`).join('\\n'):empty;const groups={};for(const x of s.world){const k=show(x.world_type)||'other';(groups[k]??=[]).push(x)}const world=Object.keys(groups).length?Object.keys(groups).sort().map(k=>`### ${k}\\n${groups[k].map(x=>`- ${show(x.world_name)} | region: ${show(x.region)} | leader: ${show(x.leader)} | status: ${show(x.status)}`).join('\\n')}`).join('\\n\\n'):empty;const sorted=[...s.timeline].sort((a,b)=>(a.chapter_number??0)-(b.chapter_number??0)||(a.event_order??0)-(b.event_order??0)||String(a.event_name??'').localeCompare(String(b.event_name??'')));const timeline=sorted.length?sorted.map(x=>`- Chapter ${show(x.chapter_number)} | ${show(x.event_name)} | ${show(x.event_type)} | ${show(x.description)}`).join('\\n'):empty;const conflicts=Object.values(s.conflicts).some(a=>Array.isArray(a)&&a.length)?`\\`\\`\\`json\\n${JSON.stringify(s.conflicts,null,2)}\\n\\`\\`\\``:empty;const o=s.overview;const md=`# Story Bible\\n\\n## Overview\\n\\n- novel_uuid: ${show(o.novel_uuid)}\\n- workspace_uuid: ${show(o.workspace_uuid)}\\n- latest chapter number: ${show(o.latest_chapter_number)}\\n- latest chapter title: ${show(o.latest_chapter_title)}\\n\\n## Canon\\n\\n${canon}\\n\\n## Characters\\n\\n${chars}\\n\\n## World\\n\\n${world}\\n\\n## Timeline\\n\\n${timeline}\\n\\n## Conflicts\\n\\n${conflicts}\\n`;const indexPayload={story_bible_uuid:sb.story_bible_uuid,novel_uuid:sb.novel_uuid,workspace_uuid:sb.workspace_uuid,index:sb.index,summary:sb.summary,invalid_knowledge_records:$json.story_context.invalid_knowledge_records,updated_at:sb.updated_at};const base={'StoryBible.json':JSON.stringify(sb,null,2),'StoryBible.md':md,'Canon.json':JSON.stringify(s.canon,null,2),'Characters.json':JSON.stringify(s.characters,null,2),'World.json':JSON.stringify(s.world,null,2),'Timeline.json':JSON.stringify(sorted,null,2),'Conflicts.json':JSON.stringify(s.conflicts,null,2),'KnowledgeIndex.json':JSON.stringify(indexPayload,null,2),'StoryBible.backup.json':JSON.stringify(sb,null,2)};const provisional={persistence_id:$json.persistence_id,story_bible_uuid:sb.story_bible_uuid,novel_uuid:sb.novel_uuid,workspace_uuid:sb.workspace_uuid,provider:'google_drive',knowledge_root_folder_id:'',files:$json.file_manifest.map(({content,...f})=>f),created_at:$json.requested_at,updated_at:$json.requested_at,workflow_version:'2.0'};base['KnowledgePersistenceManifest.json']=JSON.stringify(provisional,null,2);return[{json:{...$json,file_manifest:$json.file_manifest.map(f=>({...f,content:base[f.file_name]}))}}];"
+      },
+      "id": "162b9abd-d73f-4d86-bc40-2c9ec8c7f065",
+      "name": "Build File Content Payloads",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const queue=$json.file_manifest.map((f,i)=>({queue_id:`QUEUE-${String(i+1).padStart(3,'0')}`,operation_id:f.operation_id,action:'create_or_update_file',provider:'google_drive',parent_reference:f.parent_folder_reference,relative_path:f.relative_path,resource_name:f.file_name,mime_type:f.content_type,content:f.content,required:f.required,sequence:i+1,status:'pending'}));return[{json:{...$json,execution_queue:queue}}];"
+      },
+      "id": "43aa45a5-5c6d-4a2a-b7b9-92e5880a7d0d",
+      "name": "Build Google Drive Execution Queue",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const errors=[...$json.validation_errors];const q=$json.execution_queue;const uniq=(a)=>new Set(a).size===a.length;if(!Array.isArray(q))errors.push('execution_queue must be an array.');else{if(!uniq(q.map(x=>x.queue_id)))errors.push('Queue IDs must be unique.');if(!uniq(q.map(x=>x.operation_id)))errors.push('Operation IDs must be unique.');if(!uniq(q.map(x=>x.relative_path)))errors.push('Relative paths must be unique.');if(!uniq(q.map(x=>x.sequence))||q.some(x=>!Number.isInteger(x.sequence)||x.sequence<1))errors.push('Sequences must be unique positive integers.');if(q.some(x=>x.required&&(!x.resource_name||!x.parent_reference)))errors.push('Required files need names and parent references.');if(q.some(x=>!['application/json','text/markdown'].includes(x.mime_type)))errors.push('Unsupported content type.');}return[{json:{...$json,request_valid:$json.request_valid&&errors.length===0,validation_errors:errors}}];"
+      },
+      "id": "7d57317c-d152-4748-9ab1-2e059956176b",
+      "name": "Validate Execution Queue",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "if(!$json.request_valid)return[{json:{...$json,folder_resolution_status:'rejected',folder_results:[]}}];const map={...$json.workspace_folder_map,'':$json.existing_root_folder_id};return[{json:{...$json,folder_resolution_status:'ready',resolved_folder_map:map,folder_results:[]}}];"
+      },
+      "id": "7254f7b6-d448-44d0-8987-dca2f2af3d89",
+      "name": "Resolve Existing Workspace Folder",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2160,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "if(!$json.request_valid)return[{json:{...$json,folder_queue:[]}}];const defs=[['03_Canon',''],['04_Characters',''],['05_World',''],['06_Outline',''],['09_Backup',''],['03_Canon/Knowledge','03_Canon']];const q=defs.filter(([p])=>!$json.resolved_folder_map[p]).map(([p,parent],i)=>({folder_path:p,folder_name:p.split('/').pop(),parent_path:parent,parent_folder_id:$json.resolved_folder_map[parent]??'',sequence:i+1}));return[{json:{...$json,folder_queue:q}}];"
+      },
+      "id": "cf98e4e1-e35d-4337-824a-2d071f33f407",
+      "name": "Prepare Knowledge Folder Queue",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2400,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "if(!$json.request_valid||!$json.folder_queue.length)return[{json:{...$json,skip_folder_creation:true}}];return $json.folder_queue.map(operation=>({json:{...$json,folder_operation:operation,skip_folder_creation:false}}));"
+      },
+      "id": "2a7cd7be-262a-4ae6-b90e-30577ca6f307",
+      "name": "Expand Folder Operations",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2640,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "folder",
+        "operation": "create",
+        "name": "={{ $json.folder_operation.folder_name }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $json.folder_operation.parent_folder_id }}"
+        },
+        "options": {}
+      },
+      "id": "04cf4e48-8fed-4a2c-99a9-a6191d5e3883",
+      "name": "Resolve or Create Knowledge Folders",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        2880,
+        0
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const incoming=$input.all();const sources=$('Expand Folder Operations').all();const base=sources[0]?.json??{};const map={...(base.resolved_folder_map??{})};const results=[];for(let i=0;i<incoming.length;i++){const value=incoming[i].json??{};const op=sources[i]?.json?.folder_operation??{};const id=String(value.id??'');if(op.folder_path&&id)map[op.folder_path]=id;results.push({folder_path:op.folder_path??'',status:id?'success':'failed',resource_id:id,resource_url:id?`https://drive.google.com/drive/folders/${id}`:'',error_message:id?'':String(value.error?.message??value.message??'Folder create or resolution failed.')});}const kid=map['03_Canon/Knowledge']??'';return[{json:{...base,resolved_folder_map:map,folder_results:results,knowledge_root_folder_id:kid,knowledge_root_folder_url:kid?`https://drive.google.com/drive/folders/${kid}`:''}}];",
+        "mode": "runOnceForAllItems"
+      },
+      "id": "0179cdfc-831b-4be3-95ee-d571c1b43db5",
+      "name": "Collect Folder Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3120,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "if(!$json.request_valid)return[{json:{...$json,skip_file_execution:true}}];const map=$json.resolved_folder_map??{};return $json.execution_queue.map(operation=>({json:{...$json,file_operation:operation,parent_folder_id:map[operation.parent_reference]??(operation.parent_reference==='03_Canon/Knowledge'?$json.knowledge_root_folder_id:''),binary:{data:{data:Buffer.from(operation.content,'utf8').toString('base64'),mimeType:operation.mime_type,fileName:operation.resource_name}},skip_file_execution:false}}));"
+      },
+      "id": "043e49de-8198-4b35-92d6-c84129daf189",
+      "name": "Prepare File Queue",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3360,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "operation": "search",
+        "queryString": "={{ \"name = '\" + $json.file_operation.resource_name.replace(/'/g, \"\\\\'\") + \"' and '\" + $json.parent_folder_id + \"' in parents and trashed = false\" }}",
+        "returnAll": false,
+        "limit": 1,
+        "filter": {},
+        "options": {}
+      },
+      "id": "23697482-7d3d-4909-b921-ac4a7562432d",
+      "name": "Search Exact File",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        3600,
+        0
+      ],
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const existing=typeof $json.id==='string'&&$json.id?$json.id:'';return[{json:{...$json,existing_file_id:existing,file_exists:Boolean(existing)}}];"
+      },
+      "id": "9de1e43d-2fd1-4992-a974-2ec122617ef8",
+      "name": "Route Create or Update",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3840,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "9d540065-3e13-41b4-aac4-3d2594891ebc",
+              "leftValue": "={{ $json.file_exists }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "aecadc13-884e-4bd3-9708-b0dea5988a21",
+      "name": "File Exists?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        4080,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "operation": "update",
+        "fileId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $json.existing_file_id }}"
+        },
+        "changeFileContent": true,
+        "inputDataFieldName": "data",
+        "options": {}
+      },
+      "id": "48a83b9c-80dd-4618-b4b0-c2dbd75e630f",
+      "name": "Update Existing Knowledge File",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        4320,
+        -100
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "operation": "upload",
+        "inputDataFieldName": "data",
+        "name": "={{ $json.file_operation.resource_name }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $json.parent_folder_id }}"
+        },
+        "options": {}
+      },
+      "id": "b71ceb2b-bce9-4924-ac41-4db15fce387a",
+      "name": "Create Knowledge File",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        4320,
+        100
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const incoming=$input.all();const createSources=$('Create Knowledge File').all();const updateSources=$('Update Existing Knowledge File').all();const sources=[...createSources,...updateSources];const base=sources[0]?.json??{};const results=[];for(let i=0;i<incoming.length;i++){const value=incoming[i].json??{};const src=sources[i]?.json??{};const op=src.file_operation??{};const id=String(value.id??'');const parent=String(src.parent_folder_id??'');const failed=!parent||!id;results.push({operation_id:op.operation_id??'',file_name:op.resource_name??'',relative_path:op.relative_path??'',required:op.required===true,status:failed?'failed':'success',resource_id:id,resource_url:id?`https://drive.google.com/file/d/${id}/view`:'',error_message:failed?(!parent?'Required parent folder could not be resolved.':String(value.error?.message??value.message??'Google Drive file operation failed.')):'',executed_at:new Date().toISOString()});}return[{json:{...base,execution_results:results}}];",
+        "mode": "runOnceForAllItems"
+      },
+      "id": "99b8037f-f177-4343-9ded-b1ba4f7916a8",
+      "name": "Collect Execution Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4560,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const results=Array.isArray($json.execution_results)?$json.execution_results:$json.execution_result?[$json.execution_result]:[];const required=$json.file_manifest?.filter(x=>x.required)??[];const successes=new Set(results.filter(x=>x.status==='success').map(x=>x.operation_id));const failedRequired=required.filter(x=>!successes.has(x.operation_id)).length;const status=!$json.request_valid?'rejected':failedRequired?'partial_failure':'completed';return[{json:{...$json,execution_results:results,persistence_status:status,final_valid:status==='completed'}}];"
+      },
+      "id": "e57009a1-7b63-490a-8559-fc9ae2846657",
+      "name": "Verify Required Files",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4800,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const r=$json.execution_results??[];const req=$json.file_manifest?.filter(x=>x.required)??[];const optional=($json.file_manifest??[]).length-req.length;const success=r.filter(x=>x.status==='success').length,failed=r.filter(x=>x.status==='failed').length,skipped=r.filter(x=>x.status==='skipped').length;const successReq=r.filter(x=>x.required&&x.status==='success').length;return[{json:{...$json,persistence_summary:{total_files:($json.file_manifest??[]).length,required_files:req.length,optional_files:optional,successful_files:success,failed_files:failed,skipped_files:skipped,successful_required_files:successReq,failed_required_files:req.length-successReq}}}];"
+      },
+      "id": "a443b0af-810c-47be-a52c-61fe2c1d5f08",
+      "name": "Calculate Persistence Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5040,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const c=$json.story_context??{};const valid=$json.final_valid===true;const now=new Date().toISOString();return[{json:{schema_version:'1.0',workflow_version:'2.0',route:'knowledge.persistence.completed',target:'WF-012',status:valid?'ready':'error',is_valid:valid,validation_errors:$json.validation_errors??[],persistence:{persistence_id:$json.persistence_id??'',provider:'google_drive',persistence_status:$json.persistence_status??'rejected',story_bible_uuid:c.story_bible_uuid??'',novel_uuid:c.novel_uuid??'',workspace_uuid:c.workspace_uuid??'',existing_root_folder_id:$json.existing_root_folder_id??'',knowledge_root_folder_id:$json.knowledge_root_folder_id??'',knowledge_root_folder_url:$json.knowledge_root_folder_url??'',executed_at:now},summary:$json.persistence_summary??{total_files:0,required_files:0,optional_files:0,successful_files:0,failed_files:0,skipped_files:0,successful_required_files:0,failed_required_files:0},files:$json.execution_results??[],context:valid?{canon_uuid:String(c.sections?.canon?.canon_uuid??''),novel_uuid:c.novel_uuid,workspace_uuid:c.workspace_uuid,chapter_uuid:c.chapter_uuid,chapter_number:c.chapter_number,chapter_title:c.chapter_title}:{}}}];"
+      },
+      "id": "dff76bf3-c56d-4a39-b83d-cf1b92305209",
+      "name": "Build Final Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5280,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Intake and validation\nAccept only a valid WF-010 Story Bible contract.",
+        "height": 180,
+        "width": 920,
+        "color": 2
+      },
+      "id": "06620de7-ea9c-48c3-b74f-d85436eca4d8",
+      "name": "Knowledge Intake Section",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -320
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Planning\nBuild ten canonical file operations and deterministic content.",
+        "height": 180,
+        "width": 1200,
+        "color": 2
+      },
+      "id": "1966f566-bf36-414c-ab82-490c44fe3765",
+      "name": "Persistence Planning Section",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        920,
+        -320
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Google Drive Execution\nResolve workspace folders and create or replace files without embedded credentials.",
+        "height": 180,
+        "width": 2600,
+        "color": 2
+      },
+      "id": "bf980477-759b-49e6-a343-2bd13d455acd",
+      "name": "Google Drive Execution Section",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2120,
+        -320
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Verification and Output\nRequired-file success controls the stable WF-012 result.",
+        "height": 180,
+        "width": 900,
+        "color": 2
+      },
+      "id": "b3107138-5261-4772-be95-ac05d1bedb69",
+      "name": "Verification and Output Section",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        4680,
+        -320
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Validate Story Bible Route",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Story Bible Route": {
+      "main": [
+        [
+          {
+            "node": "Extract Story Bible Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Story Bible Context": {
+      "main": [
+        [
+          {
+            "node": "Validate Story Bible Object",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Story Bible Object": {
+      "main": [
+        [
+          {
+            "node": "Resolve Knowledge Root Folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve Knowledge Root Folder": {
+      "main": [
+        [
+          {
+            "node": "Build Knowledge File Manifest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Knowledge File Manifest": {
+      "main": [
+        [
+          {
+            "node": "Build File Content Payloads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build File Content Payloads": {
+      "main": [
+        [
+          {
+            "node": "Build Google Drive Execution Queue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Google Drive Execution Queue": {
+      "main": [
+        [
+          {
+            "node": "Validate Execution Queue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Execution Queue": {
+      "main": [
+        [
+          {
+            "node": "Resolve Existing Workspace Folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve Existing Workspace Folder": {
+      "main": [
+        [
+          {
+            "node": "Prepare Knowledge Folder Queue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Knowledge Folder Queue": {
+      "main": [
+        [
+          {
+            "node": "Expand Folder Operations",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Expand Folder Operations": {
+      "main": [
+        [
+          {
+            "node": "Resolve or Create Knowledge Folders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve or Create Knowledge Folders": {
+      "main": [
+        [
+          {
+            "node": "Collect Folder Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect Folder Results": {
+      "main": [
+        [
+          {
+            "node": "Prepare File Queue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare File Queue": {
+      "main": [
+        [
+          {
+            "node": "Search Exact File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Exact File": {
+      "main": [
+        [
+          {
+            "node": "Route Create or Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Create or Update": {
+      "main": [
+        [
+          {
+            "node": "File Exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "File Exists?": {
+      "main": [
+        [
+          {
+            "node": "Update Existing Knowledge File",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Knowledge File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Existing Knowledge File": {
+      "main": [
+        [
+          {
+            "node": "Collect Execution Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Knowledge File": {
+      "main": [
+        [
+          {
+            "node": "Collect Execution Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect Execution Results": {
+      "main": [
+        [
+          {
+            "node": "Verify Required Files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Required Files": {
+      "main": [
+        [
+          {
+            "node": "Calculate Persistence Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Persistence Summary": {
+      "main": [
+        [
+          {
+            "node": "Build Final Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "db7f97b5-8bca-4f93-b020-ca25768b8a7b",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

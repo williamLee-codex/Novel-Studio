@@ -1,0 +1,198 @@
+{
+  "name": "WF-006 - Canon Knowledge Manager v2",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "874e9f72-d10c-4e19-ab64-a3c9ab7792be",
+      "name": "Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const validationErrors = [];\nconst chapterIsObject = $json.chapter !== null && typeof $json.chapter === 'object' && !Array.isArray($json.chapter);\nconst chapter = chapterIsObject ? $json.chapter : {};\nif ($json.schema_version !== '1.0') validationErrors.push('Invalid schema_version: expected 1.0.');\nif ($json.route !== 'chapter.persistence.created') validationErrors.push('Invalid route: expected chapter.persistence.created.');\nif ($json.status !== 'ready') validationErrors.push('Invalid status: expected ready.');\nif ($json.is_valid !== true) validationErrors.push('Input contract must be valid.');\nif (!chapterIsObject) validationErrors.push('Invalid chapter: expected an object.');\nfor (const field of ['chapter_uuid','novel_uuid','workspace_uuid']) {\n  if (typeof chapter[field] !== 'string' || !chapter[field].trim()) validationErrors.push(`chapter.${field} is required.`);\n}\nif (!Number.isInteger(chapter.chapter_number) || chapter.chapter_number < 1) validationErrors.push('chapter.chapter_number must be a positive integer.');\nif (!Object.prototype.hasOwnProperty.call(chapter, 'chapter_title') || typeof chapter.chapter_title !== 'string') validationErrors.push('chapter.chapter_title must be a string; an empty string is allowed.');\nreturn [{ json: { ...$json, is_valid: validationErrors.length === 0, validation_errors: validationErrors } }];"
+      },
+      "id": "d605abf7-ea58-401e-aaff-89ea8a2871bc",
+      "name": "Validate Chapter Contract",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const chapter = $json.chapter && typeof $json.chapter === 'object' && !Array.isArray($json.chapter) ? $json.chapter : {};\nreturn [{ json: {\n  is_valid: $json.is_valid === true,\n  validation_errors: $json.validation_errors ?? [],\n  chapter_metadata: {\n    chapter_uuid: chapter.chapter_uuid ?? '', novel_uuid: chapter.novel_uuid ?? '',\n    workspace_uuid: chapter.workspace_uuid ?? '', chapter_number: chapter.chapter_number ?? 0,\n    chapter_title: chapter.chapter_title ?? '',\n  },\n  source_content: typeof $json.chapter_content === 'string' ? $json.chapter_content : '',\n} }];"
+      },
+      "id": "de0279b7-9ae9-4cdf-9223-e356f393cdc3",
+      "name": "Extract Chapter Metadata",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { ...$json, canon_input: {\n  canon_type: 'chapter',\n  chapter_uuid: $json.chapter_metadata.chapter_uuid,\n  novel_uuid: $json.chapter_metadata.novel_uuid,\n  workspace_uuid: $json.chapter_metadata.workspace_uuid,\n  chapter_number: $json.chapter_metadata.chapter_number,\n  chapter_title: $json.chapter_metadata.chapter_title,\n  source_content: $json.source_content,\n} } }];"
+      },
+      "id": "540c0b2d-22dc-4762-9eb6-b87a4a014edb",
+      "name": "Extract Canon Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $json.canon_input ?? {};\nreturn [{ json: { ...$json, normalized_canon_input: {\n  canon_type: 'chapter',\n  chapter_uuid: typeof input.chapter_uuid === 'string' ? input.chapter_uuid.trim() : '',\n  novel_uuid: typeof input.novel_uuid === 'string' ? input.novel_uuid.trim() : '',\n  workspace_uuid: typeof input.workspace_uuid === 'string' ? input.workspace_uuid.trim() : '',\n  chapter_number: input.chapter_number,\n  chapter_title: typeof input.chapter_title === 'string' ? input.chapter_title.trim().replace(/\\s+/gu, ' ') : '',\n  source_content: typeof input.source_content === 'string' ? input.source_content.replace(/\\r\\n?/gu, '\\n').trim() : '',\n} } }];"
+      },
+      "id": "01edbe8a-9ad5-4a79-976a-b35cb3903b56",
+      "name": "Normalize Canon Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "function uuidHelper() {\n  let timestamp = Date.now();\n  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (token) => {\n    const randomValue = (timestamp + Math.random() * 16) % 16 | 0;\n    timestamp = Math.floor(timestamp / 16);\n    return (token === 'x' ? randomValue : (randomValue & 0x3) | 0x8).toString(16);\n  });\n}\nif ($json.is_valid !== true) return [{ json: { ...$json, canon_draft: null } }];\nconst input = $json.normalized_canon_input;\nconst timestamp = new Date().toISOString();\nreturn [{ json: { ...$json, canon_draft: {\n  canon_uuid: `CANON-${uuidHelper().replace(/-/g, '').slice(0, 8)}`,\n  canon_type: input.canon_type, novel_uuid: input.novel_uuid, workspace_uuid: input.workspace_uuid,\n  chapter_uuid: input.chapter_uuid, chapter_number: input.chapter_number, chapter_title: input.chapter_title,\n  canon_version: '1.0', created_at: timestamp, updated_at: timestamp, created_by: 'Novel Studio WF-006',\n} } }];"
+      },
+      "id": "5926befc-9648-4429-ab92-a5899d03e9cc",
+      "name": "Generate Canon Object",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const validationErrors = [...($json.validation_errors ?? [])];\nif ($json.is_valid === true) {\n  const canon = $json.canon_draft ?? {};\n  for (const field of ['canon_uuid','canon_type','novel_uuid','workspace_uuid','chapter_uuid','canon_version','created_at','updated_at','created_by']) {\n    if (typeof canon[field] !== 'string' || !canon[field].trim()) validationErrors.push(`canon.${field} is required.`);\n  }\n  if (!Number.isInteger(canon.chapter_number) || canon.chapter_number < 1) validationErrors.push('canon.chapter_number must be a positive integer.');\n  if (typeof canon.chapter_title !== 'string') validationErrors.push('canon.chapter_title must be a string.');\n}\nreturn [{ json: { ...$json, is_valid: validationErrors.length === 0, validation_errors: validationErrors } }];"
+      },
+      "id": "d1a712f2-4e74-4eb3-9fce-cee8f2982a96",
+      "name": "Validate Canon Object",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const isValid = $json.is_valid === true;\nreturn [{ json: {\n  schema_version: '1.0', workflow_version: '2.0', route: 'canon.created', target: 'WF-007',\n  status: isValid ? 'ready' : 'error', is_valid: isValid,\n  validation_errors: $json.validation_errors ?? [], canon: isValid ? $json.canon_draft : null,\n} }];"
+      },
+      "id": "4bb39d2d-01f5-412a-8d11-73cade88c0bb",
+      "name": "Build Canon Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        0
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Validate Chapter Contract",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Chapter Contract": {
+      "main": [
+        [
+          {
+            "node": "Extract Chapter Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Chapter Metadata": {
+      "main": [
+        [
+          {
+            "node": "Extract Canon Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Canon Input": {
+      "main": [
+        [
+          {
+            "node": "Normalize Canon Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Canon Input": {
+      "main": [
+        [
+          {
+            "node": "Generate Canon Object",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Canon Object": {
+      "main": [
+        [
+          {
+            "node": "Validate Canon Object",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Canon Object": {
+      "main": [
+        [
+          {
+            "node": "Build Canon Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "48d08322-5328-4dea-b509-6ab9efd84906",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
