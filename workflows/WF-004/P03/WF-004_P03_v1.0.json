@@ -1,0 +1,284 @@
+{
+  "name": "WF-004 P03 - Chapter Workspace Builder",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "88b351a1-acf7-45bd-8b14-6cc6251cef34",
+      "name": "Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const validationErrors = [];\nconst chapterIsObject = $json.chapter !== null\n  && typeof $json.chapter === 'object'\n  && !Array.isArray($json.chapter);\nconst chapter = chapterIsObject ? $json.chapter : {};\n\nif ($json.schema_version !== '1.0') {\n  validationErrors.push('Invalid schema_version: expected 1.0.');\n}\nif ($json.route !== 'chapter.metadata.created') {\n  validationErrors.push('Invalid route: expected chapter.metadata.created.');\n}\nif ($json.status !== 'ready') {\n  validationErrors.push('Invalid status: expected ready.');\n}\nif (!chapterIsObject) {\n  validationErrors.push('Invalid chapter: expected an object.');\n}\nif (typeof chapter.chapter_uuid !== 'string' || !chapter.chapter_uuid.trim()) {\n  validationErrors.push('chapter.chapter_uuid is required.');\n}\nif (typeof chapter.workspace_uuid !== 'string' || !chapter.workspace_uuid.trim()) {\n  validationErrors.push('chapter.workspace_uuid is required.');\n}\nif (typeof chapter.novel_uuid !== 'string' || !chapter.novel_uuid.trim()) {\n  validationErrors.push('chapter.novel_uuid is required.');\n}\nif (!Number.isInteger(chapter.chapter_number) || chapter.chapter_number < 1) {\n  validationErrors.push('chapter.chapter_number must be a positive integer.');\n}\nif (typeof chapter.chapter_filename !== 'string' || !chapter.chapter_filename.trim()) {\n  validationErrors.push('chapter.chapter_filename is required.');\n} else if (Number.isInteger(chapter.chapter_number) && chapter.chapter_number > 0) {\n  const expectedFilename = `${String(chapter.chapter_number).padStart(4, '0')}.md`;\n  if (chapter.chapter_filename !== expectedFilename) {\n    validationErrors.push(`chapter.chapter_filename must equal ${expectedFilename}.`);\n  }\n}\n\nreturn [{\n  json: {\n    ...$json,\n    status: validationErrors.length === 0 ? 'ready' : 'error',\n    is_valid: validationErrors.length === 0,\n    validation_errors: validationErrors,\n  },\n}];"
+      },
+      "id": "dce5a4a4-6117-4c88-aa0c-2002c35edd97",
+      "name": "Validate Metadata",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b86795dc-a336-4dd8-8e90-5ce6bb95b296",
+              "name": "chapter_uuid",
+              "value": "={{ $json.chapter?.chapter_uuid ?? \"\" }}",
+              "type": "string"
+            },
+            {
+              "id": "402c3da8-0f54-4b65-b070-ebcd5dc68326",
+              "name": "workspace_uuid",
+              "value": "={{ $json.chapter?.workspace_uuid ?? \"\" }}",
+              "type": "string"
+            },
+            {
+              "id": "8416bf19-76b5-4899-97fd-780e0fde84a1",
+              "name": "novel_uuid",
+              "value": "={{ $json.chapter?.novel_uuid ?? \"\" }}",
+              "type": "string"
+            },
+            {
+              "id": "d1087e98-f506-48c8-9794-1c72506c7e1b",
+              "name": "chapter_number",
+              "value": "={{ $json.chapter?.chapter_number ?? 0 }}",
+              "type": "number"
+            },
+            {
+              "id": "eedbd003-4911-4232-9919-f09ede4056bc",
+              "name": "chapter_title",
+              "value": "={{ $json.chapter?.chapter_title ?? \"\" }}",
+              "type": "string"
+            },
+            {
+              "id": "1d6498c6-3c3d-4a58-98e4-89b6321e3552",
+              "name": "chapter_filename",
+              "value": "={{ $json.chapter?.chapter_filename ?? \"\" }}",
+              "type": "string"
+            },
+            {
+              "id": "35fde2bf-a29d-49eb-bdbf-8e1e0723a545",
+              "name": "chapter_slug",
+              "value": "={{ $json.chapter?.chapter_slug ?? \"\" }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "24fd067e-fb5a-46a4-aefd-a87df0610365",
+      "name": "Extract Chapter",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "if ($json.is_valid !== true) {\n  return [{ json: { ...$json } }];\n}\n\nconst paddedNumber = String($json.chapter_number).padStart(4, '0');\n\nreturn [{\n  json: {\n    ...$json,\n    chapter_directory: `02_Chapters/${paddedNumber}`,\n    draft_file: `${paddedNumber}.md`,\n    notes_file: 'notes.md',\n    assets_directory: 'assets',\n    images_directory: 'images',\n    exports_directory: 'exports',\n    logs_directory: 'logs',\n    metadata_file: 'chapter.json',\n    workspace_version: '1.0',\n  },\n}];"
+      },
+      "id": "7c8cd407-bfe0-417f-b1a0-2de61aec64f0",
+      "name": "Generate Workspace",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "27665151-a81f-4eda-96e2-bcd865671149",
+              "name": "chapter_uuid",
+              "value": "={{ $json.chapter_uuid ?? \"\" }}",
+              "type": "string"
+            },
+            {
+              "id": "9a5b4dbc-e917-44e6-9117-faf7edee4dac",
+              "name": "workspace_uuid",
+              "value": "={{ $json.workspace_uuid ?? \"\" }}",
+              "type": "string"
+            },
+            {
+              "id": "025853d6-41d0-453c-90b5-bdce74dfa887",
+              "name": "novel_uuid",
+              "value": "={{ $json.novel_uuid ?? \"\" }}",
+              "type": "string"
+            },
+            {
+              "id": "55368fe5-2e42-4d53-aa4c-16e3e9e5e0db",
+              "name": "chapter_number",
+              "value": "={{ $json.chapter_number ?? 0 }}",
+              "type": "number"
+            },
+            {
+              "id": "1c1abc49-c91e-4aac-af31-59d8099fc950",
+              "name": "chapter_title",
+              "value": "={{ $json.chapter_title ?? \"\" }}",
+              "type": "string"
+            },
+            {
+              "id": "73b73903-106c-4235-bc3a-8acd2b3170a9",
+              "name": "chapter_directory",
+              "value": "={{ $json.chapter_directory ?? \"\" }}",
+              "type": "string"
+            },
+            {
+              "id": "487c5e0e-6d0a-404e-b42b-4bf81642e1de",
+              "name": "draft_file",
+              "value": "={{ $json.draft_file ?? \"\" }}",
+              "type": "string"
+            },
+            {
+              "id": "bbd90e56-7952-4789-9f79-71ade6c57872",
+              "name": "notes_file",
+              "value": "={{ $json.notes_file ?? \"\" }}",
+              "type": "string"
+            },
+            {
+              "id": "e01354f5-6848-47af-80b4-8bb386ecf006",
+              "name": "assets_directory",
+              "value": "={{ $json.assets_directory ?? \"\" }}",
+              "type": "string"
+            },
+            {
+              "id": "98c4d7d9-ae78-4c98-82cb-7fd3d2e614c7",
+              "name": "images_directory",
+              "value": "={{ $json.images_directory ?? \"\" }}",
+              "type": "string"
+            },
+            {
+              "id": "65146202-cd3c-487b-adef-d6192d5d81ab",
+              "name": "exports_directory",
+              "value": "={{ $json.exports_directory ?? \"\" }}",
+              "type": "string"
+            },
+            {
+              "id": "c7691b7c-1e14-4ab2-a62f-d04a48d6f505",
+              "name": "logs_directory",
+              "value": "={{ $json.logs_directory ?? \"\" }}",
+              "type": "string"
+            },
+            {
+              "id": "c7471e09-74f4-45ee-8c25-3d8cfb8b8bb7",
+              "name": "metadata_file",
+              "value": "={{ $json.metadata_file ?? \"\" }}",
+              "type": "string"
+            },
+            {
+              "id": "cde36314-dfd0-4c3a-ab68-0832b77a52cd",
+              "name": "workspace_version",
+              "value": "={{ $json.workspace_version ?? \"1.0\" }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "79351809-6d46-4fc1-b393-706c1ec91df3",
+      "name": "Normalize Workspace",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        960,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const baseOutput = {\n  schema_version: '1.0',\n  workflow_version: '1.0',\n  route: 'chapter.workspace.created',\n  target: 'WF-004-P04',\n};\n\nif ($json.is_valid !== true) {\n  return [{\n    json: {\n      ...baseOutput,\n      status: 'error',\n      is_valid: false,\n      validation_errors: $json.validation_errors ?? [],\n      workspace: null,\n    },\n  }];\n}\n\nreturn [{\n  json: {\n    ...baseOutput,\n    status: 'ready',\n    is_valid: true,\n    validation_errors: [],\n    workspace: {\n      chapter_uuid: $json.chapter_uuid,\n      workspace_uuid: $json.workspace_uuid,\n      novel_uuid: $json.novel_uuid,\n      chapter_number: $json.chapter_number,\n      chapter_title: $json.chapter_title,\n      chapter_directory: $json.chapter_directory,\n      draft_file: $json.draft_file,\n      notes_file: $json.notes_file,\n      assets_directory: $json.assets_directory,\n      images_directory: $json.images_directory,\n      exports_directory: $json.exports_directory,\n      logs_directory: $json.logs_directory,\n      metadata_file: $json.metadata_file,\n      workspace_version: $json.workspace_version,\n    },\n  },\n}];"
+      },
+      "id": "d97c46fb-8c2f-4949-aefb-e42c4e126799",
+      "name": "Build Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        0
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Validate Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Metadata": {
+      "main": [
+        [
+          {
+            "node": "Extract Chapter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Chapter": {
+      "main": [
+        [
+          {
+            "node": "Generate Workspace",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Workspace": {
+      "main": [
+        [
+          {
+            "node": "Normalize Workspace",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Workspace": {
+      "main": [
+        [
+          {
+            "node": "Build Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "8e1eeabf-bdc7-46da-803d-0e17c257a0f8",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

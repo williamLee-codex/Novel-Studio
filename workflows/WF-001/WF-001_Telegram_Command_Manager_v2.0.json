@@ -1,0 +1,292 @@
+{
+  "name": "WF-001 - Telegram Command Manager v2",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "id": "cc97502f-73ed-4cec-8d81-b4dc1583c33d",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "72da5f23-8d1b-4936-a461-2de96052e279"
+    },
+    {
+      "parameters": {
+        "jsCode": "const toNumber = (value) => {\n  const normalized = Number(value);\n  return Number.isFinite(normalized) ? normalized : 0;\n};\nconst message = $json.message && typeof $json.message === 'object' && !Array.isArray($json.message) ? $json.message : {};\nconst chat = message.chat && typeof message.chat === 'object' ? message.chat : {};\nconst sender = message.from && typeof message.from === 'object' ? message.from : {};\nreturn [{ json: {\n  workflow_id: 'WF-001',\n  workflow_version: '2.0',\n  telegram_update_id: toNumber($json.update_id),\n  telegram_chat_id: toNumber(chat.id),\n  telegram_user_id: toNumber(sender.id),\n  telegram_text: typeof message.text === 'string' ? message.text : '',\n  received_at: new Date().toISOString(),\n} }];"
+      },
+      "id": "b2254f43-00e5-4dac-941d-c4ce6d9bc91a",
+      "name": "Initialize Telegram Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const text = $json.telegram_text.trim();\nconst match = text.match(/^\\/([a-zA-Z0-9_-]+)(?:@[a-zA-Z0-9_]+)?(?:\\s+([\\s\\S]*))?$/u);\nconst command = match ? match[1].toLowerCase() : '';\nconst argumentText = match?.[2]?.trim() ?? '';\nconst commandArgs = [];\nlet token = '';\nlet quote = '';\nlet escaped = false;\nlet parseSuccess = Boolean(match);\n\nif (parseSuccess && argumentText) {\n  for (const character of argumentText) {\n    if (escaped) {\n      token += character;\n      escaped = false;\n    } else if (character === '\\\\' && quote) {\n      escaped = true;\n    } else if (quote) {\n      if (character === quote) quote = '';\n      else token += character;\n    } else if (character === '\"' || character === \"'\") {\n      quote = character;\n    } else if (/\\s/u.test(character)) {\n      if (token) {\n        commandArgs.push(token);\n        token = '';\n      }\n    } else {\n      token += character;\n    }\n  }\n  if (escaped || quote) parseSuccess = false;\n  else if (token) commandArgs.push(token);\n}\n\nreturn [{ json: {\n  ...$json,\n  command,\n  argument_text: argumentText,\n  command_args: parseSuccess ? commandArgs : [],\n  parse_success: parseSuccess,\n} }];"
+      },
+      "id": "1f34012c-6b07-4a53-9b0f-329463475891",
+      "name": "Parse Telegram Command",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const targets = { new: 'WF-002', status: 'WF-003', help: 'WF-004' };\nlet validationError = '';\nif (!$json.parse_success) {\n  validationError = $json.telegram_text.trim().startsWith('/')\n    ? 'Telegram command syntax is malformed.'\n    : 'Message must begin with a Telegram command such as /new.';\n} else if (!Object.prototype.hasOwnProperty.call(targets, $json.command)) {\n  validationError = `Unsupported command: /${$json.command}`;\n}\nconst isValid = validationError === '';\nreturn [{ json: {\n  ...$json,\n  route: isValid ? `command.${$json.command}` : 'command.invalid',\n  target: isValid ? targets[$json.command] : '',\n  is_valid: isValid,\n  validation_error: validationError,\n} }];"
+      },
+      "id": "881e2391-63cc-47cd-a35a-2965aef364ea",
+      "name": "Validate Telegram Command",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "59014f25-8b5b-44ed-8927-0e7304d74cb2",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "command.new",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "command.new"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "25150cd5-3cfe-481f-b915-21d5b922d05c",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "command.status",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "command.status"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "a740d53c-b8c6-4d86-8bad-9788f3a61b3c",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "command.help",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "command.help"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "39fa59a0-2cdd-408a-ab9e-8c961d673d20",
+      "name": "Switch Command Route",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        960,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: {\n  schema_version: '1.0',\n  workflow_version: '2.0',\n  route: 'command.new',\n  target: 'WF-002',\n  status: 'ready',\n  is_valid: true,\n  validation_errors: [],\n  context: {\n    source_workflow: 'WF-001',\n    telegram_update_id: $json.telegram_update_id,\n    telegram_chat_id: $json.telegram_chat_id,\n    telegram_user_id: $json.telegram_user_id,\n    command: $json.command,\n    argument_text: $json.argument_text,\n    command_args: $json.command_args,\n    received_at: $json.received_at,\n  },\n} }];"
+      },
+      "id": "31cabb39-d7db-4d31-babd-56db0337894d",
+      "name": "Route NEW",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        -240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: {\n  schema_version: '1.0',\n  workflow_version: '2.0',\n  route: 'command.status',\n  target: 'WF-003',\n  status: 'ready',\n  is_valid: true,\n  validation_errors: [],\n  context: {\n    source_workflow: 'WF-001',\n    telegram_update_id: $json.telegram_update_id,\n    telegram_chat_id: $json.telegram_chat_id,\n    telegram_user_id: $json.telegram_user_id,\n    command: $json.command,\n    argument_text: $json.argument_text,\n    command_args: $json.command_args,\n    received_at: $json.received_at,\n  },\n} }];"
+      },
+      "id": "f6cf6292-b60c-481c-8638-9ea0b9d50b11",
+      "name": "Route STATUS",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: {\n  schema_version: '1.0',\n  workflow_version: '2.0',\n  route: 'command.help',\n  target: 'WF-004',\n  status: 'ready',\n  is_valid: true,\n  validation_errors: [],\n  context: {\n    source_workflow: 'WF-001',\n    telegram_update_id: $json.telegram_update_id,\n    telegram_chat_id: $json.telegram_chat_id,\n    telegram_user_id: $json.telegram_user_id,\n    command: $json.command,\n    argument_text: $json.argument_text,\n    command_args: $json.command_args,\n    received_at: $json.received_at,\n  },\n} }];"
+      },
+      "id": "58107803-0193-433d-8a5a-497a56c3da1c",
+      "name": "Route HELP",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: {\n  schema_version: '1.0',\n  workflow_version: '2.0',\n  route: 'command.invalid',\n  target: '',\n  status: 'invalid',\n  is_valid: false,\n  validation_errors: [$json.validation_error || 'Invalid Telegram command.'],\n  context: {\n    source_workflow: 'WF-001',\n    telegram_update_id: $json.telegram_update_id,\n    telegram_chat_id: $json.telegram_chat_id,\n    telegram_user_id: $json.telegram_user_id,\n    command: $json.command,\n    argument_text: $json.argument_text,\n    command_args: $json.command_args,\n    received_at: $json.received_at,\n  },\n} }];"
+      },
+      "id": "92371d1f-e0a6-4ed2-8328-df0f2e160cc2",
+      "name": "Route INVALID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        240
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Initialize Telegram Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Initialize Telegram Context": {
+      "main": [
+        [
+          {
+            "node": "Parse Telegram Command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Telegram Command": {
+      "main": [
+        [
+          {
+            "node": "Validate Telegram Command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Telegram Command": {
+      "main": [
+        [
+          {
+            "node": "Switch Command Route",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch Command Route": {
+      "main": [
+        [
+          {
+            "node": "Route NEW",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Route STATUS",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Route HELP",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Route INVALID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "80ecb6e0-0b63-4601-8e0c-a3057ac8570e",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

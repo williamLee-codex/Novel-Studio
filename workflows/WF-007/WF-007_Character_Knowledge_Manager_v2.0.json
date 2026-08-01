@@ -1,0 +1,326 @@
+{
+  "name": "WF-007 - Character Knowledge Manager v2",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "8071cb7a-d1ab-4ee5-b767-b36f5297cd86",
+      "name": "Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const errors=[];const canonIsObject=$json.canon!==null&&typeof $json.canon==='object'&&!Array.isArray($json.canon);const canon=canonIsObject?$json.canon:{};\nif($json.schema_version!=='1.0')errors.push('Invalid schema_version: expected 1.0.');\nif($json.route!=='canon.created')errors.push('Invalid route: expected canon.created.');\nif($json.status!=='ready')errors.push('Invalid status: expected ready.');\nif($json.is_valid!==true)errors.push('Input contract must be valid.');\nif(!canonIsObject)errors.push('Invalid canon: expected an object.');\nfor(const field of ['canon_uuid','novel_uuid','workspace_uuid','chapter_uuid'])if(typeof canon[field]!=='string'||!canon[field].trim())errors.push(`canon.${field} is required.`);\nif(!Number.isInteger(canon.chapter_number)||canon.chapter_number<0)errors.push('canon.chapter_number must be a non-negative integer.');\nreturn[{json:{...$json,is_valid:errors.length===0,validation_errors:errors}}];"
+      },
+      "id": "cc57c593-635d-4c54-b999-a413e1d5111e",
+      "name": "Validate Canon Route",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const c=$json.canon&&typeof $json.canon==='object'&&!Array.isArray($json.canon)?$json.canon:{};return[{json:{is_valid:$json.is_valid===true,validation_errors:$json.validation_errors??[],canon_source:c,canon_context:{canon_uuid:typeof c.canon_uuid==='string'?c.canon_uuid.trim():'',canon_type:typeof c.canon_type==='string'?c.canon_type.trim():'',novel_uuid:typeof c.novel_uuid==='string'?c.novel_uuid.trim():'',workspace_uuid:typeof c.workspace_uuid==='string'?c.workspace_uuid.trim():'',chapter_uuid:typeof c.chapter_uuid==='string'?c.chapter_uuid.trim():'',chapter_number:c.chapter_number??0,chapter_title:typeof c.chapter_title==='string'?c.chapter_title.trim().replace(/\\s+/gu,' '):'',canon_version:typeof c.canon_version==='string'?c.canon_version.trim():'',created_at:typeof c.created_at==='string'?c.created_at:'',updated_at:typeof c.updated_at==='string'?c.updated_at:'',created_by:typeof c.created_by==='string'?c.created_by:''}}}];"
+      },
+      "id": "83227cf7-1444-4605-927b-c31ee6332ecc",
+      "name": "Extract Canon Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const c=$json.canon_source??{};let records=[];let source_field='none';for(const field of ['characters','character_records','character_candidates']){if(Array.isArray(c[field])){records=c[field];source_field=field;break;}}return[{json:{...$json,character_records:records,character_source_field:source_field}}];"
+      },
+      "id": "1c65706a-2c28-4ba8-a8c4-04a2b123372e",
+      "name": "Extract Character Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const clean=value=>typeof value==='string'?value.trim().replace(/\\s+/gu,' '):'';const records=$json.character_records.map((original_record,source_index)=>{const r=original_record&&typeof original_record==='object'&&!Array.isArray(original_record)?original_record:{};const aliasesTypeValid=r.aliases==null||Array.isArray(r.aliases);const aliasValues=Array.isArray(r.aliases)?r.aliases:[];const aliases=[];const seen=new Set();for(const value of aliasValues){const alias=clean(value);if(alias&&!seen.has(alias)){seen.add(alias);aliases.push(alias);}}const appearanceTypeValid=r.first_appearance_chapter==null||(Number.isInteger(r.first_appearance_chapter)&&r.first_appearance_chapter>0);const aliveTypeValid=r.is_alive==null||typeof r.is_alive==='boolean';return{source_index,original_record,aliases_type_valid:aliasesTypeValid,first_appearance_type_valid:appearanceTypeValid,is_alive_type_valid:aliveTypeValid,record:{name:clean(r.name),identity:clean(r.identity),first_appearance_chapter:appearanceTypeValid&&r.first_appearance_chapter!=null?r.first_appearance_chapter:null,realm:clean(r.realm),appearance:clean(r.appearance),personality:clean(r.personality),relationship_to_protagonist:clean(r.relationship_to_protagonist),is_alive:aliveTypeValid&&r.is_alive!=null?r.is_alive:null,aliases,notes:clean(r.notes),source_chapter_uuid:clean(r.source_chapter_uuid)||$json.canon_context.chapter_uuid}}});return[{json:{...$json,normalized_character_records:records}}];"
+      },
+      "id": "a54ac3bb-3756-4362-98f9-597d9c899f82",
+      "name": "Normalize Character Records",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const valid=[];const invalid=[];for(const item of $json.normalized_character_records){const errors=[];const r=item.record;const nameLength=Array.from(r.name).length;if(nameLength<1)errors.push('Character name is required.');else if(nameLength>100)errors.push('Character name must not exceed 100 characters.');if(!item.aliases_type_valid||!Array.isArray(r.aliases))errors.push('Aliases must be an array.');if(!item.first_appearance_type_valid)errors.push('first_appearance_chapter must be a positive integer or null.');if(!item.is_alive_type_valid)errors.push('is_alive must be a boolean or null.');if(errors.length)invalid.push({source_index:item.source_index,validation_errors:errors,original_record:item.original_record});else valid.push({...r,source_index:item.source_index});}return[{json:{...$json,valid_character_records:valid,invalid_character_records:invalid}}];"
+      },
+      "id": "a80bff55-f6a3-4a9c-8c63-d6c28afa1389",
+      "name": "Validate Character Records",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "function uuidHelper(){let t=Date.now();return'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=(t+Math.random()*16)%16|0;t=Math.floor(t/16);return(c==='x'?r:(r&3)|8).toString(16)})}const generated=$json.valid_character_records.map(record=>({...record,character_uuid:`CHR-${uuidHelper().replace(/-/g,'').slice(0,8)}`}));return[{json:{...$json,identified_character_records:generated}}];"
+      },
+      "id": "37398f71-3b2a-41d8-919d-a6961028c4d6",
+      "name": "Generate Character IDs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const context=$json.canon_context;const fields=['identity','first_appearance_chapter','realm','appearance','personality','relationship_to_protagonist','is_alive','notes'];const byName=new Map();const conflicts=[];let duplicates=0;const empty=v=>v===''||v===null||v===undefined;\nfor(const incoming of $json.identified_character_records){const key=incoming.name.toLocaleLowerCase();if(!byName.has(key)){byName.set(key,{...incoming,aliases:[...incoming.aliases]});continue;}duplicates++;const existing=byName.get(key);existing.aliases=[...new Set([...existing.aliases,...incoming.aliases])];for(const field of fields){if(empty(existing[field])&&!empty(incoming[field]))existing[field]=incoming[field];else if(!empty(existing[field])&&!empty(incoming[field])&&existing[field]!==incoming[field])conflicts.push({character_name:existing.name,field,existing_value:existing[field],incoming_value:incoming[field],source_index:incoming.source_index});}}\nconst characters=[...byName.values()].map(r=>{const timestamp=new Date().toISOString();return{character_uuid:r.character_uuid,character_name:r.name,aliases:r.aliases,identity:r.identity,first_appearance_chapter:r.first_appearance_chapter,realm:r.realm,appearance:r.appearance,personality:r.personality,relationship_to_protagonist:r.relationship_to_protagonist,is_alive:r.is_alive,notes:r.notes,novel_uuid:context.novel_uuid,workspace_uuid:context.workspace_uuid,source_canon_uuid:context.canon_uuid,source_chapter_uuid:r.source_chapter_uuid,source_chapter_number:context.chapter_number,character_version:'1.0',created_at:timestamp,updated_at:timestamp,created_by:'Novel Studio WF-007'}});return[{json:{...$json,characters,character_conflicts:conflicts,duplicates_merged:duplicates}}];"
+      },
+      "id": "f5669663-6cd5-4718-98c1-e384005da03b",
+      "name": "Build Character Knowledge Objects",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const summary={source_records:$json.character_records.length,valid_records:$json.valid_character_records.length,invalid_records:$json.invalid_character_records.length,characters_created:$json.characters.length,duplicates_merged:$json.duplicates_merged,conflicts_detected:$json.character_conflicts.length};return[{json:{...$json,summary}}];"
+      },
+      "id": "877f9b7e-4414-44ca-bd33-fd9cb172bdd8",
+      "name": "Calculate Character Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const valid=$json.is_valid===true;const emptySummary={source_records:0,valid_records:0,invalid_records:0,characters_created:0,duplicates_merged:0,conflicts_detected:0};const c=$json.canon_context??{};return[{json:{schema_version:'1.0',workflow_version:'2.0',route:'characters.created',target:'WF-008',status:valid?'ready':'error',is_valid:valid,validation_errors:$json.validation_errors??[],characters:valid?($json.characters??[]):[],invalid_character_records:valid?($json.invalid_character_records??[]):[],character_conflicts:valid?($json.character_conflicts??[]):[],summary:valid?($json.summary??emptySummary):emptySummary,context:valid?{canon_uuid:c.canon_uuid,novel_uuid:c.novel_uuid,workspace_uuid:c.workspace_uuid,chapter_uuid:c.chapter_uuid,chapter_number:c.chapter_number,chapter_title:c.chapter_title}:{}}}];"
+      },
+      "id": "de049206-1b5f-41e5-9c7f-631d8ec2f117",
+      "name": "Build Final Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2160,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Intake\nAccept and validate the WF-006 Canon contract.",
+        "height": 190,
+        "width": 700,
+        "color": 4
+      },
+      "id": "c664d629-3aaa-49ee-8c65-aa511144001a",
+      "name": "Intake Section",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -320
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Validation\nCanon-level errors reject; record-level errors remain isolated.",
+        "height": 190,
+        "width": 700,
+        "color": 4
+      },
+      "id": "ed17a4b6-ff14-4280-872b-fa6d115a645e",
+      "name": "Validation Section",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        480,
+        -320
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Character Normalization\nNormalize only supplied records. Empty input is valid.",
+        "height": 190,
+        "width": 700,
+        "color": 4
+      },
+      "id": "00128efa-7470-4ae2-8333-743f6c846a17",
+      "name": "Character Normalization Section",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        720,
+        -320
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Knowledge Object Generation\nGenerate IDs, deduplicate names, merge aliases, and report conflicts.",
+        "height": 190,
+        "width": 700,
+        "color": 4
+      },
+      "id": "b9e595cc-8434-418e-b49b-4b238cce708b",
+      "name": "Knowledge Object Generation Section",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1440,
+        -320
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Output\nSummarize and emit the stable Character Knowledge contract.",
+        "height": 190,
+        "width": 700,
+        "color": 4
+      },
+      "id": "2960b848-6ee7-474c-b8b2-ddd0720a161a",
+      "name": "Output Section",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1920,
+        -320
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Validate Canon Route",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Canon Route": {
+      "main": [
+        [
+          {
+            "node": "Extract Canon Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Canon Context": {
+      "main": [
+        [
+          {
+            "node": "Extract Character Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Character Input": {
+      "main": [
+        [
+          {
+            "node": "Normalize Character Records",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Character Records": {
+      "main": [
+        [
+          {
+            "node": "Validate Character Records",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Character Records": {
+      "main": [
+        [
+          {
+            "node": "Generate Character IDs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Character IDs": {
+      "main": [
+        [
+          {
+            "node": "Build Character Knowledge Objects",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Character Knowledge Objects": {
+      "main": [
+        [
+          {
+            "node": "Calculate Character Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Character Summary": {
+      "main": [
+        [
+          {
+            "node": "Build Final Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "5f2d66c6-976d-4d04-b8f1-b5f8d8410611",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

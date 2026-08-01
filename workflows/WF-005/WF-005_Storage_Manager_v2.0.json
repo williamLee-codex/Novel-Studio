@@ -1,0 +1,805 @@
+{
+  "name": "WF-005 - Storage Manager v2",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "53881f92-46ab-439a-956d-65a1f226ef05",
+      "name": "Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const errors=[];const routes=['workspace.persistence.requested','chapter.persistence.created'];\nif($json.schema_version!=='1.0')errors.push('Invalid schema_version: expected 1.0.');\nif($json.status!=='ready')errors.push('Invalid status: expected ready.');\nif($json.is_valid!==true)errors.push('Input contract must be valid.');\nif(!routes.includes($json.route))errors.push('Invalid route: expected workspace.persistence.requested or chapter.persistence.created.');\nreturn [{json:{...$json,is_valid:errors.length===0,validation_errors:errors}}];"
+      },
+      "id": "9ce28a94-e7c2-43a2-96eb-11dfb39fc2f8",
+      "name": "Validate Storage Route",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const type=$json.route==='workspace.persistence.requested'?'workspace':$json.route==='chapter.persistence.created'?'chapter':'';\nreturn [{json:{...$json,persistence_type:type}}];"
+      },
+      "id": "d9fea671-a13f-4339-99cf-f18fbb5f0eb3",
+      "name": "Detect Persistence Type",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const workspace=$json.workspace&&typeof $json.workspace==='object'?$json.workspace:{};const plan=$json.persistence_plan&&typeof $json.persistence_plan==='object'?$json.persistence_plan:{};const chapter=$json.chapter&&typeof $json.chapter==='object'?$json.chapter:{};const persistence=$json.persistence&&typeof $json.persistence==='object'?$json.persistence:{};const context=$json.context&&typeof $json.context==='object'?$json.context:{};\nconst extracted=$json.persistence_type==='workspace'?{workspace_uuid:workspace.workspace_uuid??plan.workspace_uuid??'',novel_uuid:workspace.novel_uuid??'',novel_title:workspace.novel_title??'',root_folder_name:workspace.root_folder_name??plan.root_folder_name??'',folder_operations:plan.folder_operations??[],file_operations:plan.file_operations??[],persistence_plan_id:plan.persistence_plan_id??'',total_operations:plan.total_operations}:{chapter_uuid:chapter.chapter_uuid??'',workspace_uuid:chapter.workspace_uuid??'',novel_uuid:chapter.novel_uuid??'',chapter_number:chapter.chapter_number??0,chapter_directory:workspace.chapter_directory??'',draft_file:workspace.draft_file??'',notes_file:workspace.notes_file??'',assets_directory:workspace.assets_directory??'',images_directory:workspace.images_directory??'',exports_directory:workspace.exports_directory??'',logs_directory:workspace.logs_directory??'',metadata_file:workspace.metadata_file??'',pending_operations:persistence.pending_operations??[],chapter_metadata:chapter};\nreturn [{json:{is_valid:$json.is_valid===true,validation_errors:$json.validation_errors??[],persistence_type:$json.persistence_type,extracted,context,base_parent_folder_id:typeof $json.base_parent_folder_id==='string'?$json.base_parent_folder_id.trim():'',existing_root_folder_id:typeof $json.existing_root_folder_id==='string'?$json.existing_root_folder_id.trim():'',folder_id_map:$json.folder_id_map&&typeof $json.folder_id_map==='object'?$json.folder_id_map:{}}}];"
+      },
+      "id": "2c5ad1af-3064-4d74-a0d8-9ca203e555de",
+      "name": "Extract Persistence Contract",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const errors=[...($json.validation_errors??[])];const e=$json.extracted??{};const required=(field)=>{if(typeof e[field]!=='string'||!e[field].trim())errors.push(`${field} is required.`)};\nif($json.persistence_type==='workspace'){required('workspace_uuid');required('novel_uuid');required('root_folder_name');if(!Array.isArray(e.folder_operations))errors.push('folder_operations must be an array.');if(!Array.isArray(e.file_operations))errors.push('file_operations must be an array.');if(!Number.isInteger(e.total_operations)||e.total_operations<0)errors.push('total_operations must be a non-negative integer.');if(!$json.existing_root_folder_id&&!$json.base_parent_folder_id)errors.push('base_parent_folder_id is required when creating a workspace root.');}\nelse if($json.persistence_type==='chapter'){required('chapter_uuid');required('workspace_uuid');required('novel_uuid');required('chapter_directory');required('draft_file');if(!Array.isArray(e.pending_operations))errors.push('pending_operations must be an array.');if(!$json.existing_root_folder_id)errors.push('existing_root_folder_id is required for chapter persistence.');}\nreturn [{json:{...$json,is_valid:errors.length===0,validation_errors:errors}}];"
+      },
+      "id": "078ef6df-5863-47fc-a7ec-18ec6e211759",
+      "name": "Validate Persistence Contract",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "function uuidHelper(){let t=Date.now();return'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=(t+Math.random()*16)%16|0;t=Math.floor(t/16);return(c==='x'?r:(r&3)|8).toString(16)})}const e=$json.extracted??{};\nconst request={storage_request_id:$json.is_valid?`STORAGE-${uuidHelper().replace(/-/g,'').slice(0,8)}`:'',persistence_type:$json.persistence_type,provider:'google_drive',execution_mode:'live',workspace_uuid:typeof e.workspace_uuid==='string'?e.workspace_uuid.trim():'',novel_uuid:typeof e.novel_uuid==='string'?e.novel_uuid.trim():'',chapter_uuid:$json.persistence_type==='chapter'&&typeof e.chapter_uuid==='string'?e.chapter_uuid.trim():null,root_folder_name:$json.persistence_type==='workspace'?(e.root_folder_name??'').trim():'',requested_at:new Date().toISOString(),requested_by:'Novel Studio WF-005'};\nreturn [{json:{...$json,storage_request:request}}];"
+      },
+      "id": "07f58c77-d136-4e92-b271-4da9e2ff272b",
+      "name": "Normalize Storage Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const existing=$json.existing_root_folder_id;const workspace=$json.persistence_type==='workspace';const plan={operation_id:'ROOT-001',action:existing?'resolve_root_folder':'create_root_folder',resource_name:workspace?$json.storage_request.root_folder_name:$json.storage_request.workspace_uuid,parent_reference:existing||$json.base_parent_folder_id,existing_root_folder_id:existing,required:true,status:'pending'};return [{json:{...$json,root_folder_plan:$json.is_valid?plan:null}}];"
+      },
+      "id": "cd2fad92-6d4a-4fd5-8905-d0ac153a5ac9",
+      "name": "Build Root Folder Plan",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "if(!$json.is_valid)return[{json:{...$json,folder_plan:[]}}];const e=$json.extracted;let source=[];\nif($json.persistence_type==='workspace')source=e.folder_operations.filter(o=>o.operation_id!=='FOLDER-001').map(o=>({operation_id:o.operation_id,relative_path:`${o.relative_path}/${o.folder_name}`.replace(/^\\/+/,''),folder_name:o.folder_name,parent_relative_path:'$root',sequence:o.sequence,required:o.required!==false}));\nelse{const base=e.chapter_directory.replace(/^\\/+|\\/+$/g,'');const leaf=base.split('/').pop();source=[{operation_id:'CHAPTER-FOLDER-001',relative_path:base,folder_name:leaf,parent_relative_path:'$root',sequence:1,required:true},...['assets_directory','images_directory','exports_directory','logs_directory'].map((key,i)=>({operation_id:`CHAPTER-FOLDER-${String(i+2).padStart(3,'0')}`,relative_path:`${base}/${e[key]}`,folder_name:e[key],parent_relative_path:base,sequence:i+2,required:true}))];}\nlet normalized=[];if($json.persistence_type==='workspace'){normalized=source.filter(o=>o.folder_name).map(o=>({...o,operation_type:'create_folder',status:'pending'}));}else{const seen=new Set();for(const o of source){if(!o.folder_name)continue;const key=o.relative_path||`${o.parent_relative_path}/${o.folder_name}`;if(seen.has(key))continue;seen.add(key);normalized.push({...o,operation_type:'create_folder',status:'pending'});}}return[{json:{...$json,folder_plan:normalized}}];"
+      },
+      "id": "9a78ae90-b8a9-4cc8-b628-3b848744f21c",
+      "name": "Build Folder Operation Plan",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "if(!$json.is_valid)return[{json:{...$json,file_plan:[]}}];const e=$json.extracted;let source=[];\nif($json.persistence_type==='workspace')source=e.file_operations.map(o=>({operation_id:o.operation_id,relative_path:`${o.relative_path}/${o.file_name}`.replace(/^\\/+/,''),file_name:o.file_name,parent_relative_path:o.relative_path,content_type:o.content_type,initial_content:o.initial_content,sequence:o.sequence,required:o.required!==false}));\nelse{const base=e.chapter_directory.replace(/^\\/+|\\/+$/g,'');source=[{operation_id:'CHAPTER-FILE-001',file_name:e.draft_file,parent_relative_path:base,initial_content:'',sequence:1,required:true},{operation_id:'CHAPTER-FILE-002',file_name:e.notes_file,parent_relative_path:base,initial_content:'# Notes',sequence:2,required:true},{operation_id:'CHAPTER-FILE-003',file_name:e.metadata_file,parent_relative_path:base,initial_content:JSON.stringify(e.chapter_metadata,null,2),sequence:3,required:true}].map(o=>({...o,relative_path:`${o.parent_relative_path}/${o.file_name}`}));}\nconst mime=n=>n.endsWith('.json')?'application/json':n.endsWith('.md')?'text/markdown':n.endsWith('.txt')?'text/plain':'';source=source.map(o=>({...o,operation_type:'create_file',content_type:o.content_type||mime(o.file_name),status:'pending'}));return[{json:{...$json,file_plan:source}}];"
+      },
+      "id": "ef4048df-eed9-459b-b548-5ea2f9dbb072",
+      "name": "Build File Operation Plan",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "if(!$json.is_valid)return[{json:{...$json,execution_queue:[]}}];let sequence=1;const queue=[];const add=(operation_id,action,parent,relative,name,mime='',content='',required=true)=>queue.push({queue_id:`QUEUE-${String(sequence).padStart(3,'0')}`,operation_id,action,provider:'google_drive',parent_reference:parent,relative_path:relative,resource_name:name,mime_type:mime,content,sequence:sequence++,required,status:'pending'});\nadd('BASE-001','resolve_base_parent','', '', 'base_parent_folder', '', '', true);add('ROOT-001',$json.root_folder_plan.action,$json.root_folder_plan.parent_reference,'',$json.root_folder_plan.resource_name,'','',true);for(const o of $json.folder_plan)add(o.operation_id,'create_folder',o.parent_relative_path,o.relative_path,o.folder_name,'','',o.required);for(const o of $json.file_plan)add(o.operation_id,'create_file',o.parent_relative_path,o.relative_path,o.file_name,o.content_type,o.initial_content,o.required);add('VERIFY-001','verify_results','$root','','verification','','',true);return[{json:{...$json,execution_queue:queue}}];"
+      },
+      "id": "1efbb205-c9de-470a-917d-9c93b0ed6aae",
+      "name": "Build Google Drive Execution Queue",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2160,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const errors=[...($json.validation_errors??[])];const q=$json.execution_queue;if(!Array.isArray(q))errors.push('execution_queue must be an array.');else{const queueIds=new Set(),operationIds=new Set(),paths=new Set();q.forEach((item,i)=>{if(queueIds.has(item.queue_id))errors.push(`Duplicate queue_id: ${item.queue_id}.`);queueIds.add(item.queue_id);if(operationIds.has(item.operation_id))errors.push(`Duplicate operation_id: ${item.operation_id}.`);operationIds.add(item.operation_id);if(item.sequence!==i+1)errors.push(`Invalid sequence for ${item.queue_id}.`);if(item.action==='create_file'&&item.required&&!item.parent_reference)errors.push(`Parent reference is required for ${item.operation_id}.`);if(item.relative_path&&item.action!=='verify_results'){if(paths.has(item.relative_path))errors.push(`Duplicate relative path: ${item.relative_path}.`);paths.add(item.relative_path);}})}return[{json:{...$json,is_valid:errors.length===0,validation_errors:errors}}];"
+      },
+      "id": "8887c398-6594-4db2-af0e-541c0175088a",
+      "name": "Validate Execution Queue",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2400,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const rejected=!$json.is_valid;const rootAction=$json.root_folder_plan?.action??'';return[{json:{...$json,execution_rejected:rejected,root_action:rejected?'rejected':rootAction,resolved_root_folder_id:$json.existing_root_folder_id||'',root_folder_id:$json.existing_root_folder_id||'',root_folder_url:$json.existing_root_folder_id?`https://drive.google.com/drive/folders/${$json.existing_root_folder_id}`:''}}];"
+      },
+      "id": "180b4d54-fd8a-4f57-b93a-e762f778531e",
+      "name": "Resolve Parent Folder",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2640,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "ab9079b0-9889-4831-93e6-a988017918e4",
+                    "leftValue": "={{ $json.root_action }}",
+                    "rightValue": "create_root_folder",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "create_root_folder"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "b164df3d-0864-4534-99f3-0adc809dbd5a",
+                    "leftValue": "={{ $json.root_action }}",
+                    "rightValue": "resolve_root_folder",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "resolve_root_folder"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "9e07ae61-d1e9-4ef6-8cf2-5a5a260c58c1",
+                    "leftValue": "={{ $json.root_action }}",
+                    "rightValue": "rejected",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "rejected"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "5b1ed692-f315-4808-8476-f5e4afdb1560",
+      "name": "Switch Root Mode",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        2880,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "folder",
+        "operation": "create",
+        "name": "={{ $json.root_folder_plan.resource_name }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $json.base_parent_folder_id }}"
+        },
+        "options": {}
+      },
+      "id": "7bbc7f7a-25a3-4d61-bc63-f37bc3fcd9bc",
+      "name": "Create Root Folder",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        3120,
+        -160
+      ],
+      "continueOnFail": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "return[{json:{...$json,id:$json.existing_root_folder_id,webViewLink:$json.root_folder_url}}];"
+      },
+      "id": "9223ee72-e25e-4529-9d01-5b5b52726b69",
+      "name": "Use Existing Root Folder",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3120,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const source=$('Resolve Parent Folder').first().json;const rootResult=$json;const rootId=source.existing_root_folder_id||rootResult.id||'';if(source.execution_rejected)return[{json:{...source,root_folder_id:'',root_folder_url:'',folder_execution_items:[],file_execution_items:[]}}];const folderItems=source.folder_plan.map(o=>({operation:o,parent_folder_id:o.parent_relative_path==='$root'?rootId:(source.folder_id_map[o.parent_relative_path]||rootId),root_folder_id:rootId,root_folder_url:rootResult.webViewLink||`https://drive.google.com/drive/folders/${rootId}`}));return folderItems.length?folderItems.map(x=>({json:{...source,...x}})):[{json:{...source,root_folder_id:rootId,root_folder_url:rootResult.webViewLink||''}}];"
+      },
+      "id": "caea1a07-0685-4d35-816a-61ebeb008a29",
+      "name": "Prepare Child Folder Items",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3360,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "folder",
+        "operation": "create",
+        "name": "={{ $json.operation.folder_name }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $json.parent_folder_id }}"
+        },
+        "options": {}
+      },
+      "id": "dcbf8056-9f2e-49f4-807e-5572932bc961",
+      "name": "Create Child Folders",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        3600,
+        0
+      ],
+      "continueOnFail": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const source=$('Resolve Parent Folder').first().json;if(source.execution_rejected)return[{json:{...source,operation:null,parent_folder_id:''}}];const rootOutputs=$('Create Root Folder').all();const existingOutputs=$('Use Existing Root Folder').all();const rootJson=(rootOutputs[0]??existingOutputs[0]??{json:{}}).json;const rootId=source.existing_root_folder_id||rootJson.id||'';return source.file_plan.map(o=>({json:{...source,operation:o,parent_folder_id:source.folder_id_map[o.parent_relative_path]||rootId,root_folder_id:rootId,root_folder_url:rootJson.webViewLink||`https://drive.google.com/drive/folders/${rootId}`,content:o.initial_content,file_name:o.file_name}}));"
+      },
+      "id": "b3194a99-65d4-4850-aaa3-74f653e6bc14",
+      "name": "Prepare File Items",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3840,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "toText",
+        "sourceProperty": "content",
+        "options": {
+          "fileName": "={{ $json.file_name }}",
+          "mimeType": "={{ $json.operation.content_type }}"
+        }
+      },
+      "id": "26a40e61-2a96-4eec-8f3a-b71094688384",
+      "name": "Convert Text Content",
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        4080,
+        0
+      ],
+      "continueOnFail": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "operation": "upload",
+        "inputDataFieldName": "data",
+        "name": "={{ $json.file_name }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $json.parent_folder_id }}"
+        },
+        "options": {}
+      },
+      "id": "ccbfc3b6-6d11-4c3f-94a6-9c1d2b04ea24",
+      "name": "Create Text and JSON Files",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        4320,
+        0
+      ],
+      "continueOnFail": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const source=$('Resolve Parent Folder').first().json;if(source.execution_rejected)return[{json:{...source,execution_results:[],root_folder_id:'',root_folder_url:''}}];const now=()=>new Date().toISOString();const errorText=j=>String(j.error?.message??j.message??'').replace(/(token|authorization|credential)\\s*[:=]\\s*\\S+/giu,'$1: [redacted]');const results=[];const rootOutputs=$('Create Root Folder').all();const existingOutputs=$('Use Existing Root Folder').all();const root=(rootOutputs[0]??existingOutputs[0]??{json:{}}).json;const rootFailed=Boolean(root.error)||!root.id;results.push({operation_id:'ROOT-001',operation_type:'create_folder',resource_name:source.root_folder_plan.resource_name,status:rootFailed?'failed':'success',resource_id:root.id??'',resource_url:root.webViewLink??'',error_message:rootFailed?(errorText(root)||'Root folder could not be resolved or created.'):'',executed_at:now(),required:true});\nconst folderInputs=$('Prepare Child Folder Items').all();const folderOutputs=$('Create Child Folders').all();folderInputs.forEach((item,i)=>{if(!item.json.operation)return;const out=folderOutputs[i]?.json??{};const failed=Boolean(out.error)||!out.id;results.push({operation_id:item.json.operation.operation_id,operation_type:'create_folder',resource_name:item.json.operation.folder_name,status:failed?'failed':'success',resource_id:out.id??'',resource_url:out.webViewLink??'',error_message:failed?(errorText(out)||'Folder creation failed.'):'',executed_at:now(),required:item.json.operation.required!==false})});\nconst fileInputs=$('Prepare File Items').all();const fileOutputs=$('Create Text and JSON Files').all();fileInputs.forEach((item,i)=>{if(!item.json.operation)return;const out=fileOutputs[i]?.json??{};const failed=Boolean(out.error)||!out.id;results.push({operation_id:item.json.operation.operation_id,operation_type:'create_file',resource_name:item.json.operation.file_name,status:failed?'failed':'success',resource_id:out.id??'',resource_url:out.webViewLink??'',error_message:failed?(errorText(out)||'File creation failed.'):'',executed_at:now(),required:item.json.operation.required!==false})});return[{json:{...source,execution_results:results,root_folder_id:root.id??'',root_folder_url:root.webViewLink??''}}];"
+      },
+      "id": "077c1a9f-3771-451d-bb86-dcfeff50abde",
+      "name": "Collect Execution Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4560,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const results=$json.execution_results??[];const required=results.filter(r=>r.required);const failedRequired=required.filter(r=>r.status!=='success').length;const optionalFailed=results.filter(r=>!r.required&&r.status==='failed').length;const rejected=$json.execution_rejected===true;return[{json:{...$json,verification:{required_operations:required.length,successful_required_operations:required.length-failedRequired,failed_required_operations:failedRequired,optional_failed_operations:optionalFailed},storage_status:rejected?'rejected':failedRequired?'partial_failure':'completed',result_valid:!rejected&&!failedRequired}}];"
+      },
+      "id": "53b17355-b364-4928-99e4-5541b309c19a",
+      "name": "Verify Required Operations",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4800,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const r=$json.execution_results??[];return[{json:{...$json,summary:{total_operations:r.length,successful_operations:r.filter(x=>x.status==='success').length,failed_operations:r.filter(x=>x.status==='failed').length,skipped_operations:r.filter(x=>x.status==='skipped').length,required_operations:$json.verification?.required_operations??0,successful_required_operations:$json.verification?.successful_required_operations??0,failed_required_operations:$json.verification?.failed_required_operations??0}}}];"
+      },
+      "id": "201ea02d-688e-487f-b13f-ead4ad57076a",
+      "name": "Calculate Storage Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5040,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const valid=$json.result_valid===true;const request=$json.storage_request??{};return[{json:{schema_version:'1.0',workflow_version:'2.0',route:'storage.completed',target:'WF-006',status:valid?'ready':'error',is_valid:valid,validation_errors:$json.validation_errors??[],storage:{storage_request_id:request.storage_request_id??'',persistence_type:request.persistence_type??'',provider:'google_drive',storage_status:$json.storage_status??'rejected',base_parent_folder_id:$json.base_parent_folder_id??'',root_folder_id:$json.root_folder_id??'',root_folder_url:$json.root_folder_url??'',workspace_uuid:request.workspace_uuid??'',novel_uuid:request.novel_uuid??'',chapter_uuid:request.chapter_uuid??null,executed_at:new Date().toISOString()},summary:$json.summary??{total_operations:0,successful_operations:0,failed_operations:0,skipped_operations:0,required_operations:0,successful_required_operations:0,failed_required_operations:0},execution_results:$json.execution_results??[],context:$json.context??{}}}];"
+      },
+      "id": "12f5637f-e211-4376-af00-2b1c61e1ef37",
+      "name": "Build Final Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5280,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Storage Intake\nValidate both v2 routes and extract their persistence contracts.",
+        "height": 220,
+        "width": 920,
+        "color": 5
+      },
+      "id": "984e57ce-ce13-4533-9a06-f3e324561cef",
+      "name": "Storage Intake Section",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -360
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Storage Planning\nNormalize the request and build/validate one ordered Drive queue.",
+        "height": 220,
+        "width": 920,
+        "color": 5
+      },
+      "id": "4cc87dbd-65b7-4c94-89ea-4a867debadd7",
+      "name": "Storage Planning Section",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1200,
+        -360
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Google Drive Execution\nBranch root handling, then process folder and text-file items with official Drive nodes.",
+        "height": 220,
+        "width": 920,
+        "color": 5
+      },
+      "id": "8bc7007d-7c0f-449f-8c76-f14d987e806f",
+      "name": "Google Drive Execution Section",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2880,
+        -360
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Verification\nCollect every operation result and verify required work.",
+        "height": 220,
+        "width": 920,
+        "color": 5
+      },
+      "id": "3c512839-56f4-4df6-be32-6ef776224c03",
+      "name": "Verification Section",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        4560,
+        -360
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Final Output\nReturn one stable Storage Result contract.",
+        "height": 220,
+        "width": 920,
+        "color": 5
+      },
+      "id": "10555fd3-355b-46d3-9120-378d5b799e02",
+      "name": "Final Output Section",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        5040,
+        -360
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Validate Storage Route",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Storage Route": {
+      "main": [
+        [
+          {
+            "node": "Detect Persistence Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Detect Persistence Type": {
+      "main": [
+        [
+          {
+            "node": "Extract Persistence Contract",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Persistence Contract": {
+      "main": [
+        [
+          {
+            "node": "Validate Persistence Contract",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Persistence Contract": {
+      "main": [
+        [
+          {
+            "node": "Normalize Storage Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Storage Request": {
+      "main": [
+        [
+          {
+            "node": "Build Root Folder Plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Root Folder Plan": {
+      "main": [
+        [
+          {
+            "node": "Build Folder Operation Plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Folder Operation Plan": {
+      "main": [
+        [
+          {
+            "node": "Build File Operation Plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build File Operation Plan": {
+      "main": [
+        [
+          {
+            "node": "Build Google Drive Execution Queue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Google Drive Execution Queue": {
+      "main": [
+        [
+          {
+            "node": "Validate Execution Queue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Execution Queue": {
+      "main": [
+        [
+          {
+            "node": "Resolve Parent Folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve Parent Folder": {
+      "main": [
+        [
+          {
+            "node": "Switch Root Mode",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch Root Mode": {
+      "main": [
+        [
+          {
+            "node": "Create Root Folder",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Use Existing Root Folder",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Collect Execution Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Root Folder": {
+      "main": [
+        [
+          {
+            "node": "Prepare Child Folder Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Use Existing Root Folder": {
+      "main": [
+        [
+          {
+            "node": "Prepare Child Folder Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Child Folder Items": {
+      "main": [
+        [
+          {
+            "node": "Create Child Folders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Child Folders": {
+      "main": [
+        [
+          {
+            "node": "Prepare File Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare File Items": {
+      "main": [
+        [
+          {
+            "node": "Convert Text Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert Text Content": {
+      "main": [
+        [
+          {
+            "node": "Create Text and JSON Files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Text and JSON Files": {
+      "main": [
+        [
+          {
+            "node": "Collect Execution Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect Execution Results": {
+      "main": [
+        [
+          {
+            "node": "Verify Required Operations",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Required Operations": {
+      "main": [
+        [
+          {
+            "node": "Calculate Storage Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Storage Summary": {
+      "main": [
+        [
+          {
+            "node": "Build Final Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "3f12e245-af2b-4728-ac73-71f43dee2669",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
