@@ -1,0 +1,71 @@
+{
+  "name": "WF-003 P02 - Workspace Persistence Contract",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "1eb947f3-7592-4891-89e4-502b78ee4d39",
+      "name": "Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const errors = [];\nconst workspace = $json.workspace && typeof $json.workspace === 'object' && !Array.isArray($json.workspace)\n  ? $json.workspace\n  : {};\n\nif ($json.route !== 'workspace.created') errors.push('route must be workspace.created');\nif ($json.status !== 'ready') errors.push('status must be ready');\n\nconst requiredStrings = [\n  'workspace_uuid',\n  'workspace_name',\n  'novel_uuid',\n  'novel_slug',\n  'novel_title',\n  'novel_genre',\n  'root_folder_name',\n  'workspace_version',\n  'created_at',\n  'created_by',\n];\n\nfor (const field of requiredStrings) {\n  if (typeof workspace[field] !== 'string' || !workspace[field].trim()) {\n    errors.push(`workspace.${field} must be a non-empty string`);\n  }\n}\n\nif (!Array.isArray(workspace.folder_manifest) || workspace.folder_manifest.length === 0) {\n  errors.push('workspace.folder_manifest must be a non-empty array');\n}\nif (!Array.isArray(workspace.file_manifest) || workspace.file_manifest.length === 0) {\n  errors.push('workspace.file_manifest must be a non-empty array');\n}\nif (errors.length > 0) throw new Error(`Invalid workspace contract: ${errors.join('; ')}`);\n\nreturn [{ json: { workspace } }];"
+      },
+      "id": "73e06dab-bc72-4d3f-9053-a4b980b0695e",
+      "name": "Validate Workspace Contract",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [240, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const workspace = $json.workspace;\nconst folderRecords = workspace.folder_manifest.map((folder_name, index) => ({\n  record_type: 'folder',\n  sequence: index + 1,\n  name: folder_name,\n  parent: workspace.root_folder_name,\n}));\nconst fileRecords = workspace.file_manifest.map((file_name, index) => ({\n  record_type: 'file',\n  sequence: index + 1,\n  name: file_name,\n  parent: workspace.root_folder_name,\n}));\n\nreturn [{\n  json: {\n    ...$json,\n    persistence_manifest: [...folderRecords, ...fileRecords],\n  },\n}];"
+      },
+      "id": "d494a7e7-e7bd-4649-87c6-82876da849ec",
+      "name": "Generate Persistence Manifest",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const workspace = $json.workspace;\nconst persistedAt = new Date().toISOString();\n\nreturn [{\n  json: {\n    persistence: {\n      persistence_key: `workspace:${workspace.workspace_uuid}`,\n      workspace_uuid: workspace.workspace_uuid,\n      novel_uuid: workspace.novel_uuid,\n      root_folder_name: workspace.root_folder_name,\n      workspace_version: workspace.workspace_version,\n      persistence_version: '1.0',\n      persistence_mode: 'contract_only',\n      persistence_status: 'prepared',\n      record_count: $json.persistence_manifest.length,\n      manifest: $json.persistence_manifest,\n      prepared_at: persistedAt,\n      prepared_by: workspace.created_by,\n    },\n  },\n}];"
+      },
+      "id": "f8697a29-65d9-4b3e-a803-0c16e703ea5e",
+      "name": "Generate Persistence Contract",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [720, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const persistence = $json.persistence;\n\nreturn [{\n  json: {\n    route: 'workspace.persistence.prepared',\n    status: 'ready',\n    persistence,\n    next_workflow: 'WF-003-P03',\n  },\n}];"
+      },
+      "id": "752367a0-0d1d-4a76-aef8-ef5cad2d3f61",
+      "name": "Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [960, 0]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Workflow Trigger": { "main": [[{ "node": "Validate Workspace Contract", "type": "main", "index": 0 }]] },
+    "Validate Workspace Contract": { "main": [[{ "node": "Generate Persistence Manifest", "type": "main", "index": 0 }]] },
+    "Generate Persistence Manifest": { "main": [[{ "node": "Generate Persistence Contract", "type": "main", "index": 0 }]] },
+    "Generate Persistence Contract": { "main": [[{ "node": "Output", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1184e31f-b773-4609-852b-97830cc81783",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
