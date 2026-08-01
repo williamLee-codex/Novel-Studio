@@ -1,0 +1,246 @@
+{
+  "name": "WF-002 - Novel Manager v2",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "d0a58d31-f28d-4d1a-bf70-bb826267b1a5",
+      "name": "Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const routeErrors = [];\nconst contextIsObject = $json.context !== null && typeof $json.context === 'object' && !Array.isArray($json.context);\nconst context = contextIsObject ? $json.context : {};\nif ($json.schema_version !== '1.0') routeErrors.push('Invalid schema_version: expected 1.0.');\nif ($json.route !== 'command.new') routeErrors.push('Invalid route: expected command.new.');\nif ($json.status !== 'ready') routeErrors.push('Invalid status: expected ready.');\nif ($json.is_valid !== true) routeErrors.push('Input contract must be valid.');\nif (!contextIsObject) routeErrors.push('Invalid context: expected an object.');\nif (context.command !== 'new') routeErrors.push('Invalid context.command: expected new.');\nif (!Array.isArray(context.command_args)) routeErrors.push('context.command_args must be an array.');\nif (typeof context.argument_text !== 'string') routeErrors.push('context.argument_text must be a string.');\nreturn [{ json: { ...$json, route_valid: routeErrors.length === 0, route_errors: routeErrors } }];"
+      },
+      "id": "7a9b6a78-5c8e-4601-b405-782616be044b",
+      "name": "Validate Novel Route",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const context = $json.context && typeof $json.context === 'object' && !Array.isArray($json.context) ? $json.context : {};\nconst commandArgs = Array.isArray(context.command_args) ? context.command_args : [];\nconst argumentText = typeof context.argument_text === 'string' ? context.argument_text.trim() : '';\nlet novelTitleRaw = '';\nlet novelGenreRaw = '';\nif (commandArgs.length > 0) {\n  novelTitleRaw = commandArgs[0] == null ? '' : String(commandArgs[0]);\n  novelGenreRaw = commandArgs.length > 1 && commandArgs[1] != null ? String(commandArgs[1]) : '';\n} else if (argumentText) {\n  novelTitleRaw = argumentText;\n}\nreturn [{ json: { ...$json, novel_title_raw: novelTitleRaw, novel_genre_raw: novelGenreRaw } }];"
+      },
+      "id": "feea2c09-0cc0-4f90-b341-2d582bff066c",
+      "name": "Extract Novel Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const normalizeSpaces = (value) => String(value ?? '').trim().replace(/\\s+/gu, ' ');\nconst quotePairs = new Map([['\"','\"'],[\"'\",\"'\"],['“','”'],['‘','’'],['「','」'],['『','』']]);\nconst unwrap = (value) => {\n  const normalized = normalizeSpaces(value);\n  const closing = quotePairs.get(normalized[0]);\n  return closing && normalized.length >= 2 && normalized.endsWith(closing)\n    ? normalizeSpaces(normalized.slice(1, -closing.length))\n    : normalized;\n};\nreturn [{ json: { ...$json, novel_title: unwrap($json.novel_title_raw), novel_genre: unwrap($json.novel_genre_raw) } }];"
+      },
+      "id": "4608689b-06f8-4f63-990a-a6b2cb93a92c",
+      "name": "Normalize Novel Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const validationErrors = [...($json.route_errors ?? [])];\nconst titleLength = Array.from($json.novel_title ?? '').length;\nconst genreLength = Array.from($json.novel_genre ?? '').length;\nif (titleLength < 1) validationErrors.push('Novel title is required.');\nelse if (titleLength > 120) validationErrors.push('Novel title must not exceed 120 characters.');\nif (genreLength > 40) validationErrors.push('Novel genre must not exceed 40 characters.');\nreturn [{ json: { ...$json, is_valid: validationErrors.length === 0, validation_errors: validationErrors } }];"
+      },
+      "id": "7a319903-74cc-4571-9bf4-dc8448cd31dc",
+      "name": "Validate Novel Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "function uuidHelper() {\n  let timestamp = Date.now();\n  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (token) => {\n    const randomValue = (timestamp + Math.random() * 16) % 16 | 0;\n    timestamp = Math.floor(timestamp / 16);\n    return (token === 'x' ? randomValue : (randomValue & 0x3) | 0x8).toString(16);\n  });\n}\nif ($json.is_valid !== true) return [{ json: { ...$json, novel_uuid: '' } }];\nreturn [{ json: { ...$json, novel_uuid: `NOV-${uuidHelper().replace(/-/g, '').slice(0, 8)}` } }];"
+      },
+      "id": "22c79b7a-2099-4775-82f8-7ea008569fc3",
+      "name": "Generate Novel UUID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "if ($json.is_valid !== true) return [{ json: { ...$json, novel_slug: '' } }];\nconst asciiSlug = $json.novel_title.normalize('NFKD').replace(/[\\u0300-\\u036f]/gu, '').toLowerCase()\n  .replace(/[^a-z0-9]+/gu, '-').replace(/^-+|-+$/gu, '').slice(0, 80).replace(/-+$/gu, '');\nconst suffix = $json.novel_uuid.replace(/^NOV-/u, '').toLowerCase();\nreturn [{ json: { ...$json, novel_slug: asciiSlug || `novel-${suffix}` } }];"
+      },
+      "id": "be8bd98c-19b8-4026-8fb3-347bad768a60",
+      "name": "Generate Novel Slug",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "if ($json.is_valid !== true) return [{ json: { ...$json, metadata_draft: null } }];\nconst context = $json.context;\nconst timestamp = new Date().toISOString();\nconst toNumber = (value) => { const number = Number(value); return Number.isFinite(number) ? number : 0; };\nreturn [{ json: { ...$json, metadata_draft: {\n  novel_uuid: $json.novel_uuid, novel_id: null, novel_slug: $json.novel_slug,\n  novel_title: $json.novel_title, novel_genre: $json.novel_genre, novel_status: 'draft',\n  schema_version: '1.0', workflow_version: '2.0', created_at: timestamp, updated_at: timestamp,\n  created_by: 'Novel Studio WF-002', telegram_update_id: toNumber(context.telegram_update_id),\n  telegram_chat_id: toNumber(context.telegram_chat_id), telegram_user_id: toNumber(context.telegram_user_id),\n  received_at: typeof context.received_at === 'string' ? context.received_at : '',\n} } }];"
+      },
+      "id": "657fabf8-02c6-4da6-a1a0-59700da31dd9",
+      "name": "Generate Novel Metadata",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "if ($json.is_valid !== true) {\n  const context = $json.context && typeof $json.context === 'object' ? $json.context : {};\n  const toNumber = (value) => { const number = Number(value); return Number.isFinite(number) ? number : 0; };\n  return [{ json: { is_valid: false, validation_errors: $json.validation_errors ?? [], novel: null, output_context: {\n    telegram_update_id: toNumber(context.telegram_update_id), telegram_chat_id: toNumber(context.telegram_chat_id),\n    telegram_user_id: toNumber(context.telegram_user_id), received_at: typeof context.received_at === 'string' ? context.received_at : '',\n  } } }];\n}\nconst m = $json.metadata_draft;\nreturn [{ json: { is_valid: true, validation_errors: [], novel: {\n  novel_uuid: m.novel_uuid, novel_id: m.novel_id, novel_slug: m.novel_slug,\n  novel_title: m.novel_title, novel_genre: m.novel_genre, novel_status: m.novel_status,\n  created_at: m.created_at, updated_at: m.updated_at, created_by: m.created_by,\n}, output_context: {\n  telegram_update_id: m.telegram_update_id, telegram_chat_id: m.telegram_chat_id,\n  telegram_user_id: m.telegram_user_id, received_at: m.received_at,\n} } }];"
+      },
+      "id": "3b841d07-7649-4647-9777-28475bd29271",
+      "name": "Normalize Novel Metadata",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const isValid = $json.is_valid === true;\nreturn [{ json: {\n  schema_version: '1.0', workflow_version: '2.0', route: 'novel.metadata.created', target: 'WF-003',\n  status: isValid ? 'ready' : 'error', is_valid: isValid,\n  validation_errors: $json.validation_errors ?? [], novel: isValid ? $json.novel : null,\n  context: $json.output_context,\n} }];"
+      },
+      "id": "0c320a14-73c9-4b42-b6f1-6d8d6bacf518",
+      "name": "Build Final Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2160,
+        0
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Validate Novel Route",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Novel Route": {
+      "main": [
+        [
+          {
+            "node": "Extract Novel Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Novel Input": {
+      "main": [
+        [
+          {
+            "node": "Normalize Novel Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Novel Input": {
+      "main": [
+        [
+          {
+            "node": "Validate Novel Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Novel Input": {
+      "main": [
+        [
+          {
+            "node": "Generate Novel UUID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Novel UUID": {
+      "main": [
+        [
+          {
+            "node": "Generate Novel Slug",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Novel Slug": {
+      "main": [
+        [
+          {
+            "node": "Generate Novel Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Novel Metadata": {
+      "main": [
+        [
+          {
+            "node": "Normalize Novel Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Novel Metadata": {
+      "main": [
+        [
+          {
+            "node": "Build Final Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1783a6b9-d871-4f19-ba22-c4683bd10466",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
