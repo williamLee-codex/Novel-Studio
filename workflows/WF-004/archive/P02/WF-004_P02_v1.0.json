@@ -1,0 +1,254 @@
+{
+  "name": "WF-004 P02 - Chapter Metadata Builder",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "c5388b30-a3e0-49ee-8c99-c403ea75d911",
+      "name": "Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const validationErrors = [];\nconst contextIsObject = $json.context !== null\n  && typeof $json.context === 'object'\n  && !Array.isArray($json.context);\nconst context = contextIsObject ? $json.context : {};\n\nif ($json.schema_version !== '1.0') {\n  validationErrors.push('Invalid schema_version: expected 1.0.');\n}\nif ($json.route !== 'chapter.create.intake') {\n  validationErrors.push('Invalid route: expected chapter.create.intake.');\n}\nif ($json.status !== 'ready') {\n  validationErrors.push('Invalid status: expected ready.');\n}\nif (!contextIsObject) {\n  validationErrors.push('Invalid context: expected an object.');\n}\nif (typeof context.workspace_uuid !== 'string' || !context.workspace_uuid.trim()) {\n  validationErrors.push('context.workspace_uuid is required.');\n}\nif (typeof context.novel_uuid !== 'string' || !context.novel_uuid.trim()) {\n  validationErrors.push('context.novel_uuid is required.');\n}\nif (!Number.isInteger(context.chapter_number) || context.chapter_number < 1) {\n  validationErrors.push('context.chapter_number must be a positive integer.');\n}\nif (!Object.prototype.hasOwnProperty.call(context, 'chapter_title')) {\n  validationErrors.push('context.chapter_title is required; an empty string is allowed.');\n} else if (typeof context.chapter_title !== 'string') {\n  validationErrors.push('context.chapter_title must be a string; an empty string is allowed.');\n}\n\nreturn [{\n  json: {\n    ...$json,\n    is_valid: validationErrors.length === 0,\n    status: validationErrors.length === 0 ? 'ready' : 'error',\n    validation_errors: validationErrors,\n  },\n}];"
+      },
+      "id": "9863082e-8f76-4510-9bc3-12da22908da2",
+      "name": "Validate Intake",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "7616a29c-077b-49ff-8b92-dc7a15087f69",
+              "name": "workspace_uuid",
+              "value": "={{ $json.context?.workspace_uuid ?? \"\" }}",
+              "type": "string"
+            },
+            {
+              "id": "af888c5d-50a6-4752-a293-20405520d69c",
+              "name": "novel_uuid",
+              "value": "={{ $json.context?.novel_uuid ?? \"\" }}",
+              "type": "string"
+            },
+            {
+              "id": "3c469f80-3729-4036-b59c-60eafffc54e7",
+              "name": "chapter_number",
+              "value": "={{ $json.context?.chapter_number ?? 0 }}",
+              "type": "number"
+            },
+            {
+              "id": "8097f8df-7a73-4aba-9c17-1aa82c4d4d5c",
+              "name": "chapter_title",
+              "value": "={{ $json.context?.chapter_title ?? \"\" }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "97435380-d1df-4e65-b926-444fcaa6e90e",
+      "name": "Extract Context",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "function uuidHelper() {\n  let timestamp = Date.now();\n  let highResolution = typeof performance !== 'undefined' && typeof performance.now === 'function'\n    ? Math.floor(performance.now() * 1000)\n    : 0;\n\n  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (token) => {\n    let randomValue = Math.random() * 16;\n    if (timestamp > 0) {\n      randomValue = (timestamp + randomValue) % 16 | 0;\n      timestamp = Math.floor(timestamp / 16);\n    } else {\n      randomValue = (highResolution + randomValue) % 16 | 0;\n      highResolution = Math.floor(highResolution / 16);\n    }\n    return (token === 'x' ? randomValue : (randomValue & 0x3) | 0x8).toString(16);\n  });\n}\n\nif ($json.is_valid !== true) {\n  return [{ json: { ...$json } }];\n}\n\nconst paddedNumber = String($json.chapter_number).padStart(4, '0');\nconst timestamp = new Date().toISOString();\nconst uuidSuffix = uuidHelper().replace(/-/g, '').slice(0, 8);\n\nreturn [{\n  json: {\n    ...$json,\n    chapter_uuid: `CHP-${uuidSuffix}`,\n    chapter_slug: `chapter-${paddedNumber}`,\n    chapter_order: $json.chapter_number,\n    chapter_filename: `${paddedNumber}.md`,\n    chapter_version: '1.0',\n    created_at: timestamp,\n    updated_at: timestamp,\n    created_by: 'Novel Studio',\n  },\n}];"
+      },
+      "id": "cc56e805-bbcc-4cc6-a7dd-e30e53b10bce",
+      "name": "Generate Metadata",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "d0d74b5c-1e4f-4b81-9aec-89f75a8143d4",
+              "name": "chapter_uuid",
+              "value": "={{ $json.chapter_uuid ?? \"\" }}",
+              "type": "string"
+            },
+            {
+              "id": "b396dc4d-9305-4d8c-9227-89e5c8c46441",
+              "name": "chapter_slug",
+              "value": "={{ $json.chapter_slug ?? \"\" }}",
+              "type": "string"
+            },
+            {
+              "id": "fa3915cf-6d40-4e88-b1e4-4dbda9e6ddf6",
+              "name": "chapter_number",
+              "value": "={{ $json.chapter_number ?? 0 }}",
+              "type": "number"
+            },
+            {
+              "id": "db491922-6f0c-40ba-abdf-9e9d587e56a2",
+              "name": "chapter_order",
+              "value": "={{ $json.chapter_order ?? 0 }}",
+              "type": "number"
+            },
+            {
+              "id": "a38e277b-a830-4bd9-b2a2-726e937f50c2",
+              "name": "chapter_title",
+              "value": "={{ $json.chapter_title ?? \"\" }}",
+              "type": "string"
+            },
+            {
+              "id": "ac23894e-e62b-4683-b34f-4a8d277ce49e",
+              "name": "chapter_filename",
+              "value": "={{ $json.chapter_filename ?? \"\" }}",
+              "type": "string"
+            },
+            {
+              "id": "7385ef48-2eee-4fe7-ac56-f72e79612191",
+              "name": "chapter_version",
+              "value": "={{ $json.chapter_version ?? \"1.0\" }}",
+              "type": "string"
+            },
+            {
+              "id": "b68ddcb6-53a1-4710-9d50-28c717a57c2b",
+              "name": "workspace_uuid",
+              "value": "={{ $json.workspace_uuid ?? \"\" }}",
+              "type": "string"
+            },
+            {
+              "id": "03dd13d7-0cbd-402e-af0b-e4dc685c36c9",
+              "name": "novel_uuid",
+              "value": "={{ $json.novel_uuid ?? \"\" }}",
+              "type": "string"
+            },
+            {
+              "id": "6bd6e688-a892-42a9-9e3b-61c1d2efea6d",
+              "name": "created_at",
+              "value": "={{ $json.created_at ?? \"\" }}",
+              "type": "string"
+            },
+            {
+              "id": "d26388db-37a0-4e33-81b2-badf53ad1abb",
+              "name": "updated_at",
+              "value": "={{ $json.updated_at ?? \"\" }}",
+              "type": "string"
+            },
+            {
+              "id": "d59c006e-e4ce-46bd-a6c6-3e1595b58b61",
+              "name": "created_by",
+              "value": "={{ $json.created_by ?? \"Novel Studio\" }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "419f347d-d7b3-4398-ad3e-27c0ffe51c7d",
+      "name": "Normalize Metadata",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        960,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "if ($json.is_valid !== true) {\n  return [{\n    json: {\n      schema_version: '1.0',\n      route: 'chapter.metadata.created',\n      status: 'error',\n      is_valid: false,\n      validation_errors: $json.validation_errors ?? [],\n    },\n  }];\n}\n\nreturn [{\n  json: {\n    schema_version: '1.0',\n    route: 'chapter.metadata.created',\n    target: 'WF-004-P03',\n    status: 'ready',\n    is_valid: true,\n    validation_errors: [],\n    chapter: {\n      chapter_uuid: $json.chapter_uuid,\n      chapter_slug: $json.chapter_slug,\n      chapter_number: $json.chapter_number,\n      chapter_order: $json.chapter_order,\n      chapter_title: $json.chapter_title,\n      chapter_filename: $json.chapter_filename,\n      chapter_version: $json.chapter_version,\n      workspace_uuid: $json.workspace_uuid,\n      novel_uuid: $json.novel_uuid,\n      created_at: $json.created_at,\n      updated_at: $json.updated_at,\n      created_by: $json.created_by,\n    },\n  },\n}];"
+      },
+      "id": "ea9fc29e-5937-4a1e-9fe9-d7bdf75e07f3",
+      "name": "Build Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        0
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Validate Intake",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Intake": {
+      "main": [
+        [
+          {
+            "node": "Extract Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Context": {
+      "main": [
+        [
+          {
+            "node": "Generate Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Metadata": {
+      "main": [
+        [
+          {
+            "node": "Normalize Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Metadata": {
+      "main": [
+        [
+          {
+            "node": "Build Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "9956f362-3f40-415c-93f4-d7d9ddb7683d",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
