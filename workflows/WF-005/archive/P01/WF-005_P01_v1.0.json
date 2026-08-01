@@ -1,0 +1,148 @@
+{
+  "name": "WF-005 P01 - Storage Intake",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "d07ac51e-cd22-4d47-907d-9e9ce8b64fde",
+      "name": "Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const validationErrors = [];\nconst persistenceIsObject = $json.persistence !== null\n  && typeof $json.persistence === 'object'\n  && !Array.isArray($json.persistence);\nconst persistence = persistenceIsObject ? $json.persistence : {};\n\nif ($json.schema_version !== '1.0') {\n  validationErrors.push('Invalid schema_version: expected 1.0.');\n}\nif ($json.workflow_version !== '1.0') {\n  validationErrors.push('Invalid workflow_version: expected 1.0.');\n}\nif ($json.route !== 'chapter.persistence.created') {\n  validationErrors.push('Invalid route: expected chapter.persistence.created.');\n}\nif ($json.status !== 'ready') {\n  validationErrors.push('Invalid status: expected ready.');\n}\nif (!persistenceIsObject) {\n  validationErrors.push('Invalid persistence: expected an object.');\n}\nif (typeof persistence.chapter_uuid !== 'string' || !persistence.chapter_uuid.trim()) {\n  validationErrors.push('persistence.chapter_uuid is required.');\n}\nif (typeof persistence.workspace_uuid !== 'string' || !persistence.workspace_uuid.trim()) {\n  validationErrors.push('persistence.workspace_uuid is required.');\n}\nif (typeof persistence.novel_uuid !== 'string' || !persistence.novel_uuid.trim()) {\n  validationErrors.push('persistence.novel_uuid is required.');\n}\nif (typeof persistence.storage_provider !== 'string' || !persistence.storage_provider.trim()) {\n  validationErrors.push('persistence.storage_provider is required.');\n}\nif (typeof persistence.storage_strategy !== 'string' || !persistence.storage_strategy.trim()) {\n  validationErrors.push('persistence.storage_strategy is required.');\n}\nif (!Array.isArray(persistence.pending_operations)) {\n  validationErrors.push('persistence.pending_operations must be an array.');\n}\n\nreturn [{\n  json: {\n    ...$json,\n    status: validationErrors.length === 0 ? 'ready' : 'error',\n    is_valid: validationErrors.length === 0,\n    validation_errors: validationErrors,\n  },\n}];"
+      },
+      "id": "f62c9670-5b9c-446a-aca1-42d7a706b2d7",
+      "name": "Validate Persistence",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const persistence = $json.persistence !== null\n  && typeof $json.persistence === 'object'\n  && !Array.isArray($json.persistence)\n  ? $json.persistence\n  : {};\n\nreturn [{\n  json: {\n    is_valid: $json.is_valid === true,\n    validation_errors: Array.isArray($json.validation_errors) ? $json.validation_errors : [],\n    chapter_uuid: persistence.chapter_uuid ?? '',\n    workspace_uuid: persistence.workspace_uuid ?? '',\n    novel_uuid: persistence.novel_uuid ?? '',\n    storage_provider: persistence.storage_provider ?? '',\n    storage_strategy: persistence.storage_strategy ?? '',\n    storage_status: persistence.storage_status ?? '',\n    pending_operations: persistence.pending_operations ?? [],\n  },\n}];"
+      },
+      "id": "9ba53494-af5f-4cc3-9357-b152acbf0868",
+      "name": "Extract Persistence",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const normalizeToken = (value) => typeof value === 'string'\n  ? value.trim().toLowerCase().replace(/\\s+/gu, '_')\n  : '';\nconst normalizedOperations = Array.isArray($json.pending_operations)\n  ? $json.pending_operations.map((operation) => {\n      if (typeof operation === 'string') return operation.trim();\n      if (operation && typeof operation === 'object' && !Array.isArray(operation)) return { ...operation };\n      return operation;\n    })\n  : [];\n\nreturn [{\n  json: {\n    ...$json,\n    chapter_uuid: typeof $json.chapter_uuid === 'string' ? $json.chapter_uuid.trim() : '',\n    workspace_uuid: typeof $json.workspace_uuid === 'string' ? $json.workspace_uuid.trim() : '',\n    novel_uuid: typeof $json.novel_uuid === 'string' ? $json.novel_uuid.trim() : '',\n    storage_provider: normalizeToken($json.storage_provider),\n    storage_strategy: normalizeToken($json.storage_strategy),\n    storage_status: normalizeToken($json.storage_status) || 'pending',\n    pending_operations: normalizedOperations,\n  },\n}];"
+      },
+      "id": "9ce50d02-ba42-484d-8fc7-4e7f540973f6",
+      "name": "Normalize Storage Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "if ($json.is_valid !== true) {\n  return [{\n    json: {\n      is_valid: false,\n      validation_errors: $json.validation_errors ?? [],\n      storage: null,\n    },\n  }];\n}\n\nreturn [{\n  json: {\n    is_valid: true,\n    validation_errors: [],\n    storage: {\n      chapter_uuid: $json.chapter_uuid,\n      workspace_uuid: $json.workspace_uuid,\n      novel_uuid: $json.novel_uuid,\n      storage_provider: $json.storage_provider,\n      storage_strategy: $json.storage_strategy,\n      storage_status: $json.storage_status,\n      pending_operations: $json.pending_operations,\n    },\n  },\n}];"
+      },
+      "id": "aae3951d-082c-49c5-b9a7-9835b71bb76d",
+      "name": "Build Storage Intake",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const isValid = $json.is_valid === true;\n\nreturn [{\n  json: {\n    schema_version: '1.0',\n    workflow_version: '1.0',\n    route: 'storage.intake.created',\n    target: 'WF-005-P02',\n    status: isValid ? 'ready' : 'error',\n    is_valid: isValid,\n    validation_errors: $json.validation_errors ?? [],\n    storage: isValid ? $json.storage : null,\n  },\n}];"
+      },
+      "id": "a9a50d03-f062-47fe-9f33-43392e03c707",
+      "name": "Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        0
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Validate Persistence",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Persistence": {
+      "main": [
+        [
+          {
+            "node": "Extract Persistence",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Persistence": {
+      "main": [
+        [
+          {
+            "node": "Normalize Storage Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Storage Request": {
+      "main": [
+        [
+          {
+            "node": "Build Storage Intake",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Storage Intake": {
+      "main": [
+        [
+          {
+            "node": "Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "e5d32541-dea4-495f-9286-d8c40e4bf974",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
