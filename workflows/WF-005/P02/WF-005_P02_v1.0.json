@@ -1,0 +1,148 @@
+{
+  "name": "WF-005 P02 - Google Drive Storage Adapter",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "379b9f8e-0c2f-400a-80bd-93b3294391c3",
+      "name": "Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const validationErrors = [];\nconst storageIsObject = $json.storage !== null\n  && typeof $json.storage === 'object'\n  && !Array.isArray($json.storage);\nconst storage = storageIsObject ? $json.storage : {};\nconst operations = Array.isArray(storage.pending_operations) ? storage.pending_operations : [];\nconst supportedOperations = new Set([\n  'create_root_folder',\n  'create_directory',\n  'create_markdown',\n  'create_json',\n  'write',\n  'create_file',\n]);\n\nif ($json.schema_version !== '1.0') validationErrors.push('Invalid schema_version: expected 1.0.');\nif ($json.workflow_version !== '1.0') validationErrors.push('Invalid workflow_version: expected 1.0.');\nif ($json.route !== 'storage.intake.created') validationErrors.push('Invalid route: expected storage.intake.created.');\nif ($json.status !== 'ready') validationErrors.push('Invalid status: expected ready.');\nif ($json.is_valid !== true) validationErrors.push('Invalid upstream contract: is_valid must be true.');\nif (!storageIsObject) validationErrors.push('Invalid storage: expected an object.');\nif (typeof storage.chapter_uuid !== 'string' || !storage.chapter_uuid.trim()) validationErrors.push('storage.chapter_uuid is required.');\nif (typeof storage.workspace_uuid !== 'string' || !storage.workspace_uuid.trim()) validationErrors.push('storage.workspace_uuid is required.');\nif (typeof storage.novel_uuid !== 'string' || !storage.novel_uuid.trim()) validationErrors.push('storage.novel_uuid is required.');\nif (storage.storage_provider !== 'google_drive') validationErrors.push('storage.storage_provider must equal google_drive.');\nif (typeof storage.storage_strategy !== 'string' || !storage.storage_strategy.trim()) validationErrors.push('storage.storage_strategy is required.');\nif (!Array.isArray(storage.pending_operations)) {\n  validationErrors.push('storage.pending_operations must be an array.');\n}\n\noperations.forEach((operation, index) => {\n  if (!operation || typeof operation !== 'object' || Array.isArray(operation)) {\n    validationErrors.push(`storage.pending_operations[${index}] must be an object.`);\n    return;\n  }\n  const operationName = typeof operation.operation === 'string' ? operation.operation.trim().toLowerCase() : '';\n  const path = typeof operation.path === 'string'\n    ? operation.path.trim().replace(/\\\\/g, '/').replace(/^\\/+|\\/+$/g, '').replace(/\\/{2,}/g, '/')\n    : '';\n  if (!supportedOperations.has(operationName)) {\n    validationErrors.push(`storage.pending_operations[${index}].operation is unsupported.`);\n  }\n  if (operationName !== 'create_root_folder' && !path) {\n    validationErrors.push(`storage.pending_operations[${index}].path is required.`);\n  }\n  if (path.split('/').includes('..')) {\n    validationErrors.push(`storage.pending_operations[${index}].path must not traverse parent directories.`);\n  }\n  if ((operationName === 'write' || operationName === 'create_file') && path && !/\\.(md|json)$/iu.test(path)) {\n    validationErrors.push(`storage.pending_operations[${index}] file extension must be .md or .json.`);\n  }\n});\n\nreturn [{\n  json: {\n    ...$json,\n    status: validationErrors.length === 0 ? 'ready' : 'error',\n    is_valid: validationErrors.length === 0,\n    validation_errors: validationErrors,\n  },\n}];"
+      },
+      "id": "619aa856-1b08-4f1f-b3a2-389fc9d71882",
+      "name": "Validate Storage Contract",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const storage = $json.storage !== null\n  && typeof $json.storage === 'object'\n  && !Array.isArray($json.storage)\n  ? $json.storage\n  : {};\n\nreturn [{\n  json: {\n    is_valid: $json.is_valid === true,\n    validation_errors: Array.isArray($json.validation_errors) ? $json.validation_errors : [],\n    chapter_uuid: storage.chapter_uuid ?? '',\n    workspace_uuid: storage.workspace_uuid ?? '',\n    novel_uuid: storage.novel_uuid ?? '',\n    storage_provider: storage.storage_provider ?? '',\n    storage_strategy: storage.storage_strategy ?? '',\n    pending_operations: Array.isArray(storage.pending_operations) ? storage.pending_operations : [],\n  },\n}];"
+      },
+      "id": "28174d1e-e9bf-4bc5-95f0-5d263a7b7328",
+      "name": "Extract Storage",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "if ($json.is_valid !== true) {\n  return [{ json: { ...$json, generated_operations: [] } }];\n}\n\nconst rootFolder = $json.workspace_uuid.trim();\nconst generatedOperations = [{\n  operation: 'create_root_folder',\n  relative_path: rootFolder,\n  source_index: null,\n}];\n\nfor (const [sourceIndex, source] of $json.pending_operations.entries()) {\n  const sourceOperation = source.operation.trim().toLowerCase();\n  if (sourceOperation === 'create_root_folder') continue;\n\n  const relativePath = source.path\n    .trim()\n    .replace(/\\\\/g, '/')\n    .replace(/^\\/+|\\/+$/g, '')\n    .replace(/\\/{2,}/g, '/');\n  let operation = sourceOperation;\n  if (sourceOperation === 'write' || sourceOperation === 'create_file') {\n    operation = relativePath.toLowerCase().endsWith('.md') ? 'create_markdown' : 'create_json';\n  }\n\n  generatedOperations.push({\n    operation,\n    relative_path: relativePath,\n    source_index: sourceIndex,\n  });\n}\n\nreturn [{\n  json: {\n    ...$json,\n    root_folder: rootFolder,\n    generated_operations: generatedOperations,\n  },\n}];"
+      },
+      "id": "1ab44cbc-016d-4e7c-b718-7017f4601117",
+      "name": "Generate Google Drive Plan",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "if ($json.is_valid !== true) {\n  return [{ json: { ...$json, drive_plan: null } }];\n}\n\nconst operations = $json.generated_operations.map((operation, index) => ({\n  sequence: index + 1,\n  operation: operation.operation,\n  relative_path: operation.relative_path,\n  source_index: operation.source_index,\n}));\n\nreturn [{\n  json: {\n    ...$json,\n    drive_plan: {\n      provider: 'google_drive',\n      root_folder: $json.root_folder,\n      operations,\n    },\n  },\n}];"
+      },
+      "id": "fd45e9fb-f425-4c2e-a3ff-16e944f23753",
+      "name": "Normalize Plan",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const isValid = $json.is_valid === true;\n\nreturn [{\n  json: {\n    schema_version: '1.0',\n    workflow_version: '1.0',\n    route: 'storage.drive.plan.created',\n    target: 'WF-005-P03',\n    status: isValid ? 'ready' : 'error',\n    is_valid: isValid,\n    validation_errors: $json.validation_errors ?? [],\n    drive_plan: isValid ? $json.drive_plan : null,\n  },\n}];"
+      },
+      "id": "c987c3fa-0059-4360-9214-ac3186af5fa6",
+      "name": "Build Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        0
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Validate Storage Contract",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Storage Contract": {
+      "main": [
+        [
+          {
+            "node": "Extract Storage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Storage": {
+      "main": [
+        [
+          {
+            "node": "Generate Google Drive Plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Google Drive Plan": {
+      "main": [
+        [
+          {
+            "node": "Normalize Plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Plan": {
+      "main": [
+        [
+          {
+            "node": "Build Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "f790993f-49cf-4c34-8bed-d19acf453917",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

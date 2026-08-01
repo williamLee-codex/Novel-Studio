@@ -1,0 +1,102 @@
+{
+  "name": "WF-004 P04 - Chapter Persistence Contract",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "fcd122cf-771a-4dd1-9615-587a505e7c47",
+      "name": "Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const errors=[];const w=$json.workspace&&typeof $json.workspace==='object'&&!Array.isArray($json.workspace)?$json.workspace:{};\nif($json.schema_version!=='1.0')errors.push('Invalid schema_version: expected 1.0.');\nif($json.route!=='chapter.workspace.created')errors.push('Invalid route: expected chapter.workspace.created.');\nif($json.status!=='ready')errors.push('Invalid status: expected ready.');\nfor(const field of ['chapter_directory','draft_file','notes_file','assets_directory','images_directory','exports_directory','logs_directory','metadata_file'])if(typeof w[field]!=='string'||!w[field])errors.push(`workspace.${field} is required.`);\nreturn [{json:{...$json,is_valid:errors.length===0,validation_errors:errors}}];"
+      },
+      "id": "b88b907b-1655-4bc6-b19e-f1224a3e9903",
+      "name": "Validate Workspace Contract",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "if($json.is_valid!==true)return [{json:{...$json,persistence:null}}];return [{json:{...$json,persistence:{storage_provider:'local',storage_strategy:'deferred',storage_status:'pending',pending_operations:['create_chapter_directory','create_draft_file','create_notes_file','create_assets_directory','create_images_directory','create_exports_directory','create_logs_directory','create_metadata_file'],persistence_version:'1.0'}}}];"
+      },
+      "id": "efbb2b25-7f2d-4700-9f53-b581f1f83a65",
+      "name": "Generate Chapter Persistence",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const ok=$json.is_valid===true;return [{json:{schema_version:'1.0',workflow_version:'1.0',route:'chapter.persistence.created',target:'WF-005',status:ok?'ready':'error',is_valid:ok,validation_errors:$json.validation_errors??[],chapter:ok?$json.chapter:null,workspace:ok?$json.workspace:null,persistence:ok?$json.persistence:null}}];"
+      },
+      "id": "5fd2806d-6ce0-4343-bc97-dd1c2e73eca1",
+      "name": "Build Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        0
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Validate Workspace Contract",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Workspace Contract": {
+      "main": [
+        [
+          {
+            "node": "Generate Chapter Persistence",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Chapter Persistence": {
+      "main": [
+        [
+          {
+            "node": "Build Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "31a0c704-1a05-467b-9839-1d5321a05870",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
