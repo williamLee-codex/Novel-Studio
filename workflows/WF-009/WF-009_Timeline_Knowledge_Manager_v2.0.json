@@ -1,0 +1,326 @@
+{
+  "name": "WF-009 - Timeline Knowledge Manager v2",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "5128e0b2-608c-4c36-bf42-6035cd2ae16e",
+      "name": "Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const errors=[];const contextIsObject=$json.context!==null&&typeof $json.context==='object'&&!Array.isArray($json.context);const c=contextIsObject?$json.context:{};\nif($json.schema_version!=='1.0')errors.push('Invalid schema_version: expected 1.0.');\nif($json.route!=='world.created')errors.push('Invalid route: expected world.created.');\nif($json.status!=='ready')errors.push('Invalid status: expected ready.');\nif($json.is_valid!==true)errors.push('Input contract must be valid.');\nif(!contextIsObject)errors.push('Invalid context: expected an object.');\nfor(const field of ['novel_uuid','workspace_uuid','chapter_uuid'])if(typeof c[field]!=='string'||!c[field].trim())errors.push(`context.${field} is required.`);\nif(!Number.isInteger(c.chapter_number)||c.chapter_number<0)errors.push('context.chapter_number must be a non-negative integer.');\nreturn[{json:{...$json,is_valid:errors.length===0,validation_errors:errors}}];"
+      },
+      "id": "5251ae05-f28d-432e-b745-cbeb6de5acdc",
+      "name": "Validate Timeline Route",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const s=$json;const c=s.context&&typeof s.context==='object'?s.context:{};const sources=[['context.timeline_records',c.timeline_records],['context.timeline',c.timeline],['context.events',c.events],['timeline_records',s.timeline_records],['timeline',s.timeline],['events',s.events]];let records=[];let field='none';for(const [name,value] of sources){if(Array.isArray(value)){records=value;field=name;break;}}return[{json:{is_valid:s.is_valid===true,validation_errors:s.validation_errors??[],timeline_records:records,timeline_source_field:field,timeline_context:{canon_uuid:typeof c.canon_uuid==='string'?c.canon_uuid.trim():'',novel_uuid:typeof c.novel_uuid==='string'?c.novel_uuid.trim():'',workspace_uuid:typeof c.workspace_uuid==='string'?c.workspace_uuid.trim():'',chapter_uuid:typeof c.chapter_uuid==='string'?c.chapter_uuid.trim():'',chapter_number:c.chapter_number??0,chapter_title:typeof c.chapter_title==='string'?c.chapter_title.trim().replace(/\\s+/gu,' '):''}}}];"
+      },
+      "id": "4515c1bc-b024-4b13-99c1-2528f8a4a6e1",
+      "name": "Extract Timeline Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const types=new Set(['battle','breakthrough','death','birth','marriage','betrayal','alliance','inheritance','mission','discovery','sect_event','kingdom_event','world_event','other']);const arrays=['participants','locations','factions','aliases'];const clean=v=>typeof v==='string'?v.trim().replace(/\\s+/gu,' '):'';const normalized=$json.timeline_records.map((original_record,source_index)=>{const r=original_record&&typeof original_record==='object'&&!Array.isArray(original_record)?original_record:{};const array_types={};const values={};for(const field of arrays){array_types[field]=r[field]==null||Array.isArray(r[field]);const seen=new Set();values[field]=[];for(const value of Array.isArray(r[field])?r[field]:[]){const item=clean(value);if(item&&!seen.has(item)){seen.add(item);values[field].push(item);}}}const rawType=clean(r.event_type).toLowerCase();const chapterValid=r.chapter_number==null||(Number.isInteger(r.chapter_number)&&r.chapter_number>=0);const orderValid=r.event_order==null||(Number.isInteger(r.event_order)&&r.event_order>=0);return{source_index,original_record,array_types,chapter_type_valid:chapterValid,order_type_valid:orderValid,record:{event_name:clean(r.event_name),event_type:types.has(rawType)?rawType:'other',chapter_number:chapterValid&&r.chapter_number!=null?r.chapter_number:$json.timeline_context.chapter_number,event_order:orderValid&&r.event_order!=null?r.event_order:0,participants:values.participants,locations:values.locations,factions:values.factions,aliases:values.aliases,description:clean(r.description),notes:clean(r.notes),source_chapter_uuid:clean(r.source_chapter_uuid)||$json.timeline_context.chapter_uuid}}});return[{json:{...$json,normalized_timeline_records:normalized,supported_event_types:[...types]}}];"
+      },
+      "id": "d7f56675-34a6-4930-a626-3804a964d4a7",
+      "name": "Normalize Timeline Records",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const valid=[];const invalid=[];for(const item of $json.normalized_timeline_records){const errors=[];const r=item.record;if(!r.event_name)errors.push('event_name is required.');if(!item.chapter_type_valid||!Number.isInteger(r.chapter_number)||r.chapter_number<0)errors.push('chapter_number must be a non-negative integer.');if(!item.order_type_valid||!Number.isInteger(r.event_order)||r.event_order<0)errors.push('event_order must be a non-negative integer.');for(const field of ['participants','locations','factions','aliases'])if(!item.array_types[field]||!Array.isArray(r[field]))errors.push(`${field} must be an array.`);if(errors.length)invalid.push({source_index:item.source_index,validation_errors:errors,original_record:item.original_record});else valid.push({...r,source_index:item.source_index});}return[{json:{...$json,valid_timeline_records:valid,invalid_timeline_records:invalid}}];"
+      },
+      "id": "e11fbb87-684a-425d-8f62-bbf5add9b604",
+      "name": "Validate Timeline Records",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "function uuidHelper(){let t=Date.now();return'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=(t+Math.random()*16)%16|0;t=Math.floor(t/16);return(c==='x'?r:(r&3)|8).toString(16)})}return[{json:{...$json,identified_timeline_records:$json.valid_timeline_records.map(record=>({...record,timeline_uuid:`TML-${uuidHelper().replace(/-/g,'').slice(0,8)}`}))}}];"
+      },
+      "id": "cbe0f03e-f04b-4607-ab90-49b74e7af79f",
+      "name": "Generate Timeline UUID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const c=$json.timeline_context;const objects=$json.identified_timeline_records.map(r=>{const timestamp=new Date().toISOString();return{timeline_uuid:r.timeline_uuid,event_name:r.event_name,event_type:r.event_type,chapter_number:r.chapter_number,event_order:r.event_order,aliases:r.aliases,participants:r.participants,locations:r.locations,factions:r.factions,description:r.description,notes:r.notes,novel_uuid:c.novel_uuid,workspace_uuid:c.workspace_uuid,source_chapter_uuid:r.source_chapter_uuid,timeline_version:'1.0',created_at:timestamp,updated_at:timestamp,created_by:'Novel Studio WF-009',_source_index:r.source_index}});return[{json:{...$json,timeline_objects:objects}}];"
+      },
+      "id": "5569da2e-945c-4af3-aa31-5d332d86b1e3",
+      "name": "Build Timeline Knowledge Objects",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const arrays=['aliases','participants','locations','factions'];const scalars=['event_type','event_order','description','notes','source_chapter_uuid'];const empty=v=>v===''||v===null||v===undefined;const map=new Map();const conflicts=[];let duplicates=0;for(const incoming of $json.timeline_objects){const key=`${incoming.event_name.toLocaleLowerCase()}::${incoming.chapter_number}`;if(!map.has(key)){const base={...incoming};for(const field of arrays)base[field]=[...incoming[field]];map.set(key,base);continue;}duplicates++;const existing=map.get(key);for(const field of arrays)existing[field]=[...new Set([...existing[field],...incoming[field]])];for(const field of scalars){if(empty(existing[field])&&!empty(incoming[field]))existing[field]=incoming[field];else if(!empty(existing[field])&&!empty(incoming[field])&&existing[field]!==incoming[field])conflicts.push({event_name:existing.event_name,chapter_number:existing.chapter_number,field,existing_value:existing[field],incoming_value:incoming[field],source_index:incoming._source_index});}}const timeline=[...map.values()].map(({_source_index,...event})=>event);return[{json:{...$json,timeline,timeline_conflicts:conflicts,duplicates_merged:duplicates}}];"
+      },
+      "id": "9ccec051-f2a9-4a10-9f0b-14afa9411db4",
+      "name": "Deduplicate Timeline",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const type_counts=Object.fromEntries($json.supported_event_types.map(type=>[type,0]));for(const event of $json.timeline)type_counts[event.event_type]++;return[{json:{...$json,summary:{source_records:$json.timeline_records.length,valid_records:$json.valid_timeline_records.length,invalid_records:$json.invalid_timeline_records.length,timeline_objects_created:$json.timeline.length,duplicates_merged:$json.duplicates_merged,conflicts_detected:$json.timeline_conflicts.length,type_counts}}}];"
+      },
+      "id": "ee73983a-b27a-4406-906b-b8a1a768f068",
+      "name": "Calculate Timeline Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const valid=$json.is_valid===true;const emptySummary={source_records:0,valid_records:0,invalid_records:0,timeline_objects_created:0,duplicates_merged:0,conflicts_detected:0,type_counts:{}};const c=$json.timeline_context??{};return[{json:{schema_version:'1.0',workflow_version:'2.0',route:'timeline.created',target:'WF-010',status:valid?'ready':'error',is_valid:valid,validation_errors:$json.validation_errors??[],timeline:valid?($json.timeline??[]):[],timeline_conflicts:valid?($json.timeline_conflicts??[]):[],summary:valid?($json.summary??emptySummary):emptySummary,context:valid?{canon_uuid:c.canon_uuid,novel_uuid:c.novel_uuid,workspace_uuid:c.workspace_uuid,chapter_uuid:c.chapter_uuid,chapter_number:c.chapter_number,chapter_title:c.chapter_title}:{}}}];"
+      },
+      "id": "a546ae22-9ac8-48fc-b375-d7eabaefc666",
+      "name": "Build Final Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2160,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Timeline Intake\nValidate WF-008 and select an explicit event array.",
+        "height": 170,
+        "width": 700,
+        "color": 3
+      },
+      "id": "aeb27559-b4f8-497a-bf3f-26bb9b209166",
+      "name": "Timeline Intake Section",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -300
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Timeline Normalization\nNormalize supplied events without prose parsing or inference.",
+        "height": 170,
+        "width": 700,
+        "color": 3
+      },
+      "id": "2715c614-0c2f-44a9-ae82-16c8381cbe4d",
+      "name": "Timeline Normalization Section",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        600,
+        -300
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Timeline Knowledge Objects\nGenerate TML identities and versioned provenance.",
+        "height": 170,
+        "width": 700,
+        "color": 3
+      },
+      "id": "b8aadef5-555f-4781-bd11-deafcd03a4b1",
+      "name": "Timeline Knowledge Section",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1200,
+        -300
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Deduplication\nMerge by event name + chapter number and report conflicts.",
+        "height": 170,
+        "width": 700,
+        "color": 3
+      },
+      "id": "6fe89083-9629-4746-9198-153f23169ba8",
+      "name": "Timeline Deduplication Section",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1600,
+        -300
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Output\nCalculate summary and emit the WF-010 contract.",
+        "height": 170,
+        "width": 700,
+        "color": 3
+      },
+      "id": "c54a47dc-d2ca-43c4-81eb-7125135f5b26",
+      "name": "Timeline Output Section",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1920,
+        -300
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Validate Timeline Route",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Timeline Route": {
+      "main": [
+        [
+          {
+            "node": "Extract Timeline Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Timeline Input": {
+      "main": [
+        [
+          {
+            "node": "Normalize Timeline Records",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Timeline Records": {
+      "main": [
+        [
+          {
+            "node": "Validate Timeline Records",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Timeline Records": {
+      "main": [
+        [
+          {
+            "node": "Generate Timeline UUID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Timeline UUID": {
+      "main": [
+        [
+          {
+            "node": "Build Timeline Knowledge Objects",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Timeline Knowledge Objects": {
+      "main": [
+        [
+          {
+            "node": "Deduplicate Timeline",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Deduplicate Timeline": {
+      "main": [
+        [
+          {
+            "node": "Calculate Timeline Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Timeline Summary": {
+      "main": [
+        [
+          {
+            "node": "Build Final Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "b6a46b76-7a8b-4eb0-9b84-8e6a32795483",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

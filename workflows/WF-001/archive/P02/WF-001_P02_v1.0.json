@@ -1,0 +1,354 @@
+{
+  "name": "WF-001 P02 - Command Router",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "45e42d74-389a-4bb1-88b7-b8fb105167bd",
+      "name": "Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "89f04b73-93f7-436f-8cae-92d95a8465b0",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "command.new",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "command.new"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "b362e6df-418d-4700-b090-0a98e781ea52",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "command.status",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "command.status"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "e94eb7d7-c502-48fb-bde5-fd1533ade960",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "command.help",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "command.help"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "1cf99a9a-2d73-42e0-b983-9468285a3e55",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "command.invalid",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "command.invalid"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c0df5ac6-6678-40fd-b858-f95dcb77e98f",
+      "name": "Switch",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        240,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "6e99cf44-f673-415c-b707-a70eff2f826b",
+              "name": "route",
+              "value": "command.new",
+              "type": "string"
+            },
+            {
+              "id": "2607390b-e36b-4487-90b4-76d392b7001a",
+              "name": "target",
+              "value": "WF-002",
+              "type": "string"
+            },
+            {
+              "id": "46e10f46-54dc-4b74-a220-5b7db3002a47",
+              "name": "status",
+              "value": "ready",
+              "type": "string"
+            },
+            {
+              "id": "ea649d08-8d77-4495-9457-86cb71465e64",
+              "name": "payload",
+              "value": "={{ $json.payload }}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a474601a-076a-4383-8c39-46711484b65d",
+      "name": "Route NEW",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        520,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0dc1c578-fcda-40e2-b369-72467e0737d8",
+              "name": "route",
+              "value": "command.status",
+              "type": "string"
+            },
+            {
+              "id": "4e4e872b-e276-46b0-acbd-981b68d87ae6",
+              "name": "target",
+              "value": "WF-003",
+              "type": "string"
+            },
+            {
+              "id": "b22672b7-6842-4e3c-9267-d3265314b49a",
+              "name": "status",
+              "value": "ready",
+              "type": "string"
+            },
+            {
+              "id": "33932e5a-2a83-4d1f-a624-0340069f1de3",
+              "name": "payload",
+              "value": "={{ $json.payload }}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "213864e6-b180-42ac-ae13-ec51d1f355a8",
+      "name": "Route STATUS",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        520,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "84710ee4-b136-4093-9c1e-8031e7801a8a",
+              "name": "route",
+              "value": "command.help",
+              "type": "string"
+            },
+            {
+              "id": "b37ae058-6779-427d-8629-4a2d705c8176",
+              "name": "target",
+              "value": "WF-004",
+              "type": "string"
+            },
+            {
+              "id": "8a5f5e09-04ff-4745-821a-115017b9314a",
+              "name": "status",
+              "value": "ready",
+              "type": "string"
+            },
+            {
+              "id": "54705249-babf-4c6f-a229-8b8a563555ee",
+              "name": "payload",
+              "value": "={{ $json.payload }}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "17cf19d3-182b-4c35-ae02-97abc479c651",
+      "name": "Route HELP",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        520,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "f87d1275-dd58-446e-a552-fc177cd8187b",
+              "name": "route",
+              "value": "command.invalid",
+              "type": "string"
+            },
+            {
+              "id": "cba719a0-ec87-4bf8-a176-6271b6d4a1a2",
+              "name": "target",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "b4655a1a-fb36-4b73-813d-1d38633375d7",
+              "name": "status",
+              "value": "invalid",
+              "type": "string"
+            },
+            {
+              "id": "28bdfe4d-3240-499a-a73a-722231643cda",
+              "name": "validation_error",
+              "value": "={{ $json.validation_error }}",
+              "type": "string"
+            },
+            {
+              "id": "0f8e9a48-1e92-42a4-8d16-c2e483f4cd2e",
+              "name": "payload",
+              "value": "={{ $json.payload }}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "47c2aa8c-ec41-4b49-aa12-d640c9b20486",
+      "name": "Route INVALID",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        520,
+        400
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Route NEW",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Route STATUS",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Route HELP",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Route INVALID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "54ff5bde-38d7-4df4-ae13-96262157df6d",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
