@@ -1,0 +1,350 @@
+{
+  "name": "WF-008 - World Knowledge Manager v2",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "69b48b9a-7039-4db0-b69f-b45608040c16",
+      "name": "Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const errors=[];const contextIsObject=$json.context!==null&&typeof $json.context==='object'&&!Array.isArray($json.context);const context=contextIsObject?$json.context:{};\nif($json.schema_version!=='1.0')errors.push('Invalid schema_version: expected 1.0.');\nif($json.route!=='characters.created')errors.push('Invalid route: expected characters.created.');\nif($json.status!=='ready')errors.push('Invalid status: expected ready.');\nif($json.is_valid!==true)errors.push('Input contract must be valid.');\nif(!contextIsObject)errors.push('Invalid context: expected an object.');\nfor(const field of ['canon_uuid','novel_uuid','workspace_uuid','chapter_uuid'])if(typeof context[field]!=='string'||!context[field].trim())errors.push(`context.${field} is required.`);\nif(!Number.isInteger(context.chapter_number)||context.chapter_number<0)errors.push('context.chapter_number must be a non-negative integer.');\nreturn[{json:{...$json,is_valid:errors.length===0,validation_errors:errors}}];"
+      },
+      "id": "b5d71e40-fa36-444d-a774-0444111abf0b",
+      "name": "Validate Character Route",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const c=$json.context&&typeof $json.context==='object'&&!Array.isArray($json.context)?$json.context:{};return[{json:{is_valid:$json.is_valid===true,validation_errors:$json.validation_errors??[],source_contract:$json,canon_context:{canon_uuid:typeof c.canon_uuid==='string'?c.canon_uuid.trim():'',novel_uuid:typeof c.novel_uuid==='string'?c.novel_uuid.trim():'',workspace_uuid:typeof c.workspace_uuid==='string'?c.workspace_uuid.trim():'',chapter_uuid:typeof c.chapter_uuid==='string'?c.chapter_uuid.trim():'',chapter_number:c.chapter_number??0,chapter_title:typeof c.chapter_title==='string'?c.chapter_title.trim().replace(/\\s+/gu,' '):'',created_at:typeof c.created_at==='string'?c.created_at:'',updated_at:typeof c.updated_at==='string'?c.updated_at:'',created_by:typeof c.created_by==='string'?c.created_by:''}}}];"
+      },
+      "id": "47db9f74-e70c-4913-a324-796e57d6f670",
+      "name": "Extract Canon Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const s=$json.source_contract??{};const context=s.context&&typeof s.context==='object'?s.context:{};const canon=s.canon&&typeof s.canon==='object'?s.canon:{};const sources=[['context.world_records',context.world_records],['context.world',context.world],['context.world_entries',context.world_entries],['world_records',s.world_records],['worlds',s.worlds],['canon.world_records',canon.world_records],['canon.world',canon.world]];let records=[];let field='none';for(const [name,value] of sources){if(Array.isArray(value)){records=value;field=name;break;}}return[{json:{...$json,world_records:records,world_source_field:field}}];"
+      },
+      "id": "34750592-d20b-4b92-9abf-9db49c6eafb2",
+      "name": "Extract World Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const types=new Set(['region','location','faction','sect','kingdom','dynasty','race','system','law','history','organization','building','battlefield','forbidden_area','realm','resource','environment','other']);const clean=v=>typeof v==='string'?v.trim().replace(/\\s+/gu,' '):'';const arrayFields=['aliases','members','related_factions','related_locations','rules'];const normalized=$json.world_records.map((original_record,source_index)=>{const r=original_record&&typeof original_record==='object'&&!Array.isArray(original_record)?original_record:{};const arrays={};const array_types={};for(const field of arrayFields){array_types[field]=r[field]==null||Array.isArray(r[field]);const seen=new Set();arrays[field]=[];for(const value of Array.isArray(r[field])?r[field]:[]){const item=clean(value);if(item&&!seen.has(item)){seen.add(item);arrays[field].push(item);}}}const rawType=clean(r.world_type).toLowerCase();const appearanceValid=r.first_appearance_chapter==null||(Number.isInteger(r.first_appearance_chapter)&&r.first_appearance_chapter>0);return{source_index,original_record,array_types,first_appearance_type_valid:appearanceValid,record:{name:clean(r.name),world_type:types.has(rawType)?rawType:'other',aliases:arrays.aliases,parent_name:clean(r.parent_name),region:clean(r.region),description:clean(r.description),leader:clean(r.leader),members:arrays.members,related_factions:arrays.related_factions,related_locations:arrays.related_locations,rules:arrays.rules,history:clean(r.history),status:clean(r.status),first_appearance_chapter:appearanceValid&&r.first_appearance_chapter!=null?r.first_appearance_chapter:null,notes:clean(r.notes),source_chapter_uuid:clean(r.source_chapter_uuid)||$json.canon_context.chapter_uuid}}});return[{json:{...$json,normalized_world_records:normalized,supported_world_types:[...types]}}];"
+      },
+      "id": "c523be57-4052-44d8-8014-00104d7cdd4b",
+      "name": "Normalize World Records",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const valid=[];const invalid=[];for(const item of $json.normalized_world_records){const errors=[];const r=item.record;const length=Array.from(r.name).length;if(length<1)errors.push('World name is required.');else if(length>150)errors.push('World name must not exceed 150 characters.');if(!$json.supported_world_types.includes(r.world_type))errors.push('world_type must be supported.');for(const field of ['aliases','members','related_factions','related_locations','rules'])if(!item.array_types[field]||!Array.isArray(r[field]))errors.push(`${field} must be an array.`);if(!item.first_appearance_type_valid)errors.push('first_appearance_chapter must be a positive integer or null.');if(errors.length)invalid.push({source_index:item.source_index,validation_errors:errors,original_record:item.original_record});else valid.push({...r,source_index:item.source_index});}return[{json:{...$json,valid_world_records:valid,invalid_world_records:invalid}}];"
+      },
+      "id": "683988e3-22fa-446a-b563-9fa5cdcdb061",
+      "name": "Validate World Records",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "function uuidHelper(){let t=Date.now();return'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=(t+Math.random()*16)%16|0;t=Math.floor(t/16);return(c==='x'?r:(r&3)|8).toString(16)})}return[{json:{...$json,identified_world_records:$json.valid_world_records.map(record=>({...record,world_uuid:`WLD-${uuidHelper().replace(/-/g,'').slice(0,8)}`}))}}];"
+      },
+      "id": "b28139eb-56a7-443f-9c40-6ceee220f4a3",
+      "name": "Generate World IDs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const c=$json.canon_context;const worlds=$json.identified_world_records.map(r=>{const timestamp=new Date().toISOString();return{world_uuid:r.world_uuid,world_name:r.name,world_type:r.world_type,aliases:r.aliases,parent_name:r.parent_name,region:r.region,description:r.description,leader:r.leader,members:r.members,related_factions:r.related_factions,related_locations:r.related_locations,rules:r.rules,history:r.history,status:r.status,first_appearance_chapter:r.first_appearance_chapter,notes:r.notes,novel_uuid:c.novel_uuid,workspace_uuid:c.workspace_uuid,source_canon_uuid:c.canon_uuid,source_chapter_uuid:r.source_chapter_uuid,source_chapter_number:c.chapter_number,world_version:'1.0',created_at:timestamp,updated_at:timestamp,created_by:'Novel Studio WF-008',_source_index:r.source_index}});return[{json:{...$json,world_objects:worlds}}];"
+      },
+      "id": "80a36f70-8d37-4e12-bebf-d3f4208ece96",
+      "name": "Build World Knowledge Objects",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const arrayFields=['aliases','members','related_factions','related_locations','rules'];const scalarFields=['parent_name','region','description','leader','history','status','first_appearance_chapter','notes'];const empty=v=>v===''||v===null||v===undefined;const map=new Map();const conflicts=[];let duplicates=0;for(const incoming of $json.world_objects){const key=`${incoming.world_type}::${incoming.world_name.toLocaleLowerCase()}`;if(!map.has(key)){const base={...incoming};for(const field of arrayFields)base[field]=[...incoming[field]];map.set(key,base);continue;}duplicates++;const existing=map.get(key);for(const field of arrayFields)existing[field]=[...new Set([...existing[field],...incoming[field]])];for(const field of scalarFields){if(empty(existing[field])&&!empty(incoming[field]))existing[field]=incoming[field];else if(!empty(existing[field])&&!empty(incoming[field])&&existing[field]!==incoming[field])conflicts.push({world_name:existing.world_name,world_type:existing.world_type,field,existing_value:existing[field],incoming_value:incoming[field],source_index:incoming._source_index});}}const worlds=[...map.values()].map(({_source_index,...world})=>world);return[{json:{...$json,worlds,world_conflicts:conflicts,duplicates_merged:duplicates}}];"
+      },
+      "id": "b65eab10-b7a5-4bd6-802b-c65a441b1312",
+      "name": "Deduplicate World Records",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const type_counts=Object.fromEntries($json.supported_world_types.map(type=>[type,0]));for(const world of $json.worlds)type_counts[world.world_type]++;const summary={source_records:$json.world_records.length,valid_records:$json.valid_world_records.length,invalid_records:$json.invalid_world_records.length,world_objects_created:$json.worlds.length,duplicates_merged:$json.duplicates_merged,conflicts_detected:$json.world_conflicts.length,type_counts};return[{json:{...$json,summary}}];"
+      },
+      "id": "3bcf67cd-c65d-4c7a-b341-a5b4ab8bec36",
+      "name": "Calculate World Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2160,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const valid=$json.is_valid===true;const emptySummary={source_records:0,valid_records:0,invalid_records:0,world_objects_created:0,duplicates_merged:0,conflicts_detected:0,type_counts:{}};const c=$json.canon_context??{};return[{json:{schema_version:'1.0',workflow_version:'2.0',route:'world.created',target:'WF-009',status:valid?'ready':'error',is_valid:valid,validation_errors:$json.validation_errors??[],worlds:valid?($json.worlds??[]):[],invalid_world_records:valid?($json.invalid_world_records??[]):[],world_conflicts:valid?($json.world_conflicts??[]):[],summary:valid?($json.summary??emptySummary):emptySummary,context:valid?{canon_uuid:c.canon_uuid,novel_uuid:c.novel_uuid,workspace_uuid:c.workspace_uuid,chapter_uuid:c.chapter_uuid,chapter_number:c.chapter_number,chapter_title:c.chapter_title}:{}}}];"
+      },
+      "id": "f629a168-ebef-4d7f-a53e-64e20b663796",
+      "name": "Build Final Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2400,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Intake\nAccept and validate the WF-007 Character Knowledge contract.",
+        "height": 190,
+        "width": 720,
+        "color": 6
+      },
+      "id": "15ecf439-de45-458a-8a97-f47c24ff4de6",
+      "name": "Intake Section",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -320
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Validation\nReject invalid envelopes while isolating invalid world records.",
+        "height": 190,
+        "width": 720,
+        "color": 6
+      },
+      "id": "8712f762-af99-46e3-beef-e3f5704cd492",
+      "name": "Validation Section",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        480,
+        -320
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## World Normalization\nNormalize only supplied records; unsupported types become other.",
+        "height": 190,
+        "width": 720,
+        "color": 6
+      },
+      "id": "4a0572df-d1ea-4524-956f-3e0adf780cc4",
+      "name": "World Normalization Section",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        720,
+        -320
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Knowledge Object Generation\nGenerate WLD identities and canonical objects without inference.",
+        "height": 190,
+        "width": 720,
+        "color": 6
+      },
+      "id": "e5558add-31e3-4e30-922c-6e6d6007a3cd",
+      "name": "Knowledge Object Generation Section",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1440,
+        -320
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Output\nDeduplicate by type + name, report conflicts, summarize, and route.",
+        "height": 190,
+        "width": 720,
+        "color": 6
+      },
+      "id": "39348509-1ddf-4d32-be1e-55d0b0deab5d",
+      "name": "Output Section",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1920,
+        -320
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Validate Character Route",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Character Route": {
+      "main": [
+        [
+          {
+            "node": "Extract Canon Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Canon Context": {
+      "main": [
+        [
+          {
+            "node": "Extract World Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract World Input": {
+      "main": [
+        [
+          {
+            "node": "Normalize World Records",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize World Records": {
+      "main": [
+        [
+          {
+            "node": "Validate World Records",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate World Records": {
+      "main": [
+        [
+          {
+            "node": "Generate World IDs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate World IDs": {
+      "main": [
+        [
+          {
+            "node": "Build World Knowledge Objects",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build World Knowledge Objects": {
+      "main": [
+        [
+          {
+            "node": "Deduplicate World Records",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Deduplicate World Records": {
+      "main": [
+        [
+          {
+            "node": "Calculate World Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate World Summary": {
+      "main": [
+        [
+          {
+            "node": "Build Final Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "85d61274-4ef8-4b0a-bd01-4a685ed547a7",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

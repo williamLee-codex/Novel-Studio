@@ -1,0 +1,406 @@
+{
+  "name": "WF-010 - Story Bible Manager v2",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "1515b493-a5f6-4e57-934a-4cd98b8c393b",
+      "name": "Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const errors=[];const contextIsObject=$json.context!==null&&typeof $json.context==='object'&&!Array.isArray($json.context);const c=contextIsObject?$json.context:{};\nif($json.schema_version!=='1.0')errors.push('Invalid schema_version: expected 1.0.');\nif($json.route!=='timeline.created')errors.push('Invalid route: expected timeline.created.');\nif($json.status!=='ready')errors.push('Invalid status: expected ready.');\nif($json.is_valid!==true)errors.push('Input contract must be valid.');\nif(!contextIsObject)errors.push('Invalid context: expected an object.');\nfor(const field of ['novel_uuid','workspace_uuid','chapter_uuid'])if(typeof c[field]!=='string'||!c[field].trim())errors.push(`context.${field} is required.`);\nif(!Number.isInteger(c.chapter_number)||c.chapter_number<0)errors.push('context.chapter_number must be a non-negative integer.');\nreturn[{json:{...$json,is_valid:errors.length===0,validation_errors:errors}}];"
+      },
+      "id": "79447184-862a-4fb9-b148-587348c6d0b1",
+      "name": "Validate Timeline Route",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const c=$json.context&&typeof $json.context==='object'&&!Array.isArray($json.context)?$json.context:{};return[{json:{is_valid:$json.is_valid===true,validation_errors:$json.validation_errors??[],source_contract:$json,story_context:{canon_uuid:typeof c.canon_uuid==='string'?c.canon_uuid.trim():'',novel_uuid:typeof c.novel_uuid==='string'?c.novel_uuid.trim():'',workspace_uuid:typeof c.workspace_uuid==='string'?c.workspace_uuid.trim():'',chapter_uuid:typeof c.chapter_uuid==='string'?c.chapter_uuid.trim():'',chapter_number:c.chapter_number??0,chapter_title:typeof c.chapter_title==='string'?c.chapter_title.trim().replace(/\\s+/gu,' '):'',created_at:typeof c.created_at==='string'?c.created_at:'',updated_at:typeof c.updated_at==='string'?c.updated_at:'',created_by:typeof c.created_by==='string'?c.created_by:''}}}];"
+      },
+      "id": "582cd4fa-9435-4afe-a048-6db713433746",
+      "name": "Extract Story Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const s=$json.source_contract??{};const c=s.context&&typeof s.context==='object'?s.context:{};const pickObject=(values)=>values.find(v=>v&&typeof v==='object'&&!Array.isArray(v))??{};const pickArray=(values)=>values.find(Array.isArray)??[];const canonObject=pickObject([c.canon,s.canon]);const canonRecords=pickArray([c.canon_records,s.canon_records]);const raw_canon=Object.keys(canonObject).length?canonObject:canonRecords.length?{entries:canonRecords}:{};return[{json:{...$json,raw_knowledge:{canon:raw_canon,characters:pickArray([c.characters,s.characters,c.character_records,s.character_records]),worlds:pickArray([c.worlds,s.worlds,c.world_records,s.world_records]),timeline:pickArray([c.timeline,s.timeline,c.timeline_records,s.timeline_records]),character_conflicts:pickArray([c.character_conflicts,s.character_conflicts]),world_conflicts:pickArray([c.world_conflicts,s.world_conflicts]),timeline_conflicts:pickArray([c.timeline_conflicts,s.timeline_conflicts])}}}];"
+      },
+      "id": "f53f9cad-454a-41e4-ac9a-0289f7db45b9",
+      "name": "Extract Knowledge Collections",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw=$json.raw_knowledge.canon;const invalid=[];const entries=Array.isArray(raw.entries)?raw.entries.reduce((out,item,index)=>{if(item&&typeof item==='object'&&!Array.isArray(item))out.push(item);else if(item!=null)invalid.push({section:'canon.entries',source_index:index,validation_errors:['Canon entry must be an object.'],original_record:item});return out;},[]):[];const canon=Object.keys(raw).length?{canon_uuid:typeof raw.canon_uuid==='string'?raw.canon_uuid.trim():'',canon_type:typeof raw.canon_type==='string'?raw.canon_type.trim():'',canon_version:typeof raw.canon_version==='string'?raw.canon_version.trim():'',chapter_uuid:typeof raw.chapter_uuid==='string'?raw.chapter_uuid.trim():'',chapter_number:Number.isInteger(raw.chapter_number)?raw.chapter_number:0,chapter_title:typeof raw.chapter_title==='string'?raw.chapter_title.trim().replace(/\\s+/gu,' '):'',entries}:{};return[{json:{...$json,canon_section:canon,invalid_knowledge_records:invalid}}];"
+      },
+      "id": "bba6d9a3-78d8-4839-9b0f-cec2cceb74bf",
+      "name": "Normalize Canon Section",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const valid=[];const invalid=[...$json.invalid_knowledge_records];$json.raw_knowledge.characters.forEach((item,index)=>{if(item&&typeof item==='object'&&!Array.isArray(item))valid.push(item);else invalid.push({section:'characters',source_index:index,validation_errors:['Character record must be an object.'],original_record:item});});const conflicts=[];$json.raw_knowledge.character_conflicts.forEach((item,index)=>{if(item&&typeof item==='object'&&!Array.isArray(item))conflicts.push(item);else invalid.push({section:'character_conflicts',source_index:index,validation_errors:['Character conflict must be an object.'],original_record:item});});return[{json:{...$json,character_section:valid,character_conflicts:conflicts,invalid_knowledge_records:invalid}}];"
+      },
+      "id": "5614efef-2f8a-4b0d-89ef-358d87e149de",
+      "name": "Normalize Character Section",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const valid=[];const invalid=[...$json.invalid_knowledge_records];$json.raw_knowledge.worlds.forEach((item,index)=>{if(item&&typeof item==='object'&&!Array.isArray(item))valid.push(item);else invalid.push({section:'world',source_index:index,validation_errors:['World record must be an object.'],original_record:item});});const conflicts=[];$json.raw_knowledge.world_conflicts.forEach((item,index)=>{if(item&&typeof item==='object'&&!Array.isArray(item))conflicts.push(item);else invalid.push({section:'world_conflicts',source_index:index,validation_errors:['World conflict must be an object.'],original_record:item});});return[{json:{...$json,world_section:valid,world_conflicts:conflicts,invalid_knowledge_records:invalid}}];"
+      },
+      "id": "9caa9077-7983-4cb9-b88a-cecf7ec81e18",
+      "name": "Normalize World Section",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const valid=[];const invalid=[...$json.invalid_knowledge_records];$json.raw_knowledge.timeline.forEach((item,index)=>{if(item&&typeof item==='object'&&!Array.isArray(item))valid.push(item);else invalid.push({section:'timeline',source_index:index,validation_errors:['Timeline record must be an object.'],original_record:item});});valid.sort((a,b)=>{const chapterA=Number.isInteger(a.chapter_number)?a.chapter_number:Number.MAX_SAFE_INTEGER;const chapterB=Number.isInteger(b.chapter_number)?b.chapter_number:Number.MAX_SAFE_INTEGER;if(chapterA!==chapterB)return chapterA-chapterB;const orderA=Number.isInteger(a.event_order)?a.event_order:Number.MAX_SAFE_INTEGER;const orderB=Number.isInteger(b.event_order)?b.event_order:Number.MAX_SAFE_INTEGER;if(orderA!==orderB)return orderA-orderB;return String(a.event_name??'').localeCompare(String(b.event_name??''));});const conflicts=[];$json.raw_knowledge.timeline_conflicts.forEach((item,index)=>{if(item&&typeof item==='object'&&!Array.isArray(item))conflicts.push(item);else invalid.push({section:'timeline_conflicts',source_index:index,validation_errors:['Timeline conflict must be an object.'],original_record:item});});return[{json:{...$json,timeline_section:valid,timeline_conflicts:conflicts,invalid_knowledge_records:invalid}}];"
+      },
+      "id": "f866d13c-1a48-458a-9dd5-e067c8644694",
+      "name": "Normalize Timeline Section",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const errors=[...($json.validation_errors??[])];if(!$json.canon_section||typeof $json.canon_section!=='object'||Array.isArray($json.canon_section))errors.push('Canon section must be an object.');for(const [name,value] of [['characters',$json.character_section],['world',$json.world_section],['timeline',$json.timeline_section],['character_conflicts',$json.character_conflicts],['world_conflicts',$json.world_conflicts],['timeline_conflicts',$json.timeline_conflicts]])if(!Array.isArray(value))errors.push(`${name} section must be an array.`);return[{json:{...$json,is_valid:errors.length===0,validation_errors:errors}}];"
+      },
+      "id": "38fd7563-dbce-4f43-949c-d95103be3621",
+      "name": "Validate Knowledge Sections",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "function uuidHelper(){let t=Date.now();return'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=(t+Math.random()*16)%16|0;t=Math.floor(t/16);return(c==='x'?r:(r&3)|8).toString(16)})}const timestamp=new Date().toISOString();return[{json:{...$json,story_bible_uuid:$json.is_valid?`BIB-${uuidHelper().replace(/-/g,'').slice(0,8)}`:'',story_bible_created_at:timestamp}}];"
+      },
+      "id": "6eb61681-6995-4792-849d-95b92982eeba",
+      "name": "Generate Story Bible UUID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2160,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "if(!$json.is_valid)return[{json:{...$json,story_bible_sections:null}}];const c=$json.story_context;return[{json:{...$json,story_bible_sections:{overview:{novel_uuid:c.novel_uuid,workspace_uuid:c.workspace_uuid,latest_chapter_uuid:c.chapter_uuid,latest_chapter_number:c.chapter_number,latest_chapter_title:c.chapter_title},canon:$json.canon_section,characters:$json.character_section,world:$json.world_section,timeline:$json.timeline_section,conflicts:{character_conflicts:$json.character_conflicts,world_conflicts:$json.world_conflicts,timeline_conflicts:$json.timeline_conflicts}}}}];"
+      },
+      "id": "c168605c-6782-475e-8168-8ed4adecb4a0",
+      "name": "Build Story Bible Sections",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2400,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "if(!$json.is_valid)return[{json:{...$json,story_bible_index:null}}];const hasCanon=Object.keys($json.canon_section).length>0;const index={canon_count:hasCanon?1:0,character_count:$json.character_section.length,world_count:$json.world_section.length,timeline_count:$json.timeline_section.length,character_conflict_count:$json.character_conflicts.length,world_conflict_count:$json.world_conflicts.length,timeline_conflict_count:$json.timeline_conflicts.length,invalid_knowledge_count:$json.invalid_knowledge_records.length};return[{json:{...$json,story_bible_index:index}}];"
+      },
+      "id": "a495ecd3-504b-421b-9485-4070cb701d2c",
+      "name": "Build Story Bible Index",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2640,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "if(!$json.is_valid)return[{json:{...$json,story_bible_summary:null}}];const i=$json.story_bible_index;const summary={sections_created:5,knowledge_objects_total:i.canon_count+i.character_count+i.world_count+i.timeline_count,conflicts_total:i.character_conflict_count+i.world_conflict_count+i.timeline_conflict_count,invalid_records_total:i.invalid_knowledge_count,has_canon:i.canon_count>0,has_characters:i.character_count>0,has_world:i.world_count>0,has_timeline:i.timeline_count>0};return[{json:{...$json,story_bible_summary:summary}}];"
+      },
+      "id": "d2a945c0-0a4a-4362-89a2-f7f9d5cdd27c",
+      "name": "Calculate Story Bible Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2880,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const valid=$json.is_valid===true;const c=$json.story_context??{};const story=valid?{story_bible_uuid:$json.story_bible_uuid,novel_uuid:c.novel_uuid,workspace_uuid:c.workspace_uuid,story_bible_version:'1.0',sections:$json.story_bible_sections,index:$json.story_bible_index,summary:$json.story_bible_summary,created_at:$json.story_bible_created_at,updated_at:$json.story_bible_created_at,created_by:'Novel Studio WF-010'}:null;return[{json:{schema_version:'1.0',workflow_version:'2.0',route:'story_bible.created',target:'WF-011',status:valid?'ready':'error',is_valid:valid,validation_errors:$json.validation_errors??[],story_bible:story,invalid_knowledge_records:valid?($json.invalid_knowledge_records??[]):[],context:valid?{canon_uuid:c.canon_uuid,novel_uuid:c.novel_uuid,workspace_uuid:c.workspace_uuid,chapter_uuid:c.chapter_uuid,chapter_number:c.chapter_number,chapter_title:c.chapter_title}:{}}}];"
+      },
+      "id": "877f1f43-6f83-4d47-bc22-113187b164b8",
+      "name": "Build Final Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3120,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Intake\nValidate WF-009 and select explicit structured knowledge.",
+        "height": 190,
+        "width": 800,
+        "color": 2
+      },
+      "id": "52b70cf1-34f4-4196-88ab-aa9731c8f3d8",
+      "name": "Story Bible Intake Section",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -320
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Knowledge Normalization\nPreserve valid objects, remove invalid records, and sort timeline.",
+        "height": 190,
+        "width": 800,
+        "color": 2
+      },
+      "id": "0de16191-0ad7-4f0d-a959-821aa7e275ce",
+      "name": "Knowledge Normalization Section",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        900,
+        -320
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Assembly\nGenerate BIB identity, sections, index, and summary without rewriting facts.",
+        "height": 190,
+        "width": 800,
+        "color": 2
+      },
+      "id": "67de1633-5174-4f73-8e21-401c3d47baa6",
+      "name": "Story Bible Assembly Section",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2100,
+        -320
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Output\nEmit one canonical Story Bible contract for WF-011.",
+        "height": 190,
+        "width": 800,
+        "color": 2
+      },
+      "id": "03eeee5d-1bd1-4258-bd1f-f392ec3d3ea4",
+      "name": "Story Bible Output Section",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2880,
+        -320
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Validate Timeline Route",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Timeline Route": {
+      "main": [
+        [
+          {
+            "node": "Extract Story Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Story Context": {
+      "main": [
+        [
+          {
+            "node": "Extract Knowledge Collections",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Knowledge Collections": {
+      "main": [
+        [
+          {
+            "node": "Normalize Canon Section",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Canon Section": {
+      "main": [
+        [
+          {
+            "node": "Normalize Character Section",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Character Section": {
+      "main": [
+        [
+          {
+            "node": "Normalize World Section",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize World Section": {
+      "main": [
+        [
+          {
+            "node": "Normalize Timeline Section",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Timeline Section": {
+      "main": [
+        [
+          {
+            "node": "Validate Knowledge Sections",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Knowledge Sections": {
+      "main": [
+        [
+          {
+            "node": "Generate Story Bible UUID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Story Bible UUID": {
+      "main": [
+        [
+          {
+            "node": "Build Story Bible Sections",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Story Bible Sections": {
+      "main": [
+        [
+          {
+            "node": "Build Story Bible Index",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Story Bible Index": {
+      "main": [
+        [
+          {
+            "node": "Calculate Story Bible Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Story Bible Summary": {
+      "main": [
+        [
+          {
+            "node": "Build Final Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "71c2c4b4-c8a6-4c19-af9d-d705bdd5bd37",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
