@@ -766,13 +766,7 @@
             "index": 0
           }
         ],
-        [
-          {
-            "node": "Collect Execution Results",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        []
       ]
     },
     "Use Existing Root Folder": {
