@@ -279,6 +279,53 @@
     },
     {
       "parameters": {
+        "jsCode": "const result=$json&&typeof $json==='object'&&!Array.isArray($json)?$json:{};const isObj=value=>value!==null&&typeof value==='object'&&!Array.isArray(value);const novel=isObj(result.novel)?{...result.novel}:{};const sourceContext=isObj(result.context)?result.context:{};let state={};try{const candidate=$('Validate WF-002 Result').item.json;state=isObj(candidate?._orchestration)?candidate._orchestration:{}}catch{state={}}const orchestrationContext=isObj(state.context)?state.context:{};const str=value=>typeof value==='string'?value.trim():'';const requiredFields=['novel_uuid','novel_slug','novel_title','novel_status'];const errors=[];for(const field of requiredFields)if(!str(novel[field]))errors.push(`novel.${field} is required for WF-003.`);const context={telegram_update_id:Number(sourceContext.telegram_update_id??orchestrationContext.telegram_update_id??0),telegram_chat_id:Number(sourceContext.telegram_chat_id??orchestrationContext.telegram_chat_id??0),telegram_user_id:Number(sourceContext.telegram_user_id??orchestrationContext.telegram_user_id??0),received_at:str(sourceContext.received_at)||str(orchestrationContext.received_at)};if(errors.length){const now=new Date().toISOString();const next={...state,pipeline_active:false,integration_status:'error',failed_stage:'WF-003',validation_errors:[...(Array.isArray(state.validation_errors)?state.validation_errors:[]),...errors]};return[{json:{_orchestration:next,pipeline_active:false,input_validation_errors:errors}}]}return[{json:{schema_version:'1.0',workflow_version:'2.0',route:'novel.metadata.created',status:'ready',is_valid:true,validation_errors:[],novel,context}}];"
+      },
+      "id": "8b25e588-a24d-49ee-b07a-dd5084a6fc49",
+      "name": "Prepare WF-003 Workspace Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1580,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "8d106d0d-b163-4c52-a590-a72855bd5f02",
+              "leftValue": "={{ $json.is_valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "fc58b3c7-b380-4819-b655-43e6a967f91f",
+      "name": "WF-003 Input Ready?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1800,
+        0
+      ]
+    },
+    {
+      "parameters": {
         "workflowId": {
           "__rl": true,
           "value": "",
@@ -303,7 +350,7 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
-        1580,
+        2020,
         0
       ],
       "onError": "continueRegularOutput",
@@ -318,7 +365,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1800,
+        2240,
         0
       ]
     },
@@ -352,7 +399,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        2020,
+        2460,
         0
       ]
     },
@@ -365,7 +412,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2240,
+        2680,
         0
       ]
     },
@@ -395,7 +442,7 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
-        2460,
+        2900,
         0
       ],
       "onError": "continueRegularOutput",
@@ -410,7 +457,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2680,
+        3120,
         0
       ]
     },
@@ -444,7 +491,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        2900,
+        3340,
         0
       ]
     },
@@ -1456,7 +1503,7 @@
       "main": [
         [
           {
-            "node": "Call WF-003 Workspace Manager",
+            "node": "Prepare WF-003 Workspace Input",
             "type": "main",
             "index": 0
           }
@@ -1970,6 +2017,35 @@
         [
           {
             "node": "Validate Chapter Storage Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare WF-003 Workspace Input": {
+      "main": [
+        [
+          {
+            "node": "WF-003 Input Ready?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WF-003 Input Ready?": {
+      "main": [
+        [
+          {
+            "node": "Call WF-003 Workspace Manager",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Integration Summary",
             "type": "main",
             "index": 0
           }
