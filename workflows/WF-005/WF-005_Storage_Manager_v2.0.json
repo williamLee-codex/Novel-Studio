@@ -330,7 +330,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const source=$('Resolve Parent Folder').first().json;if(source.execution_rejected)return[{json:{...source,operation:null,parent_folder_id:''}}];const rootOutputs=$('Create Root Folder').all();const existingOutputs=$('Use Existing Root Folder').all();const rootJson=(rootOutputs[0]??existingOutputs[0]??{json:{}}).json;const rootId=source.existing_root_folder_id||rootJson.id||'';return source.file_plan.map(o=>({json:{...source,operation:o,parent_folder_id:source.folder_id_map[o.parent_relative_path]||rootId,root_folder_id:rootId,root_folder_url:rootJson.webViewLink||`https://drive.google.com/drive/folders/${rootId}`,content:o.initial_content,file_name:o.file_name}}));"
+        "jsCode": "const source=$('Resolve Parent Folder').first().json;if(source.execution_rejected)return[{json:{...source,operation:null,parent_folder_id:''}}];let rootJson={};try{const createdRootItems=$('Create Root Folder').all();if(createdRootItems.length>0){rootJson=createdRootItems[0].json??{};}}catch{}if(!rootJson.id){try{const existingRootItems=$('Use Existing Root Folder').all();if(existingRootItems.length>0){rootJson=existingRootItems[0].json??{};}}catch{}}const rootId=source.existing_root_folder_id||source.root_folder_id||rootJson.id||'';return source.file_plan.map(o=>({json:{...source,operation:o,parent_folder_id:source.folder_id_map[o.parent_relative_path]||rootId,root_folder_id:rootId,root_folder_url:rootJson.webViewLink||`https://drive.google.com/drive/folders/${rootId}`,content:o.initial_content,file_name:o.file_name}}));"
       },
       "id": "b3194a99-65d4-4850-aaa3-74f653e6bc14",
       "name": "Prepare File Items",
