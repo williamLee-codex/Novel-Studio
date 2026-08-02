@@ -213,29 +213,12 @@
     },
     {
       "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "",
-          "mode": "list",
-          "cachedResultName": "Social Center - Publish Workflow (Manual Binding)"
-        },
-        "workflowInputs": {
-          "mappingMode": "defineBelow",
-          "value": {},
-          "matchingColumns": [],
-          "schema": [],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": true
-        },
-        "options": {
-          "waitForSubWorkflow": true
-        },
-        "source": "database"
+        "jsCode": "const items = $input.all();\nconst input = items[0]?.json ?? {};\nreturn [{ json: { schema_version: '1.0', adapter_version: '1.0', route: 'social.action.not_configured', status: 'review_required', is_valid: true, validation_errors: [], social: { action: 'publish', dispatched: false, target_workflow: '', configuration_status: 'pending' }, response: { type: 'telegram_message', text: '🚀 今日發布功能尚未完成新入口綁定，原社群發布中心仍可繼續使用。' }, telegram: {}, user: {} } }];"
       },
       "id": "088a58e3-b846-5815-a4e2-368b6e73108c",
-      "name": "Call Existing Publish Workflow",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
+      "name": "Publish Action Placeholder",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         320,
         -60
@@ -258,29 +241,12 @@
     },
     {
       "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "",
-          "mode": "list",
-          "cachedResultName": "Social Center - Results Workflow (Manual Binding)"
-        },
-        "workflowInputs": {
-          "mappingMode": "defineBelow",
-          "value": {},
-          "matchingColumns": [],
-          "schema": [],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": true
-        },
-        "options": {
-          "waitForSubWorkflow": true
-        },
-        "source": "database"
+        "jsCode": "const items = $input.all();\nconst input = items[0]?.json ?? {};\nreturn [{ json: { schema_version: '1.0', adapter_version: '1.0', route: 'social.action.not_configured', status: 'review_required', is_valid: true, validation_errors: [], social: { action: 'results', dispatched: false, target_workflow: '', configuration_status: 'pending' }, response: { type: 'telegram_message', text: '📊 發布結果功能尚未完成新入口綁定，原社群發布中心仍可繼續使用。' }, telegram: {}, user: {} } }];"
       },
       "id": "0931c3db-fc0f-5b47-9d9b-0c3e0817fd4c",
-      "name": "Call Existing Results Workflow",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
+      "name": "Results Action Placeholder",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         320,
         140
@@ -303,29 +269,12 @@
     },
     {
       "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "",
-          "mode": "list",
-          "cachedResultName": "Social Center - Status Workflow (Manual Binding)"
-        },
-        "workflowInputs": {
-          "mappingMode": "defineBelow",
-          "value": {},
-          "matchingColumns": [],
-          "schema": [],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": true
-        },
-        "options": {
-          "waitForSubWorkflow": true
-        },
-        "source": "database"
+        "jsCode": "const items = $input.all();\nconst input = items[0]?.json ?? {};\nreturn [{ json: { schema_version: '1.0', adapter_version: '1.0', route: 'social.action.not_configured', status: 'review_required', is_valid: true, validation_errors: [], social: { action: 'status', dispatched: false, target_workflow: '', configuration_status: 'pending' }, response: { type: 'telegram_message', text: '⚙️ 系統狀態功能尚未完成新入口綁定，原社群發布中心仍可繼續使用。' }, telegram: {}, user: {} } }];"
       },
       "id": "619e94eb-ab2a-555d-8512-65410c6fbfa8",
-      "name": "Call Existing Status Workflow",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
+      "name": "Status Action Placeholder",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         320,
         340
@@ -335,7 +284,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const items = $input.all();\nconst raw = items[0]?.json ?? {};\nconst meta = (raw.adapter_context && typeof raw.adapter_context === 'object') ? raw.adapter_context : {};\nconst telegram = (meta.telegram && typeof meta.telegram === 'object') ? meta.telegram : ((raw.telegram && typeof raw.telegram === 'object') ? raw.telegram : {});\nconst user = (meta.user && typeof meta.user === 'object') ? meta.user : ((raw.user && typeof raw.user === 'object') ? raw.user : {});\nconst errors = Array.isArray(raw.validation_errors) ? raw.validation_errors : [];\nconst action = typeof meta.action === 'string' ? meta.action : '';\nconst target = typeof meta.target_workflow === 'string' ? meta.target_workflow : '';\nconst executionError = raw.error ?? raw.executionError ?? null;\nconst outputExists = items.length > 0 && raw && typeof raw === 'object' && Object.keys(raw).length > 0;\nconst failed = !outputExists || !action || !!executionError || raw.is_valid === false || String(raw.status ?? '').toLowerCase() === 'error';\nconst safeResult = { route: typeof raw.route === 'string' ? raw.route : '', status: typeof raw.status === 'string' ? raw.status : '', is_valid: typeof raw.is_valid === 'boolean' ? raw.is_valid : !failed, validation_errors: errors, response: (raw.response && typeof raw.response === 'object') ? raw.response : null, text: typeof raw.text === 'string' ? raw.text : '' };\nreturn [{ json: { normalized_result: safeResult, adapter_context: { action, target_workflow: target, telegram, user }, dispatch_failed: failed, dispatch_errors: failed ? (errors.length ? errors : [{ code: 'DOWNSTREAM_UNBOUND_OR_FAILED', message: '下游工作流程未綁定、未保留 adapter_context，或執行失敗。' }]) : [] } }];"
+        "jsCode": "const items = $input.all();\nconst raw = items[0]?.json ?? {};\nconst placeholder = raw.route === 'social.action.not_configured' && raw.status === 'review_required' && raw.is_valid === true;\nif (placeholder) {\n  return [{ json: { normalized_result: { schema_version: String(raw.schema_version ?? '1.0'), adapter_version: String(raw.adapter_version ?? '1.0'), route: 'social.action.not_configured', status: 'review_required', is_valid: true, validation_errors: Array.isArray(raw.validation_errors) ? raw.validation_errors : [], social: (raw.social && typeof raw.social === 'object') ? raw.social : {}, response: (raw.response && typeof raw.response === 'object') ? raw.response : {}, telegram: (raw.telegram && typeof raw.telegram === 'object') ? raw.telegram : {}, user: (raw.user && typeof raw.user === 'object') ? raw.user : {} }, dispatch_failed: false, is_placeholder: true } }];\n}\nconst meta = (raw.adapter_context && typeof raw.adapter_context === 'object') ? raw.adapter_context : {};\nconst telegram = (meta.telegram && typeof meta.telegram === 'object') ? meta.telegram : ((raw.telegram && typeof raw.telegram === 'object') ? raw.telegram : {});\nconst user = (meta.user && typeof meta.user === 'object') ? meta.user : ((raw.user && typeof raw.user === 'object') ? raw.user : {});\nconst errors = Array.isArray(raw.validation_errors) ? raw.validation_errors : [];\nconst action = typeof meta.action === 'string' ? meta.action : '';\nconst target = typeof meta.target_workflow === 'string' ? meta.target_workflow : '';\nconst executionError = raw.error ?? raw.executionError ?? null;\nconst outputExists = items.length > 0 && raw && typeof raw === 'object' && Object.keys(raw).length > 0;\nconst failed = !outputExists || !action || !!executionError || raw.is_valid === false || String(raw.status ?? '').toLowerCase() === 'error';\nconst safeResult = { route: typeof raw.route === 'string' ? raw.route : '', status: typeof raw.status === 'string' ? raw.status : '', is_valid: typeof raw.is_valid === 'boolean' ? raw.is_valid : !failed, validation_errors: errors, response: (raw.response && typeof raw.response === 'object') ? raw.response : null, text: typeof raw.text === 'string' ? raw.text : '' };\nreturn [{ json: { normalized_result: safeResult, adapter_context: { action, target_workflow: target, telegram, user }, dispatch_failed: failed, dispatch_errors: failed ? (errors.length ? errors : [{ code: 'DOWNSTREAM_FAILED', message: '下游工作流程未保留 adapter_context 或執行失敗。' }]) : [] } }];"
       },
       "id": "fe9adc72-a857-57f2-9de0-39bbfd107dcf",
       "name": "Normalize Social Result",
@@ -348,7 +297,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const items = $input.all();\nconst data = items[0]?.json ?? {};\nif (data.branch_result?.kind === 'menu') { const response=(data.branch_result.response && typeof data.branch_result.response === 'object')?data.branch_result.response:{}; return [{json:{schema_version:'1.0',adapter_version:'1.0',route:'social.menu.created',status:'ready',is_valid:true,validation_errors:[],social:{action:'menu',dispatched:false,target_workflow:''},response,telegram:(data.telegram&&typeof data.telegram==='object')?data.telegram:{},user:(data.user&&typeof data.user==='object')?data.user:{}}}]; }\nconst meta=(data.adapter_context&&typeof data.adapter_context==='object')?data.adapter_context:{};\nconst telegram=(meta.telegram&&typeof meta.telegram==='object')?meta.telegram:{}; const user=(meta.user&&typeof meta.user==='object')?meta.user:{};\nif(data.dispatch_failed===true){return [{json:{schema_version:'1.0',adapter_version:'1.0',route:'social.action.failed',status:'error',is_valid:false,validation_errors:Array.isArray(data.dispatch_errors)?data.dispatch_errors:[],social:{action:String(meta.action??''),dispatched:false,target_workflow:String(meta.target_workflow??''),failed_stage:'downstream_dispatch'},result:null,telegram,user}}];}\nreturn [{json:{schema_version:'1.0',adapter_version:'1.0',route:'social.action.completed',status:'ready',is_valid:true,validation_errors:[],social:{action:String(meta.action??''),dispatched:true,target_workflow:String(meta.target_workflow??''),completed_at:new Date().toISOString()},result:(data.normalized_result&&typeof data.normalized_result==='object')?data.normalized_result:{},telegram,user}}];"
+        "jsCode": "const items = $input.all();\nconst data = items[0]?.json ?? {};\nif (data.is_placeholder === true && data.normalized_result && typeof data.normalized_result === 'object') return [{ json: data.normalized_result }];\nif (data.branch_result?.kind === 'menu') { const response=(data.branch_result.response && typeof data.branch_result.response === 'object')?data.branch_result.response:{}; return [{json:{schema_version:'1.0',adapter_version:'1.0',route:'social.menu.created',status:'ready',is_valid:true,validation_errors:[],social:{action:'menu',dispatched:false,target_workflow:''},response,telegram:(data.telegram&&typeof data.telegram==='object')?data.telegram:{},user:(data.user&&typeof data.user==='object')?data.user:{}}}]; }\nconst meta=(data.adapter_context&&typeof data.adapter_context==='object')?data.adapter_context:{};\nconst telegram=(meta.telegram&&typeof meta.telegram==='object')?meta.telegram:{}; const user=(meta.user&&typeof meta.user==='object')?meta.user:{};\nif(data.dispatch_failed===true){return [{json:{schema_version:'1.0',adapter_version:'1.0',route:'social.action.failed',status:'error',is_valid:false,validation_errors:Array.isArray(data.dispatch_errors)?data.dispatch_errors:[],social:{action:String(meta.action??''),dispatched:false,target_workflow:String(meta.target_workflow??''),failed_stage:'downstream_dispatch'},result:null,telegram,user}}];}\nreturn [{json:{schema_version:'1.0',adapter_version:'1.0',route:'social.action.completed',status:'ready',is_valid:true,validation_errors:[],social:{action:String(meta.action??''),dispatched:true,target_workflow:String(meta.target_workflow??''),completed_at:new Date().toISOString()},result:(data.normalized_result&&typeof data.normalized_result==='object')?data.normalized_result:{},telegram,user}}];"
       },
       "id": "403c60e6-1e6d-548d-b06c-d30cb9f2486d",
       "name": "Build Social Output",
@@ -406,7 +355,7 @@
     },
     {
       "parameters": {
-        "content": "## Existing Workflow Adapters\nThree unbound Execute Sub-workflow selectors. Bind only callable workflows with Execute Workflow Trigger.",
+        "content": "## Deferred Social Actions\nPublish, results, and status return safe review-required contracts until callable Social Center workflows are available.",
         "height": 840,
         "width": 560,
         "color": 3
@@ -422,7 +371,7 @@
     },
     {
       "parameters": {
-        "content": "## Output\nNormalize actual incoming branch data, redact to safe fields, then emit menu/completed/failed contract.",
+        "content": "## Output\nEmit the menu, safe deferred-action response, or validation error contract.",
         "height": 780,
         "width": 560,
         "color": 7
@@ -526,14 +475,14 @@
       "main": [
         [
           {
-            "node": "Call Existing Publish Workflow",
+            "node": "Publish Action Placeholder",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Call Existing Publish Workflow": {
+    "Publish Action Placeholder": {
       "main": [
         [
           {
@@ -548,14 +497,14 @@
       "main": [
         [
           {
-            "node": "Call Existing Results Workflow",
+            "node": "Results Action Placeholder",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Call Existing Results Workflow": {
+    "Results Action Placeholder": {
       "main": [
         [
           {
@@ -570,14 +519,14 @@
       "main": [
         [
           {
-            "node": "Call Existing Status Workflow",
+            "node": "Status Action Placeholder",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Call Existing Status Workflow": {
+    "Status Action Placeholder": {
       "main": [
         [
           {
