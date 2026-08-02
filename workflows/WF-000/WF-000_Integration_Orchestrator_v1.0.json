@@ -187,6 +187,19 @@
     },
     {
       "parameters": {
+        "jsCode": "const root=$json&&typeof $json==='object'&&!Array.isArray($json)?$json:{};const sourceCommand=root.command&&typeof root.command==='object'&&!Array.isArray(root.command)?root.command:{};const sourceContext=root.context&&typeof root.context==='object'&&!Array.isArray(root.context)?root.context:{};const route=typeof root.route_key==='string'?root.route_key:root.route;const command=typeof sourceCommand.name==='string'&&sourceCommand.name?sourceCommand.name:(route==='command.new'?'new':'');const command_args=Array.isArray(sourceCommand.arguments)?[...sourceCommand.arguments]:[];const argument_text=typeof command_args[0]==='string'?command_args[0]:'';const num=v=>Number.isFinite(Number(v))?Number(v):0;const str=v=>typeof v==='string'?v:'';return[{json:{schema_version:'1.0',workflow_version:'2.0',route:'command.new',target:'WF-002',status:'ready',is_valid:true,validation_errors:[],context:{command,command_args,argument_text,telegram_update_id:num(sourceContext.telegram_update_id),telegram_chat_id:num(sourceContext.telegram_chat_id),telegram_user_id:num(sourceContext.telegram_user_id),received_at:str(sourceContext.received_at)}}}];"
+      },
+      "id": "db137a56-5098-4ba3-8c83-c5bb0c898937",
+      "name": "Prepare WF-002 Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -900,
+        -420
+      ]
+    },
+    {
+      "parameters": {
         "workflowId": {
           "__rl": true,
           "value": "",
@@ -1371,7 +1384,7 @@
       "main": [
         [
           {
-            "node": "Call WF-002 Novel Manager",
+            "node": "Prepare WF-002 Input",
             "type": "main",
             "index": 0
           }
@@ -1411,6 +1424,17 @@
         [
           {
             "node": "Validate WF-002 Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare WF-002 Input": {
+      "main": [
+        [
+          {
+            "node": "Call WF-002 Novel Manager",
             "type": "main",
             "index": 0
           }
