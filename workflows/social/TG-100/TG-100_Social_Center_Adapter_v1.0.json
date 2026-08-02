@@ -1,0 +1,623 @@
+{
+  "name": "TG-100 - Social Center Adapter v1",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "e36a5d0a-dd2b-57e3-b4d4-99ee2d6f5bd4",
+      "name": "Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -1100,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst input = items[0]?.json ?? {};\nconst wrapped = (input.gateway_context && typeof input.gateway_context === 'object') ? input.gateway_context : input;\nconst route = (wrapped.route && typeof wrapped.route === 'object') ? wrapped.route : {};\nconst telegram = (wrapped.telegram && typeof wrapped.telegram === 'object') ? wrapped.telegram : {};\nconst user = (wrapped.user && typeof wrapped.user === 'object') ? wrapped.user : {};\nconst errors = [];\nif (String(wrapped.schema_version ?? '') !== '1.0') errors.push({ code: 'INVALID_SCHEMA_VERSION', message: 'schema_version 必須為 1.0。' });\nif (String(wrapped.source ?? '') !== 'telegram') errors.push({ code: 'INVALID_SOURCE', message: 'source 必須為 telegram。' });\nif (route.domain && String(route.domain) !== 'social') errors.push({ code: 'INVALID_DOMAIN', message: 'route.domain 必須為 social。' });\nreturn [{ json: { original_input: (input && typeof input === 'object') ? input : {}, original_update: (input.original_update && typeof input.original_update === 'object') ? input.original_update : {}, gateway: { schema_version: String(wrapped.schema_version ?? ''), gateway_version: String(wrapped.gateway_version ?? ''), source: String(wrapped.source ?? ''), telegram, user, route, received_at: String(wrapped.received_at ?? '') }, contract_valid: errors.length === 0, contract_errors: errors } }];"
+      },
+      "id": "1c9ed1fa-8022-5b10-a336-6b55a236edc9",
+      "name": "Validate Gateway Contract",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -880,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst data = items[0]?.json ?? {};\nconst gateway = (data.gateway && typeof data.gateway === 'object') ? data.gateway : {};\nconst rawTelegram = (gateway.telegram && typeof gateway.telegram === 'object') ? gateway.telegram : {};\nconst rawUser = (gateway.user && typeof gateway.user === 'object') ? gateway.user : {};\nconst telegram = { update_id: typeof rawTelegram.update_id === 'number' ? rawTelegram.update_id : 0, chat_id: typeof rawTelegram.chat_id === 'number' ? rawTelegram.chat_id : 0, user_id: typeof rawTelegram.user_id === 'number' ? rawTelegram.user_id : 0, message_id: typeof rawTelegram.message_id === 'number' ? rawTelegram.message_id : 0, message_text: typeof rawTelegram.message_text === 'string' ? rawTelegram.message_text : '', callback_query_id: typeof rawTelegram.callback_query_id === 'string' ? rawTelegram.callback_query_id : '', callback_data: typeof rawTelegram.callback_data === 'string' ? rawTelegram.callback_data : '', language_code: typeof rawTelegram.language_code === 'string' ? rawTelegram.language_code : '' };\nconst user = { portal_user_id: typeof rawUser.portal_user_id === 'string' ? rawUser.portal_user_id : '', display_name: typeof rawUser.display_name === 'string' ? rawUser.display_name : '', locale: typeof rawUser.locale === 'string' && rawUser.locale ? rawUser.locale : 'zh-TW' };\nreturn [{ json: { ...data, telegram, user } }];"
+      },
+      "id": "9ec5fee7-289e-50cc-9803-84586217bafb",
+      "name": "Extract Telegram Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -660,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst data = items[0]?.json ?? {};\nconst telegram = (data.telegram && typeof data.telegram === 'object') ? data.telegram : {};\nconst route = (data.gateway?.route && typeof data.gateway.route === 'object') ? data.gateway.route : {};\nconst normalize = value => { const v=String(value ?? '').toLowerCase(); if (['social.home','social.menu','home','menu'].includes(v)) return 'menu'; if (['social.publish','publish'].includes(v)) return 'publish'; if (['social.results','results'].includes(v)) return 'results'; if (['social.status','socialstatus','status'].includes(v)) return 'status'; return ''; };\nlet action = normalize(route.action);\nlet source = action ? 'route.action' : '';\nif (!action) { const cb=String(telegram.callback_data ?? ''); const m=cb.match(/^social:(home|menu|publish|results|status)$/i); if(m){action=normalize(m[1]);source='telegram.callback_data';} }\nif (!action) { const text=String(telegram.message_text ?? ''); const m=text.match(/^\\s*\\/(publish|results|socialstatus)(?:@[A-Za-z0-9_]+)?(?=\\s|$)/i); if(m){action=normalize(m[1]);source='telegram.message_text';} }\nif (!action) { action='menu'; source='fallback'; }\nreturn [{ json: { ...data, social_action: action, action_source: source, route_branch: data.contract_valid === true ? action : 'error' } }];"
+      },
+      "id": "3be635b9-da70-52ef-84ab-aae89c4c9d68",
+      "name": "Detect Social Action",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -440,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route_branch }}",
+                    "rightValue": "menu",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "menu"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route_branch }}",
+                    "rightValue": "publish",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "publish"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route_branch }}",
+                    "rightValue": "results",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "results"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route_branch }}",
+                    "rightValue": "status",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "status"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route_branch }}",
+                    "rightValue": "error",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "error"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "28bc2645-41be-5ca9-84bf-b6c0700266ba",
+      "name": "Switch Social Action",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -200,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst data = items[0]?.json ?? {};\nconst response = { type: 'telegram_menu', text: '📢 社群中心', inline_keyboard: [[{ text: '🚀 今日發布', callback_data: 'social:publish' }],[{ text: '📊 發布結果', callback_data: 'social:results' },{ text: '⚙️ 系統狀態', callback_data: 'social:status' }],[{ text: '🏠 返回主選單', callback_data: 'portal:home' }]] };\nreturn [{ json: { ...data, branch_result: { kind: 'menu', response } } }];"
+      },
+      "id": "b969c6d4-5026-5180-b699-0611d49f5bf9",
+      "name": "Build Social Main Menu",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        80,
+        -260
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst data = items[0]?.json ?? {};\nconst telegram = (data.telegram && typeof data.telegram === 'object') ? data.telegram : {};\nconst user = (data.user && typeof data.user === 'object') ? data.user : {};\nconst requestedAt = new Date().toISOString();\nreturn [{ json: { schema_version: '1.0', adapter_version: '1.0', route: 'social.publish.requested', status: 'ready', is_valid: true, validation_errors: [], telegram, user, context: { source_gateway: 'TG-000', source_adapter: 'TG-100', requested_at: requestedAt }, original_update: (data.original_update && typeof data.original_update === 'object') ? data.original_update : {}, adapter_context: { action: 'publish', target_workflow: 'SOCIAL-PUBLISH', telegram, user, requested_at: requestedAt } } }];"
+      },
+      "id": "849fb85e-a032-5718-96bc-3ef2f588674c",
+      "name": "Prepare Publish Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        80,
+        -60
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "",
+          "mode": "list",
+          "cachedResultName": "Social Center - Publish Workflow (Manual Binding)"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        },
+        "source": "database"
+      },
+      "id": "088a58e3-b846-5815-a4e2-368b6e73108c",
+      "name": "Call Existing Publish Workflow",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        320,
+        -60
+      ],
+      "onError": "continueRegularOutput",
+      "executeOnce": false
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst data = items[0]?.json ?? {};\nconst telegram = (data.telegram && typeof data.telegram === 'object') ? data.telegram : {};\nconst user = (data.user && typeof data.user === 'object') ? data.user : {};\nconst requestedAt = new Date().toISOString();\nreturn [{ json: { schema_version: '1.0', adapter_version: '1.0', route: 'social.results.requested', status: 'ready', is_valid: true, validation_errors: [], telegram, user, context: { source_gateway: 'TG-000', source_adapter: 'TG-100', requested_at: requestedAt }, original_update: (data.original_update && typeof data.original_update === 'object') ? data.original_update : {}, adapter_context: { action: 'results', target_workflow: 'SOCIAL-RESULTS', telegram, user, requested_at: requestedAt } } }];"
+      },
+      "id": "cc5b6572-3acb-55da-b3c1-3daf134826b3",
+      "name": "Prepare Results Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        80,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "",
+          "mode": "list",
+          "cachedResultName": "Social Center - Results Workflow (Manual Binding)"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        },
+        "source": "database"
+      },
+      "id": "0931c3db-fc0f-5b47-9d9b-0c3e0817fd4c",
+      "name": "Call Existing Results Workflow",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        320,
+        140
+      ],
+      "onError": "continueRegularOutput",
+      "executeOnce": false
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst data = items[0]?.json ?? {};\nconst telegram = (data.telegram && typeof data.telegram === 'object') ? data.telegram : {};\nconst user = (data.user && typeof data.user === 'object') ? data.user : {};\nconst requestedAt = new Date().toISOString();\nreturn [{ json: { schema_version: '1.0', adapter_version: '1.0', route: 'social.status.requested', status: 'ready', is_valid: true, validation_errors: [], telegram, user, context: { source_gateway: 'TG-000', source_adapter: 'TG-100', requested_at: requestedAt }, original_update: (data.original_update && typeof data.original_update === 'object') ? data.original_update : {}, adapter_context: { action: 'status', target_workflow: 'SOCIAL-STATUS', telegram, user, requested_at: requestedAt } } }];"
+      },
+      "id": "a1a1b68e-b650-58a7-91a3-bd39f51483df",
+      "name": "Prepare Status Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        80,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "",
+          "mode": "list",
+          "cachedResultName": "Social Center - Status Workflow (Manual Binding)"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        },
+        "source": "database"
+      },
+      "id": "619e94eb-ab2a-555d-8512-65410c6fbfa8",
+      "name": "Call Existing Status Workflow",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        320,
+        340
+      ],
+      "onError": "continueRegularOutput",
+      "executeOnce": false
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst raw = items[0]?.json ?? {};\nconst meta = (raw.adapter_context && typeof raw.adapter_context === 'object') ? raw.adapter_context : {};\nconst telegram = (meta.telegram && typeof meta.telegram === 'object') ? meta.telegram : ((raw.telegram && typeof raw.telegram === 'object') ? raw.telegram : {});\nconst user = (meta.user && typeof meta.user === 'object') ? meta.user : ((raw.user && typeof raw.user === 'object') ? raw.user : {});\nconst errors = Array.isArray(raw.validation_errors) ? raw.validation_errors : [];\nconst action = typeof meta.action === 'string' ? meta.action : '';\nconst target = typeof meta.target_workflow === 'string' ? meta.target_workflow : '';\nconst executionError = raw.error ?? raw.executionError ?? null;\nconst outputExists = items.length > 0 && raw && typeof raw === 'object' && Object.keys(raw).length > 0;\nconst failed = !outputExists || !action || !!executionError || raw.is_valid === false || String(raw.status ?? '').toLowerCase() === 'error';\nconst safeResult = { route: typeof raw.route === 'string' ? raw.route : '', status: typeof raw.status === 'string' ? raw.status : '', is_valid: typeof raw.is_valid === 'boolean' ? raw.is_valid : !failed, validation_errors: errors, response: (raw.response && typeof raw.response === 'object') ? raw.response : null, text: typeof raw.text === 'string' ? raw.text : '' };\nreturn [{ json: { normalized_result: safeResult, adapter_context: { action, target_workflow: target, telegram, user }, dispatch_failed: failed, dispatch_errors: failed ? (errors.length ? errors : [{ code: 'DOWNSTREAM_UNBOUND_OR_FAILED', message: '下游工作流程未綁定、未保留 adapter_context，或執行失敗。' }]) : [] } }];"
+      },
+      "id": "fe9adc72-a857-57f2-9de0-39bbfd107dcf",
+      "name": "Normalize Social Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        600,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst data = items[0]?.json ?? {};\nif (data.branch_result?.kind === 'menu') { const response=(data.branch_result.response && typeof data.branch_result.response === 'object')?data.branch_result.response:{}; return [{json:{schema_version:'1.0',adapter_version:'1.0',route:'social.menu.created',status:'ready',is_valid:true,validation_errors:[],social:{action:'menu',dispatched:false,target_workflow:''},response,telegram:(data.telegram&&typeof data.telegram==='object')?data.telegram:{},user:(data.user&&typeof data.user==='object')?data.user:{}}}]; }\nconst meta=(data.adapter_context&&typeof data.adapter_context==='object')?data.adapter_context:{};\nconst telegram=(meta.telegram&&typeof meta.telegram==='object')?meta.telegram:{}; const user=(meta.user&&typeof meta.user==='object')?meta.user:{};\nif(data.dispatch_failed===true){return [{json:{schema_version:'1.0',adapter_version:'1.0',route:'social.action.failed',status:'error',is_valid:false,validation_errors:Array.isArray(data.dispatch_errors)?data.dispatch_errors:[],social:{action:String(meta.action??''),dispatched:false,target_workflow:String(meta.target_workflow??''),failed_stage:'downstream_dispatch'},result:null,telegram,user}}];}\nreturn [{json:{schema_version:'1.0',adapter_version:'1.0',route:'social.action.completed',status:'ready',is_valid:true,validation_errors:[],social:{action:String(meta.action??''),dispatched:true,target_workflow:String(meta.target_workflow??''),completed_at:new Date().toISOString()},result:(data.normalized_result&&typeof data.normalized_result==='object')?data.normalized_result:{},telegram,user}}];"
+      },
+      "id": "403c60e6-1e6d-548d-b06c-d30cb9f2486d",
+      "name": "Build Social Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        840,
+        20
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst data = items[0]?.json ?? {};\nreturn [{json:{schema_version:'1.0',adapter_version:'1.0',route:'social.action.failed',status:'error',is_valid:false,validation_errors:Array.isArray(data.contract_errors)?data.contract_errors:[{code:'INVALID_GATEWAY_CONTRACT',message:'Gateway contract 無效。'}],social:{action:typeof data.social_action==='string'?data.social_action:'',dispatched:false,target_workflow:'',failed_stage:'gateway_contract_validation'},result:null,telegram:(data.telegram&&typeof data.telegram==='object')?data.telegram:{},user:(data.user&&typeof data.user==='object')?data.user:{}}}];"
+      },
+      "id": "4fb1ed26-aaba-58de-a196-cf0318739b00",
+      "name": "Build Social Error Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        600,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Social Intake\nExecute Workflow Trigger only. Validate canonical or TG-000 wrapped context.",
+        "height": 300,
+        "width": 720,
+        "color": 5
+      },
+      "id": "7ae1f504-f84f-50a0-9e11-b6914050227a",
+      "name": "Social Intake",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1160,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Action Routing\nPriority: route.action → callback_data → message command → menu.",
+        "height": 360,
+        "width": 520,
+        "color": 6
+      },
+      "id": "41f74093-662e-5c0d-a9ef-c4cd310f4f5c",
+      "name": "Action Routing",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -480,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Existing Workflow Adapters\nThree unbound Execute Sub-workflow selectors. Bind only callable workflows with Execute Workflow Trigger.",
+        "height": 840,
+        "width": 560,
+        "color": 3
+      },
+      "id": "65458ac2-fe9f-52e5-b3ff-5f9edd3b81b4",
+      "name": "Existing Workflow Adapters",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        20,
+        -380
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Output\nNormalize actual incoming branch data, redact to safe fields, then emit menu/completed/failed contract.",
+        "height": 780,
+        "width": 560,
+        "color": 7
+      },
+      "id": "23933ae8-6ff7-5acb-b433-e57d42a5247f",
+      "name": "Output",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        560,
+        -160
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Validate Gateway Contract",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Gateway Contract": {
+      "main": [
+        [
+          {
+            "node": "Extract Telegram Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Telegram Context": {
+      "main": [
+        [
+          {
+            "node": "Detect Social Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Detect Social Action": {
+      "main": [
+        [
+          {
+            "node": "Switch Social Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch Social Action": {
+      "main": [
+        [
+          {
+            "node": "Build Social Main Menu",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare Publish Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare Results Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare Status Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Social Error Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Publish Request": {
+      "main": [
+        [
+          {
+            "node": "Call Existing Publish Workflow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Existing Publish Workflow": {
+      "main": [
+        [
+          {
+            "node": "Normalize Social Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Results Request": {
+      "main": [
+        [
+          {
+            "node": "Call Existing Results Workflow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Existing Results Workflow": {
+      "main": [
+        [
+          {
+            "node": "Normalize Social Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Status Request": {
+      "main": [
+        [
+          {
+            "node": "Call Existing Status Workflow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Existing Status Workflow": {
+      "main": [
+        [
+          {
+            "node": "Normalize Social Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Social Result": {
+      "main": [
+        [
+          {
+            "node": "Build Social Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Social Main Menu": {
+      "main": [
+        [
+          {
+            "node": "Build Social Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "a1c8a1f7-850a-5956-becf-7237c0573bf5",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
