@@ -1,0 +1,1989 @@
+{
+  "name": "WF-000 - Novel Studio Integration Orchestrator v1",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "4368a32a-95d2-4212-ba81-a50189529a26",
+      "name": "Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const root=$json&&typeof $json==='object'&&!Array.isArray($json)?$json:{};const isObj=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);const supported=['command.new','command.chapter','command.status','command.help','command.invalid'];const errors=Array.isArray(root.validation_errors)?[...root.validation_errors]:[];if(root.schema_version!=='1.0')errors.push('Invalid schema_version: expected 1.0.');if(root.workflow_version!=='2.0')errors.push('Invalid workflow_version: expected 2.0 from WF-001.');if(!supported.includes(root.route))errors.push('Unsupported command route.');if(root.route!=='command.invalid'&&(root.status!=='ready'||root.is_valid!==true))errors.push('Command contract must be ready and valid.');if(!Array.isArray(root.validation_errors))errors.push('validation_errors must be an array.');if(!isObj(root.context))errors.push('context must be an object.');return[{json:{...root,orchestrator_input_valid:errors.length===0,validation_errors:errors}}];"
+      },
+      "id": "ff1bfe20-f179-4bca-b0ef-862cdf80807a",
+      "name": "Validate Orchestrator Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const root=$json&&typeof $json==='object'?$json:{};const c=root.context&&typeof root.context==='object'&&!Array.isArray(root.context)?root.context:{};const command=root.command&&typeof root.command==='object'&&!Array.isArray(root.command)?root.command:{};const str=v=>typeof v==='string'?v:'';const num=v=>Number.isFinite(Number(v))?Number(v):0;const preserved_context={telegram_update_id:num(c.telegram_update_id),telegram_chat_id:num(c.telegram_chat_id),telegram_user_id:num(c.telegram_user_id),novel_uuid:str(c.novel_uuid),novel_slug:str(c.novel_slug),novel_title:str(c.novel_title),workspace_uuid:str(c.workspace_uuid),workspace_name:str(c.workspace_name),existing_root_folder_id:str(c.existing_root_folder_id),root_folder_id:str(c.root_folder_id),root_folder_url:str(c.root_folder_url),chapter_uuid:str(c.chapter_uuid),chapter_number:Number.isInteger(c.chapter_number)?c.chapter_number:0,chapter_title:str(c.chapter_title),story_bible_uuid:str(c.story_bible_uuid),persistence_id:str(c.persistence_id),integrity_report_uuid:str(c.integrity_report_uuid),received_at:str(c.received_at),command:str(c.command||command.name),argument_text:str(c.argument_text||command.raw_text),command_args:Array.isArray(c.command_args)?[...c.command_args]:Array.isArray(command.arguments)?[...command.arguments]:[],chapter_content:str(c.chapter_content||root.chapter_content),base_parent_folder_id:str(c.base_parent_folder_id),workspace_folder_map:c.workspace_folder_map&&typeof c.workspace_folder_map==='object'?{...c.workspace_folder_map}:{}};return[{json:{...root,preserved_context}}];"
+      },
+      "id": "a8cab637-a8a3-40b5-a256-6d5fbf5a340c",
+      "name": "Extract Command Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const root=$json&&typeof $json==='object'?$json:{};let route=root.orchestrator_input_valid===true?String(root.route??''):'command.invalid';if(!['command.new','command.chapter','command.status','command.help','command.invalid'].includes(route))route='command.invalid';let seed=Date.now();const id='xxxxxxxx'.replace(/x/g,()=>{const r=(seed+Math.random()*16)%16|0;seed=Math.floor(seed/16);return r.toString(16)});const type=route==='command.new'?'novel_creation':route==='command.chapter'?'chapter_processing':route.slice(8);const expected=route==='command.new'?['WF-002','WF-003','WF-005']:route==='command.chapter'?['WF-004','WF-005','WF-006','WF-007','WF-008','WF-009','WF-010','WF-011','WF-012']:[];const now=new Date().toISOString();const state={integration_uuid:`INTG-${id}`,pipeline_type:type,command_route:route,started_at:now,next_started_at:now,expected_stages:expected,execution_journal:[],context:root.preserved_context&&typeof root.preserved_context==='object'?{...root.preserved_context}:{},artifacts:{},pipeline_active:route==='command.new'||route==='command.chapter',integration_status:route==='command.help'?'help':route==='command.status'?'status':route==='command.invalid'?'invalid_command':'completed',failed_stage:'',validation_errors:Array.isArray(root.validation_errors)?[...root.validation_errors]:[]};return[{json:{...root,route_key:route,_orchestration:state,pipeline_active:state.pipeline_active}}];"
+      },
+      "id": "fc8be4ed-34f0-403c-8685-dcb040e9957a",
+      "name": "Route Command Type",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route_key }}",
+                    "rightValue": "command.new",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "new"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route_key }}",
+                    "rightValue": "command.chapter",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "chapter"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route_key }}",
+                    "rightValue": "command.status",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "status"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route_key }}",
+                    "rightValue": "command.help",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "help"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route_key }}",
+                    "rightValue": "command.invalid",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "invalid"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "72a921e5-71e0-40bf-980b-42e978c708c2",
+      "name": "Dispatch Command Route",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        800,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const root=$json&&typeof $json==='object'&&!Array.isArray($json)?$json:{};const inputContext=root.context&&typeof root.context==='object'&&!Array.isArray(root.context)?root.context:{};const preserved=root.preserved_context&&typeof root.preserved_context==='object'&&!Array.isArray(root.preserved_context)?root.preserved_context:{};const command=root.command&&typeof root.command==='object'&&!Array.isArray(root.command)?root.command:{};const argumentsList=Array.isArray(command.arguments)?[...command.arguments]:[];const commandName=typeof command.name==='string'&&command.name.trim()?command.name.trim():root.route==='command.new'?'new':'';const title=argumentsList.length>0&&argumentsList[0]!==null&&argumentsList[0]!==undefined?String(argumentsList[0]):'';const numberOrZero=value=>Number.isFinite(Number(value))?Number(value):0;return[{json:{schema_version:'1.0',workflow_version:'2.0',route:'command.new',target:'WF-002',status:'ready',is_valid:true,validation_errors:[],context:{command:commandName,command_args:argumentsList,argument_text:title,telegram_update_id:numberOrZero(inputContext.telegram_update_id??preserved.telegram_update_id),telegram_chat_id:numberOrZero(inputContext.telegram_chat_id??preserved.telegram_chat_id),telegram_user_id:numberOrZero(inputContext.telegram_user_id??preserved.telegram_user_id),received_at:typeof inputContext.received_at==='string'?inputContext.received_at:typeof preserved.received_at==='string'?preserved.received_at:''}}}];"
+      },
+      "id": "3e5d3eec-69c7-4dad-8991-b01a9537815d",
+      "name": "Prepare WF-002 Novel Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        920,
+        -180
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "",
+          "mode": "list",
+          "cachedResultName": "WF-002 - Novel Manager v2"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        },
+        "source": "database"
+      },
+      "id": "a7acf424-3ecc-4bb5-8fe0-7430d0bddb95",
+      "name": "Call WF-002 Novel Manager",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        920,
+        0
+      ],
+      "onError": "continueRegularOutput",
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const result=$json&&typeof $json==='object'&&!Array.isArray($json)?$json:{};let prior={};try{const candidate=$('Route Command Type').item.json;prior=candidate?._orchestration&&typeof candidate._orchestration==='object'?candidate._orchestration:{}}catch{prior={}}const isObj=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);const str=v=>typeof v==='string'?v.trim():'';const problems=[];if(!str(result.status))problems.push('status is required.');if(typeof result.is_valid!=='boolean')problems.push('is_valid is required.');if(!Array.isArray(result.validation_errors))problems.push('validation_errors must be an array.');if(result.route!=='novel.metadata.created')problems.push('Expected route novel.metadata.created; received '+str(result.route)+'.');const review=false;if(!review&&(result.status!=='ready'||result.is_valid!==true))problems.push('Stage returned a blocking contract.');const ctx=isObj(prior.context)?{...prior.context}:{};const artifacts=isObj(prior.artifacts)?{...prior.artifacts}:{};const novel=isObj(result.novel)?result.novel:{};if(!str(novel.novel_uuid))problems.push('novel.novel_uuid is required.');ctx.novel_uuid=str(novel.novel_uuid);ctx.novel_slug=str(novel.novel_slug);ctx.novel_title=str(novel.novel_title);artifacts.novel=result;const failed=problems.length>0;const now=new Date().toISOString();const errors=Array.isArray(result.validation_errors)?result.validation_errors.map(String):[];const journal=[...(Array.isArray(prior.execution_journal)?prior.execution_journal:[]),{stage:'WF-002',workflow_name:'WF-002 - Novel Manager v2',status:failed?(result.status==='blocked'?'blocked':'error'):(review?'review_required':'success'),is_valid:!failed,route:str(result.route),expected_route:'novel.metadata.created',started_at:str(prior.next_started_at)||now,completed_at:now,error_message:failed?[...problems,...errors].join(' '):''}];const state={...prior,context:ctx,artifacts,execution_journal:journal,pipeline_active:!failed,failed_stage:failed?'WF-002':str(prior.failed_stage),integration_status:failed?(result.status==='blocked'?'blocked':'error'):(review?'review_required':str(prior.integration_status)||'completed'),next_started_at:now,validation_errors:failed?[...(Array.isArray(prior.validation_errors)?prior.validation_errors:[]),...problems,...errors]:(Array.isArray(prior.validation_errors)?prior.validation_errors:[])};return[{json:{...result,_orchestration:state,pipeline_active:state.pipeline_active}}];"
+      },
+      "id": "05577a6f-68b5-47c0-8068-629a1b7d2845",
+      "name": "Validate WF-002 Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1140,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "1c0796c7-9f8b-4549-9136-0bc07fd9fc26",
+              "leftValue": "={{ $json.pipeline_active }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "d072c693-029f-4161-b309-2fc6a307e8aa",
+      "name": "WF-002 Succeeded?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1360,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "",
+          "mode": "list",
+          "cachedResultName": "WF-003 - Workspace Manager v2"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        },
+        "source": "database"
+      },
+      "id": "88037a36-8ddd-4283-ae11-faaadd38809e",
+      "name": "Call WF-003 Workspace Manager",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1580,
+        0
+      ],
+      "onError": "continueRegularOutput",
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const result=$json&&typeof $json==='object'&&!Array.isArray($json)?$json:{};let prior={};try{const candidate=$('Validate WF-002 Result').item.json;prior=candidate?._orchestration&&typeof candidate._orchestration==='object'?candidate._orchestration:{}}catch{prior={}}const isObj=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);const str=v=>typeof v==='string'?v.trim():'';const problems=[];if(!str(result.status))problems.push('status is required.');if(typeof result.is_valid!=='boolean')problems.push('is_valid is required.');if(!Array.isArray(result.validation_errors))problems.push('validation_errors must be an array.');if(result.route!=='workspace.persistence.requested')problems.push('Expected route workspace.persistence.requested; received '+str(result.route)+'.');const review=false;if(!review&&(result.status!=='ready'||result.is_valid!==true))problems.push('Stage returned a blocking contract.');const ctx=isObj(prior.context)?{...prior.context}:{};const artifacts=isObj(prior.artifacts)?{...prior.artifacts}:{};const w=isObj(result.workspace)?result.workspace:{};if(!str(w.workspace_uuid)||!str(w.novel_uuid))problems.push('workspace identifiers are required.');ctx.workspace_uuid=str(w.workspace_uuid);ctx.workspace_name=str(w.workspace_name);ctx.novel_uuid=str(w.novel_uuid)||ctx.novel_uuid;artifacts.workspace=result;const failed=problems.length>0;const now=new Date().toISOString();const errors=Array.isArray(result.validation_errors)?result.validation_errors.map(String):[];const journal=[...(Array.isArray(prior.execution_journal)?prior.execution_journal:[]),{stage:'WF-003',workflow_name:'WF-003 - Workspace Manager v2',status:failed?(result.status==='blocked'?'blocked':'error'):(review?'review_required':'success'),is_valid:!failed,route:str(result.route),expected_route:'workspace.persistence.requested',started_at:str(prior.next_started_at)||now,completed_at:now,error_message:failed?[...problems,...errors].join(' '):''}];const state={...prior,context:ctx,artifacts,execution_journal:journal,pipeline_active:!failed,failed_stage:failed?'WF-003':str(prior.failed_stage),integration_status:failed?(result.status==='blocked'?'blocked':'error'):(review?'review_required':str(prior.integration_status)||'completed'),next_started_at:now,validation_errors:failed?[...(Array.isArray(prior.validation_errors)?prior.validation_errors:[]),...problems,...errors]:(Array.isArray(prior.validation_errors)?prior.validation_errors:[])};return[{json:{...result,_orchestration:state,pipeline_active:state.pipeline_active}}];"
+      },
+      "id": "c11ecc0f-098a-4213-9005-f87716279a4c",
+      "name": "Validate WF-003 Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1800,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "845b38a1-548e-43da-a85c-d8c3e481a859",
+              "leftValue": "={{ $json.pipeline_active }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a592c907-31d9-4533-b023-b4db2589fbdd",
+      "name": "WF-003 Succeeded?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2020,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const state=$json._orchestration&&typeof $json._orchestration==='object'?$json._orchestration:{};const result={...$json};delete result._orchestration;delete result.pipeline_active;const c=state.context??{};return[{json:{...result,persistence_type:'workspace',base_parent_folder_id:String(c.base_parent_folder_id??c.existing_root_folder_id??''),existing_root_folder_id:String(c.existing_root_folder_id??''),context:{...(result.context&&typeof result.context==='object'?result.context:{}),...c}}}];"
+      },
+      "id": "49a24af8-b1f0-4af6-864f-d6b692215e35",
+      "name": "Prepare WF-005 Novel Storage Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "",
+          "mode": "list",
+          "cachedResultName": "WF-005 - Storage Manager v2"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        },
+        "source": "database"
+      },
+      "id": "dea15c87-b817-451e-8d05-890313a4d89d",
+      "name": "Call WF-005 Novel Storage Manager",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        2460,
+        0
+      ],
+      "onError": "continueRegularOutput",
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const result=$json&&typeof $json==='object'&&!Array.isArray($json)?$json:{};let prior={};try{const candidate=$('Validate WF-003 Result').item.json;prior=candidate?._orchestration&&typeof candidate._orchestration==='object'?candidate._orchestration:{}}catch{prior={}}const isObj=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);const str=v=>typeof v==='string'?v.trim():'';const problems=[];if(!str(result.status))problems.push('status is required.');if(typeof result.is_valid!=='boolean')problems.push('is_valid is required.');if(!Array.isArray(result.validation_errors))problems.push('validation_errors must be an array.');if(result.route!=='storage.completed')problems.push('Expected route storage.completed; received '+str(result.route)+'.');const review=false;if(!review&&(result.status!=='ready'||result.is_valid!==true))problems.push('Stage returned a blocking contract.');const ctx=isObj(prior.context)?{...prior.context}:{};const artifacts=isObj(prior.artifacts)?{...prior.artifacts}:{};const storage=isObj(result.storage)?result.storage:{};if(storage.storage_status!=='completed')problems.push('storage.storage_status must be completed.');if(!str(storage.root_folder_id))problems.push('storage.root_folder_id is required.');ctx.root_folder_id=str(storage.root_folder_id);ctx.root_folder_url=str(storage.root_folder_url);ctx.existing_root_folder_id=str(storage.root_folder_id)||ctx.existing_root_folder_id;ctx.novel_uuid=str(storage.novel_uuid)||ctx.novel_uuid;ctx.workspace_uuid=str(storage.workspace_uuid)||ctx.workspace_uuid;artifacts.storage=result;const failed=problems.length>0;const now=new Date().toISOString();const errors=Array.isArray(result.validation_errors)?result.validation_errors.map(String):[];const journal=[...(Array.isArray(prior.execution_journal)?prior.execution_journal:[]),{stage:'WF-005',workflow_name:'WF-005 - Storage Manager v2',status:failed?(result.status==='blocked'?'blocked':'error'):(review?'review_required':'success'),is_valid:!failed,route:str(result.route),expected_route:'storage.completed',started_at:str(prior.next_started_at)||now,completed_at:now,error_message:failed?[...problems,...errors].join(' '):''}];const state={...prior,context:ctx,artifacts,execution_journal:journal,pipeline_active:!failed,failed_stage:failed?'WF-005':str(prior.failed_stage),integration_status:failed?(result.status==='blocked'?'blocked':'error'):(review?'review_required':str(prior.integration_status)||'completed'),next_started_at:now,validation_errors:failed?[...(Array.isArray(prior.validation_errors)?prior.validation_errors:[]),...problems,...errors]:(Array.isArray(prior.validation_errors)?prior.validation_errors:[])};return[{json:{...result,_orchestration:state,pipeline_active:state.pipeline_active}}];"
+      },
+      "id": "dc4eb297-b779-41e8-b099-7fa3ecf8c544",
+      "name": "Validate Novel Storage Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2680,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "323ce7ba-c463-4d58-92db-d0eb68c7268f",
+              "leftValue": "={{ $json.pipeline_active }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "ecd09eb9-4a8d-4c29-a369-95ffb3ab7f2e",
+      "name": "Novel Storage Succeeded?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2900,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "",
+          "mode": "list",
+          "cachedResultName": "WF-004 - Chapter Manager v2"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        },
+        "source": "database"
+      },
+      "id": "319cce1d-3afe-4e02-86df-4e5cdd175b82",
+      "name": "Call WF-004 Chapter Manager",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        920,
+        760
+      ],
+      "onError": "continueRegularOutput",
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const result=$json&&typeof $json==='object'&&!Array.isArray($json)?$json:{};let prior={};try{const candidate=$('Route Command Type').item.json;prior=candidate?._orchestration&&typeof candidate._orchestration==='object'?candidate._orchestration:{}}catch{prior={}}const isObj=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);const str=v=>typeof v==='string'?v.trim():'';const problems=[];if(!str(result.status))problems.push('status is required.');if(typeof result.is_valid!=='boolean')problems.push('is_valid is required.');if(!Array.isArray(result.validation_errors))problems.push('validation_errors must be an array.');if(result.route!=='chapter.persistence.created')problems.push('Expected route chapter.persistence.created; received '+str(result.route)+'.');const review=false;if(!review&&(result.status!=='ready'||result.is_valid!==true))problems.push('Stage returned a blocking contract.');const ctx=isObj(prior.context)?{...prior.context}:{};const artifacts=isObj(prior.artifacts)?{...prior.artifacts}:{};const ch=isObj(result.chapter)?result.chapter:{};if(!str(ch.chapter_uuid)||!str(ch.novel_uuid)||!str(ch.workspace_uuid))problems.push('chapter identifiers are required.');ctx.chapter_uuid=str(ch.chapter_uuid);ctx.chapter_number=Number.isInteger(ch.chapter_number)?ch.chapter_number:0;ctx.chapter_title=str(ch.chapter_title);ctx.novel_uuid=str(ch.novel_uuid);ctx.workspace_uuid=str(ch.workspace_uuid);artifacts.chapter=result;const failed=problems.length>0;const now=new Date().toISOString();const errors=Array.isArray(result.validation_errors)?result.validation_errors.map(String):[];const journal=[...(Array.isArray(prior.execution_journal)?prior.execution_journal:[]),{stage:'WF-004',workflow_name:'WF-004 - Chapter Manager v2',status:failed?(result.status==='blocked'?'blocked':'error'):(review?'review_required':'success'),is_valid:!failed,route:str(result.route),expected_route:'chapter.persistence.created',started_at:str(prior.next_started_at)||now,completed_at:now,error_message:failed?[...problems,...errors].join(' '):''}];const state={...prior,context:ctx,artifacts,execution_journal:journal,pipeline_active:!failed,failed_stage:failed?'WF-004':str(prior.failed_stage),integration_status:failed?(result.status==='blocked'?'blocked':'error'):(review?'review_required':str(prior.integration_status)||'completed'),next_started_at:now,validation_errors:failed?[...(Array.isArray(prior.validation_errors)?prior.validation_errors:[]),...problems,...errors]:(Array.isArray(prior.validation_errors)?prior.validation_errors:[])};return[{json:{...result,_orchestration:state,pipeline_active:state.pipeline_active}}];"
+      },
+      "id": "05a01a90-ca3b-4bef-a8a5-f51f1c55324b",
+      "name": "Validate WF-004 Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1140,
+        760
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "a159ea2c-e610-4b80-be69-537757344f57",
+              "leftValue": "={{ $json.pipeline_active }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "947c811a-ec28-4d2c-a33e-2c973f6b7910",
+      "name": "WF-004 Succeeded?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1360,
+        760
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const state=$json._orchestration&&typeof $json._orchestration==='object'?$json._orchestration:{};const result={...$json};delete result._orchestration;delete result.pipeline_active;const c=state.context??{};return[{json:{...result,persistence_type:'chapter',existing_root_folder_id:String(c.existing_root_folder_id??c.root_folder_id??''),folder_id_map:c.workspace_folder_map&&typeof c.workspace_folder_map==='object'?c.workspace_folder_map:{}}}];"
+      },
+      "id": "86681f78-56ee-4444-840d-e23c0e4347ef",
+      "name": "Prepare WF-005 Chapter Storage Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1580,
+        760
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "",
+          "mode": "list",
+          "cachedResultName": "WF-005 - Storage Manager v2"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        },
+        "source": "database"
+      },
+      "id": "563b1ff2-18eb-4afc-b8c1-6d7295d0cbbb",
+      "name": "Call WF-005 Chapter Storage Manager",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1800,
+        760
+      ],
+      "onError": "continueRegularOutput",
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const result=$json&&typeof $json==='object'&&!Array.isArray($json)?$json:{};let prior={};try{const candidate=$('Validate WF-004 Result').item.json;prior=candidate?._orchestration&&typeof candidate._orchestration==='object'?candidate._orchestration:{}}catch{prior={}}const isObj=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);const str=v=>typeof v==='string'?v.trim():'';const problems=[];if(!str(result.status))problems.push('status is required.');if(typeof result.is_valid!=='boolean')problems.push('is_valid is required.');if(!Array.isArray(result.validation_errors))problems.push('validation_errors must be an array.');if(result.route!=='storage.completed')problems.push('Expected route storage.completed; received '+str(result.route)+'.');const review=false;if(!review&&(result.status!=='ready'||result.is_valid!==true))problems.push('Stage returned a blocking contract.');const ctx=isObj(prior.context)?{...prior.context}:{};const artifacts=isObj(prior.artifacts)?{...prior.artifacts}:{};const storage=isObj(result.storage)?result.storage:{};if(storage.storage_status!=='completed')problems.push('storage.storage_status must be completed.');if(!str(storage.root_folder_id))problems.push('storage.root_folder_id is required.');ctx.root_folder_id=str(storage.root_folder_id);ctx.root_folder_url=str(storage.root_folder_url);ctx.existing_root_folder_id=str(storage.root_folder_id)||ctx.existing_root_folder_id;ctx.novel_uuid=str(storage.novel_uuid)||ctx.novel_uuid;ctx.workspace_uuid=str(storage.workspace_uuid)||ctx.workspace_uuid;artifacts.storage=result;const failed=problems.length>0;const now=new Date().toISOString();const errors=Array.isArray(result.validation_errors)?result.validation_errors.map(String):[];const journal=[...(Array.isArray(prior.execution_journal)?prior.execution_journal:[]),{stage:'WF-005',workflow_name:'WF-005 - Storage Manager v2',status:failed?(result.status==='blocked'?'blocked':'error'):(review?'review_required':'success'),is_valid:!failed,route:str(result.route),expected_route:'storage.completed',started_at:str(prior.next_started_at)||now,completed_at:now,error_message:failed?[...problems,...errors].join(' '):''}];const state={...prior,context:ctx,artifacts,execution_journal:journal,pipeline_active:!failed,failed_stage:failed?'WF-005':str(prior.failed_stage),integration_status:failed?(result.status==='blocked'?'blocked':'error'):(review?'review_required':str(prior.integration_status)||'completed'),next_started_at:now,validation_errors:failed?[...(Array.isArray(prior.validation_errors)?prior.validation_errors:[]),...problems,...errors]:(Array.isArray(prior.validation_errors)?prior.validation_errors:[])};return[{json:{...result,_orchestration:state,pipeline_active:state.pipeline_active}}];"
+      },
+      "id": "db1dec6f-5a76-4733-9dbf-ed272f06dfa3",
+      "name": "Validate Chapter Storage Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2020,
+        760
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "7fbde6f0-610d-475b-a8f9-a22f8e3eb1a1",
+              "leftValue": "={{ $json.pipeline_active }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "30f7181f-6409-458d-bf96-dfe80b7dd5f9",
+      "name": "Chapter Storage Succeeded?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2240,
+        760
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const state=$json._orchestration&&typeof $json._orchestration==='object'?$json._orchestration:{};const chapter=state.artifacts?.chapter&&typeof state.artifacts.chapter==='object'?state.artifacts.chapter:{};const c=state.context??{};return[{json:{...chapter,chapter_content:String(c.chapter_content??'')}}];"
+      },
+      "id": "4153303c-a084-46de-a8e0-fb0109c4c2cd",
+      "name": "Prepare WF-006 Canon Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2460,
+        760
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "",
+          "mode": "list",
+          "cachedResultName": "WF-006 - Canon Knowledge Manager v2"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        },
+        "source": "database"
+      },
+      "id": "7f2c4dab-1cdb-4579-833f-38449255a0b8",
+      "name": "Call WF-006 Canon Knowledge Manager",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        2680,
+        760
+      ],
+      "onError": "continueRegularOutput",
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const result=$json&&typeof $json==='object'&&!Array.isArray($json)?$json:{};let prior={};try{const candidate=$('Validate Chapter Storage Result').item.json;prior=candidate?._orchestration&&typeof candidate._orchestration==='object'?candidate._orchestration:{}}catch{prior={}}const isObj=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);const str=v=>typeof v==='string'?v.trim():'';const problems=[];if(!str(result.status))problems.push('status is required.');if(typeof result.is_valid!=='boolean')problems.push('is_valid is required.');if(!Array.isArray(result.validation_errors))problems.push('validation_errors must be an array.');if(result.route!=='canon.created')problems.push('Expected route canon.created; received '+str(result.route)+'.');const review=false;if(!review&&(result.status!=='ready'||result.is_valid!==true))problems.push('Stage returned a blocking contract.');const ctx=isObj(prior.context)?{...prior.context}:{};const artifacts=isObj(prior.artifacts)?{...prior.artifacts}:{};const canon=isObj(result.canon)?result.canon:{};if(!str(canon.canon_uuid)||!str(canon.novel_uuid)||!str(canon.workspace_uuid))problems.push('canon identifiers are required.');artifacts.canon=result;const failed=problems.length>0;const now=new Date().toISOString();const errors=Array.isArray(result.validation_errors)?result.validation_errors.map(String):[];const journal=[...(Array.isArray(prior.execution_journal)?prior.execution_journal:[]),{stage:'WF-006',workflow_name:'WF-006 - Canon Knowledge Manager v2',status:failed?(result.status==='blocked'?'blocked':'error'):(review?'review_required':'success'),is_valid:!failed,route:str(result.route),expected_route:'canon.created',started_at:str(prior.next_started_at)||now,completed_at:now,error_message:failed?[...problems,...errors].join(' '):''}];const state={...prior,context:ctx,artifacts,execution_journal:journal,pipeline_active:!failed,failed_stage:failed?'WF-006':str(prior.failed_stage),integration_status:failed?(result.status==='blocked'?'blocked':'error'):(review?'review_required':str(prior.integration_status)||'completed'),next_started_at:now,validation_errors:failed?[...(Array.isArray(prior.validation_errors)?prior.validation_errors:[]),...problems,...errors]:(Array.isArray(prior.validation_errors)?prior.validation_errors:[])};return[{json:{...result,_orchestration:state,pipeline_active:state.pipeline_active}}];"
+      },
+      "id": "0f3dce7c-4180-44a7-889b-d5ece4df5f21",
+      "name": "Validate WF-006 Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2900,
+        760
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "30b8064f-1348-4e82-9a28-7ab5968b85a6",
+              "leftValue": "={{ $json.pipeline_active }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "88deb9e8-8645-495d-ba75-d94298efc20b",
+      "name": "WF-006 Succeeded?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3120,
+        760
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "",
+          "mode": "list",
+          "cachedResultName": "WF-007 - Character Knowledge Manager v2"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        },
+        "source": "database"
+      },
+      "id": "b15f6950-41ad-4030-a174-ad1b28b7dc16",
+      "name": "Call WF-007 Character Knowledge Manager",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        3340,
+        760
+      ],
+      "onError": "continueRegularOutput",
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const result=$json&&typeof $json==='object'&&!Array.isArray($json)?$json:{};let prior={};try{const candidate=$('Validate WF-006 Result').item.json;prior=candidate?._orchestration&&typeof candidate._orchestration==='object'?candidate._orchestration:{}}catch{prior={}}const isObj=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);const str=v=>typeof v==='string'?v.trim():'';const problems=[];if(!str(result.status))problems.push('status is required.');if(typeof result.is_valid!=='boolean')problems.push('is_valid is required.');if(!Array.isArray(result.validation_errors))problems.push('validation_errors must be an array.');if(result.route!=='characters.created')problems.push('Expected route characters.created; received '+str(result.route)+'.');const review=false;if(!review&&(result.status!=='ready'||result.is_valid!==true))problems.push('Stage returned a blocking contract.');const ctx=isObj(prior.context)?{...prior.context}:{};const artifacts=isObj(prior.artifacts)?{...prior.artifacts}:{};if(!Array.isArray(result.characters)||!isObj(result.context)||!str(result.context.novel_uuid))problems.push('character output identifiers and collection are required.');artifacts.characters=result;const failed=problems.length>0;const now=new Date().toISOString();const errors=Array.isArray(result.validation_errors)?result.validation_errors.map(String):[];const journal=[...(Array.isArray(prior.execution_journal)?prior.execution_journal:[]),{stage:'WF-007',workflow_name:'WF-007 - Character Knowledge Manager v2',status:failed?(result.status==='blocked'?'blocked':'error'):(review?'review_required':'success'),is_valid:!failed,route:str(result.route),expected_route:'characters.created',started_at:str(prior.next_started_at)||now,completed_at:now,error_message:failed?[...problems,...errors].join(' '):''}];const state={...prior,context:ctx,artifacts,execution_journal:journal,pipeline_active:!failed,failed_stage:failed?'WF-007':str(prior.failed_stage),integration_status:failed?(result.status==='blocked'?'blocked':'error'):(review?'review_required':str(prior.integration_status)||'completed'),next_started_at:now,validation_errors:failed?[...(Array.isArray(prior.validation_errors)?prior.validation_errors:[]),...problems,...errors]:(Array.isArray(prior.validation_errors)?prior.validation_errors:[])};return[{json:{...result,_orchestration:state,pipeline_active:state.pipeline_active}}];"
+      },
+      "id": "35dfc914-5ca8-413d-af86-9c0257d3f5ec",
+      "name": "Validate WF-007 Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3560,
+        760
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "99aaebe2-a1db-48c6-98f7-a585a9cc0531",
+              "leftValue": "={{ $json.pipeline_active }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "868a2b60-6f04-4c27-8337-41c3c35eb014",
+      "name": "WF-007 Succeeded?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3780,
+        760
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "",
+          "mode": "list",
+          "cachedResultName": "WF-008 - World Knowledge Manager v2"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        },
+        "source": "database"
+      },
+      "id": "257f88ce-d09a-4c2c-9fa9-1942031984f6",
+      "name": "Call WF-008 World Knowledge Manager",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        4000,
+        760
+      ],
+      "onError": "continueRegularOutput",
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const result=$json&&typeof $json==='object'&&!Array.isArray($json)?$json:{};let prior={};try{const candidate=$('Validate WF-007 Result').item.json;prior=candidate?._orchestration&&typeof candidate._orchestration==='object'?candidate._orchestration:{}}catch{prior={}}const isObj=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);const str=v=>typeof v==='string'?v.trim():'';const problems=[];if(!str(result.status))problems.push('status is required.');if(typeof result.is_valid!=='boolean')problems.push('is_valid is required.');if(!Array.isArray(result.validation_errors))problems.push('validation_errors must be an array.');if(result.route!=='world.created')problems.push('Expected route world.created; received '+str(result.route)+'.');const review=false;if(!review&&(result.status!=='ready'||result.is_valid!==true))problems.push('Stage returned a blocking contract.');const ctx=isObj(prior.context)?{...prior.context}:{};const artifacts=isObj(prior.artifacts)?{...prior.artifacts}:{};if(!Array.isArray(result.worlds)||!isObj(result.context)||!str(result.context.novel_uuid))problems.push('world output identifiers and collection are required.');artifacts.worlds=result;const failed=problems.length>0;const now=new Date().toISOString();const errors=Array.isArray(result.validation_errors)?result.validation_errors.map(String):[];const journal=[...(Array.isArray(prior.execution_journal)?prior.execution_journal:[]),{stage:'WF-008',workflow_name:'WF-008 - World Knowledge Manager v2',status:failed?(result.status==='blocked'?'blocked':'error'):(review?'review_required':'success'),is_valid:!failed,route:str(result.route),expected_route:'world.created',started_at:str(prior.next_started_at)||now,completed_at:now,error_message:failed?[...problems,...errors].join(' '):''}];const state={...prior,context:ctx,artifacts,execution_journal:journal,pipeline_active:!failed,failed_stage:failed?'WF-008':str(prior.failed_stage),integration_status:failed?(result.status==='blocked'?'blocked':'error'):(review?'review_required':str(prior.integration_status)||'completed'),next_started_at:now,validation_errors:failed?[...(Array.isArray(prior.validation_errors)?prior.validation_errors:[]),...problems,...errors]:(Array.isArray(prior.validation_errors)?prior.validation_errors:[])};return[{json:{...result,_orchestration:state,pipeline_active:state.pipeline_active}}];"
+      },
+      "id": "6981641d-3f9e-453d-9328-d88c64d7a62d",
+      "name": "Validate WF-008 Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4220,
+        760
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "d1fa96bf-409e-4c22-90b2-e350cc1c45bd",
+              "leftValue": "={{ $json.pipeline_active }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "7e7e937c-8037-4595-898a-763a1327981e",
+      "name": "WF-008 Succeeded?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        4440,
+        760
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "",
+          "mode": "list",
+          "cachedResultName": "WF-009 - Timeline Knowledge Manager v2"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        },
+        "source": "database"
+      },
+      "id": "58133d9f-416f-413b-9c1a-5b703cde2e09",
+      "name": "Call WF-009 Timeline Knowledge Manager",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        4660,
+        760
+      ],
+      "onError": "continueRegularOutput",
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const result=$json&&typeof $json==='object'&&!Array.isArray($json)?$json:{};let prior={};try{const candidate=$('Validate WF-008 Result').item.json;prior=candidate?._orchestration&&typeof candidate._orchestration==='object'?candidate._orchestration:{}}catch{prior={}}const isObj=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);const str=v=>typeof v==='string'?v.trim():'';const problems=[];if(!str(result.status))problems.push('status is required.');if(typeof result.is_valid!=='boolean')problems.push('is_valid is required.');if(!Array.isArray(result.validation_errors))problems.push('validation_errors must be an array.');if(result.route!=='timeline.created')problems.push('Expected route timeline.created; received '+str(result.route)+'.');const review=false;if(!review&&(result.status!=='ready'||result.is_valid!==true))problems.push('Stage returned a blocking contract.');const ctx=isObj(prior.context)?{...prior.context}:{};const artifacts=isObj(prior.artifacts)?{...prior.artifacts}:{};if(!Array.isArray(result.timeline)||!isObj(result.context)||!str(result.context.novel_uuid))problems.push('timeline output identifiers and collection are required.');artifacts.timeline=result;const failed=problems.length>0;const now=new Date().toISOString();const errors=Array.isArray(result.validation_errors)?result.validation_errors.map(String):[];const journal=[...(Array.isArray(prior.execution_journal)?prior.execution_journal:[]),{stage:'WF-009',workflow_name:'WF-009 - Timeline Knowledge Manager v2',status:failed?(result.status==='blocked'?'blocked':'error'):(review?'review_required':'success'),is_valid:!failed,route:str(result.route),expected_route:'timeline.created',started_at:str(prior.next_started_at)||now,completed_at:now,error_message:failed?[...problems,...errors].join(' '):''}];const state={...prior,context:ctx,artifacts,execution_journal:journal,pipeline_active:!failed,failed_stage:failed?'WF-009':str(prior.failed_stage),integration_status:failed?(result.status==='blocked'?'blocked':'error'):(review?'review_required':str(prior.integration_status)||'completed'),next_started_at:now,validation_errors:failed?[...(Array.isArray(prior.validation_errors)?prior.validation_errors:[]),...problems,...errors]:(Array.isArray(prior.validation_errors)?prior.validation_errors:[])};return[{json:{...result,_orchestration:state,pipeline_active:state.pipeline_active}}];"
+      },
+      "id": "b6e68c95-99a0-40a3-8567-9f7b8284de7d",
+      "name": "Validate WF-009 Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4880,
+        760
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "71b4a8b7-369e-44a9-b45f-01de67a2b322",
+              "leftValue": "={{ $json.pipeline_active }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "8f84efa5-cadd-4378-acb8-bf0bea90564a",
+      "name": "WF-009 Succeeded?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        5100,
+        760
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "",
+          "mode": "list",
+          "cachedResultName": "WF-010 - Story Bible Manager v2"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        },
+        "source": "database"
+      },
+      "id": "d4232817-aacf-4bea-9012-e81854dd76d5",
+      "name": "Call WF-010 Story Bible Manager",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        5320,
+        760
+      ],
+      "onError": "continueRegularOutput",
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const result=$json&&typeof $json==='object'&&!Array.isArray($json)?$json:{};let prior={};try{const candidate=$('Validate WF-009 Result').item.json;prior=candidate?._orchestration&&typeof candidate._orchestration==='object'?candidate._orchestration:{}}catch{prior={}}const isObj=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);const str=v=>typeof v==='string'?v.trim():'';const problems=[];if(!str(result.status))problems.push('status is required.');if(typeof result.is_valid!=='boolean')problems.push('is_valid is required.');if(!Array.isArray(result.validation_errors))problems.push('validation_errors must be an array.');if(result.route!=='story_bible.created')problems.push('Expected route story_bible.created; received '+str(result.route)+'.');const review=false;if(!review&&(result.status!=='ready'||result.is_valid!==true))problems.push('Stage returned a blocking contract.');const ctx=isObj(prior.context)?{...prior.context}:{};const artifacts=isObj(prior.artifacts)?{...prior.artifacts}:{};const sb=isObj(result.story_bible)?result.story_bible:{};if(!str(sb.story_bible_uuid)||!str(sb.novel_uuid)||!str(sb.workspace_uuid))problems.push('Story Bible identifiers are required.');ctx.story_bible_uuid=str(sb.story_bible_uuid);artifacts.story_bible=result;const failed=problems.length>0;const now=new Date().toISOString();const errors=Array.isArray(result.validation_errors)?result.validation_errors.map(String):[];const journal=[...(Array.isArray(prior.execution_journal)?prior.execution_journal:[]),{stage:'WF-010',workflow_name:'WF-010 - Story Bible Manager v2',status:failed?(result.status==='blocked'?'blocked':'error'):(review?'review_required':'success'),is_valid:!failed,route:str(result.route),expected_route:'story_bible.created',started_at:str(prior.next_started_at)||now,completed_at:now,error_message:failed?[...problems,...errors].join(' '):''}];const state={...prior,context:ctx,artifacts,execution_journal:journal,pipeline_active:!failed,failed_stage:failed?'WF-010':str(prior.failed_stage),integration_status:failed?(result.status==='blocked'?'blocked':'error'):(review?'review_required':str(prior.integration_status)||'completed'),next_started_at:now,validation_errors:failed?[...(Array.isArray(prior.validation_errors)?prior.validation_errors:[]),...problems,...errors]:(Array.isArray(prior.validation_errors)?prior.validation_errors:[])};return[{json:{...result,_orchestration:state,pipeline_active:state.pipeline_active}}];"
+      },
+      "id": "432eea99-40d8-4c21-91b0-a142eea7228b",
+      "name": "Validate WF-010 Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5540,
+        760
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "6cb9e777-0e31-4b40-8edd-c4e6a59c0792",
+              "leftValue": "={{ $json.pipeline_active }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "4e633dbd-d8bc-4dea-96e8-5faf148bc35b",
+      "name": "WF-010 Succeeded?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        5760,
+        760
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const state=$json._orchestration&&typeof $json._orchestration==='object'?$json._orchestration:{};const result={...$json};delete result._orchestration;delete result.pipeline_active;const c=state.context??{};const root=String(c.existing_root_folder_id??c.root_folder_id??'').trim();if(!root){const now=new Date().toISOString();const journal=[...(state.execution_journal??[]),{stage:'WF-011',workflow_name:'WF-011 - Knowledge Persistence Manager v2',status:'blocked',is_valid:false,route:'',expected_route:'knowledge.persistence.completed',started_at:String(state.next_started_at??now),completed_at:now,error_message:'existing_root_folder_id is required before WF-011.'}];const next={...state,pipeline_active:false,integration_status:'blocked',failed_stage:'WF-011',execution_journal:journal,validation_errors:[...(state.validation_errors??[]),'existing_root_folder_id is required before WF-011.']};return[{json:{...result,_orchestration:next,pipeline_active:false}}]}return[{json:{...result,existing_root_folder_id:root,workspace_folder_map:c.workspace_folder_map&&typeof c.workspace_folder_map==='object'?c.workspace_folder_map:{},_orchestration:state,pipeline_active:true}}];"
+      },
+      "id": "32b687e6-ac9f-426a-b553-2823c1aa43e0",
+      "name": "Prepare WF-011 Persistence Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5980,
+        760
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "029b5d48-674a-49a9-ba63-13436cdc5cd8",
+              "leftValue": "={{ $json.pipeline_active }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "5f23b7a6-5ea8-4094-a69b-afbb184b9a63",
+      "name": "Persistence Root Available?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        6200,
+        760
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "",
+          "mode": "list",
+          "cachedResultName": "WF-011 - Knowledge Persistence Manager v2"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        },
+        "source": "database"
+      },
+      "id": "2c0ea2f0-e7de-4831-ae86-dcc3d741726e",
+      "name": "Call WF-011 Knowledge Persistence Manager",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        6420,
+        760
+      ],
+      "onError": "continueRegularOutput",
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const result=$json&&typeof $json==='object'&&!Array.isArray($json)?$json:{};let prior={};try{const candidate=$('Validate WF-010 Result').item.json;prior=candidate?._orchestration&&typeof candidate._orchestration==='object'?candidate._orchestration:{}}catch{prior={}}const isObj=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);const str=v=>typeof v==='string'?v.trim():'';const problems=[];if(!str(result.status))problems.push('status is required.');if(typeof result.is_valid!=='boolean')problems.push('is_valid is required.');if(!Array.isArray(result.validation_errors))problems.push('validation_errors must be an array.');if(result.route!=='knowledge.persistence.completed')problems.push('Expected route knowledge.persistence.completed; received '+str(result.route)+'.');const review=false;if(!review&&(result.status!=='ready'||result.is_valid!==true))problems.push('Stage returned a blocking contract.');const ctx=isObj(prior.context)?{...prior.context}:{};const artifacts=isObj(prior.artifacts)?{...prior.artifacts}:{};const p=isObj(result.persistence)?result.persistence:{};if(p.persistence_status!=='completed'||!str(p.persistence_id)||!str(p.story_bible_uuid)||!str(p.novel_uuid)||!str(p.workspace_uuid))problems.push('completed persistence identifiers are required.');ctx.persistence_id=str(p.persistence_id);artifacts.persistence=result;const failed=problems.length>0;const now=new Date().toISOString();const errors=Array.isArray(result.validation_errors)?result.validation_errors.map(String):[];const journal=[...(Array.isArray(prior.execution_journal)?prior.execution_journal:[]),{stage:'WF-011',workflow_name:'WF-011 - Knowledge Persistence Manager v2',status:failed?(result.status==='blocked'?'blocked':'error'):(review?'review_required':'success'),is_valid:!failed,route:str(result.route),expected_route:'knowledge.persistence.completed',started_at:str(prior.next_started_at)||now,completed_at:now,error_message:failed?[...problems,...errors].join(' '):''}];const state={...prior,context:ctx,artifacts,execution_journal:journal,pipeline_active:!failed,failed_stage:failed?'WF-011':str(prior.failed_stage),integration_status:failed?(result.status==='blocked'?'blocked':'error'):(review?'review_required':str(prior.integration_status)||'completed'),next_started_at:now,validation_errors:failed?[...(Array.isArray(prior.validation_errors)?prior.validation_errors:[]),...problems,...errors]:(Array.isArray(prior.validation_errors)?prior.validation_errors:[])};return[{json:{...result,_orchestration:state,pipeline_active:state.pipeline_active}}];"
+      },
+      "id": "1b59ade4-1bdc-4112-9c39-57754a86a5fa",
+      "name": "Validate WF-011 Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6640,
+        760
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "5ac6afd4-96d6-4836-9de0-238e2576bae3",
+              "leftValue": "={{ $json.pipeline_active }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b52e91b6-6b7b-4127-91fe-11da8d6e0118",
+      "name": "WF-011 Succeeded?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        6860,
+        760
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const state=$json._orchestration&&typeof $json._orchestration==='object'?$json._orchestration:{};const result={...$json};delete result._orchestration;delete result.pipeline_active;const story=state.artifacts?.story_bible?.story_bible;const sb=story&&typeof story==='object'?story:{};const sections=sb.sections&&typeof sb.sections==='object'&&!Array.isArray(sb.sections)?sb.sections:{};const conflicts=sections.conflicts&&typeof sections.conflicts==='object'&&!Array.isArray(sections.conflicts)?sections.conflicts:{};return[{json:{...result,knowledge_snapshot:{story_bible:{...sb},canon:sections.canon&&typeof sections.canon==='object'&&!Array.isArray(sections.canon)?{...sections.canon}:{},characters:Array.isArray(sections.characters)?sections.characters.map(x=>x&&typeof x==='object'?{...x}:{}):[],worlds:Array.isArray(sections.world)?sections.world.map(x=>x&&typeof x==='object'?{...x}:{}):[],timeline:Array.isArray(sections.timeline)?sections.timeline.map(x=>x&&typeof x==='object'?{...x}:{}):[],conflicts:{character_conflicts:Array.isArray(conflicts.character_conflicts)?conflicts.character_conflicts.map(x=>x&&typeof x==='object'?{...x}:{}):[],world_conflicts:Array.isArray(conflicts.world_conflicts)?conflicts.world_conflicts.map(x=>x&&typeof x==='object'?{...x}:{}):[],timeline_conflicts:Array.isArray(conflicts.timeline_conflicts)?conflicts.timeline_conflicts.map(x=>x&&typeof x==='object'?{...x}:{}):[]}}}}];"
+      },
+      "id": "c1f73c9f-9df3-47b2-96e5-3e34f8f5bf94",
+      "name": "Prepare WF-012 Integrity Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        7080,
+        760
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "",
+          "mode": "list",
+          "cachedResultName": "WF-012 - Knowledge Integrity Manager v2"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        },
+        "source": "database"
+      },
+      "id": "9efc6c76-6578-4cf2-8f3b-26cf997979ae",
+      "name": "Call WF-012 Knowledge Integrity Manager",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        7300,
+        760
+      ],
+      "onError": "continueRegularOutput",
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const result=$json&&typeof $json==='object'&&!Array.isArray($json)?$json:{};let prior={};try{const candidate=$('Validate WF-011 Result').item.json;prior=candidate?._orchestration&&typeof candidate._orchestration==='object'?candidate._orchestration:{}}catch{prior={}}const isObj=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);const str=v=>typeof v==='string'?v.trim():'';const problems=[];if(!str(result.status))problems.push('status is required.');if(typeof result.is_valid!=='boolean')problems.push('is_valid is required.');if(!Array.isArray(result.validation_errors))problems.push('validation_errors must be an array.');if(result.route!=='knowledge.integrity.completed')problems.push('Expected route knowledge.integrity.completed; received '+str(result.route)+'.');const review=result.status==='review_required'&&result.is_valid===true;if(!review&&(result.status!=='ready'||result.is_valid!==true))problems.push('Stage returned a blocking contract.');const ctx=isObj(prior.context)?{...prior.context}:{};const artifacts=isObj(prior.artifacts)?{...prior.artifacts}:{};const report=isObj(result.integrity_report)?result.integrity_report:{};if(!str(report.integrity_report_uuid))problems.push('integrity_report_uuid is required.');ctx.integrity_report_uuid=str(report.integrity_report_uuid);artifacts.integrity=result;const failed=problems.length>0;const now=new Date().toISOString();const errors=Array.isArray(result.validation_errors)?result.validation_errors.map(String):[];const journal=[...(Array.isArray(prior.execution_journal)?prior.execution_journal:[]),{stage:'WF-012',workflow_name:'WF-012 - Knowledge Integrity Manager v2',status:failed?(result.status==='blocked'?'blocked':'error'):(review?'review_required':'success'),is_valid:!failed,route:str(result.route),expected_route:'knowledge.integrity.completed',started_at:str(prior.next_started_at)||now,completed_at:now,error_message:failed?[...problems,...errors].join(' '):''}];const state={...prior,context:ctx,artifacts,execution_journal:journal,pipeline_active:!failed,failed_stage:failed?'WF-012':str(prior.failed_stage),integration_status:failed?(result.status==='blocked'?'blocked':'error'):(review?'review_required':str(prior.integration_status)||'completed'),next_started_at:now,validation_errors:failed?[...(Array.isArray(prior.validation_errors)?prior.validation_errors:[]),...problems,...errors]:(Array.isArray(prior.validation_errors)?prior.validation_errors:[])};return[{json:{...result,_orchestration:state,pipeline_active:state.pipeline_active}}];"
+      },
+      "id": "7befc6e1-ed90-4f1e-afe3-5fed4f060cc1",
+      "name": "Validate WF-012 Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        7520,
+        760
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const root=$json&&typeof $json==='object'?$json:{};const state=root._orchestration&&typeof root._orchestration==='object'?root._orchestration:{};const expected=Array.isArray(state.expected_stages)?state.expected_stages:[];const journal=Array.isArray(state.execution_journal)?state.execution_journal.map(x=>x&&typeof x==='object'?{...x}:{}):[];const executed=new Set(journal.map(x=>x.stage));const now=new Date().toISOString();for(const stage of expected)if(!executed.has(stage))journal.push({stage,workflow_name:'',status:'skipped',is_valid:false,route:'',expected_route:'',started_at:'',completed_at:now,error_message:state.failed_stage?`Skipped after ${state.failed_stage}.`:'Not executed.'});const counts=s=>journal.filter(x=>x.status===s).length;let integrationStatus=String(state.integration_status??'error');if(state.command_route==='command.help')integrationStatus='help';else if(state.command_route==='command.status')integrationStatus='status';else if(state.command_route==='command.invalid')integrationStatus='invalid_command';else if(journal.some(x=>x.status==='blocked'))integrationStatus='blocked';else if(journal.some(x=>x.status==='error'))integrationStatus='error';else if(journal.some(x=>x.status==='review_required'))integrationStatus='review_required';else if(expected.length&&journal.filter(x=>x.status==='success').length===expected.length)integrationStatus='completed';const started=String(state.started_at??now);const summary={pipeline_type:String(state.pipeline_type??''),stages_expected:expected.length,stages_executed:journal.filter(x=>x.status!=='skipped').length,stages_succeeded:counts('success'),stages_failed:counts('error')+counts('blocked'),stages_skipped:counts('skipped'),stages_review_required:counts('review_required'),integration_status:integrationStatus,failed_stage:String(state.failed_stage??''),duration_ms:Math.max(0,Date.parse(now)-Date.parse(started)||0)};return[{json:{_orchestration:{...state,execution_journal:journal,integration_status:integrationStatus,completed_at:now},integration_summary:summary,last_result:root&&typeof root==='object'?Object.fromEntries(Object.entries(root).filter(([k])=>!['_orchestration','pipeline_active'].includes(k))):{}}}];"
+      },
+      "id": "bf2660d8-bbc3-4675-8d87-f06e87f2dbe3",
+      "name": "Build Integration Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        7780,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const root=$json&&typeof $json==='object'?$json:{};const state=root._orchestration&&typeof root._orchestration==='object'?root._orchestration:{};const summary=root.integration_summary&&typeof root.integration_summary==='object'?root.integration_summary:{};const statusKey=String(summary.integration_status??'error');const success=['completed','review_required','help','status'].includes(statusKey);const route=state.command_route==='command.new'&&success?'integration.novel.completed':state.command_route==='command.chapter'&&success?'integration.chapter.completed':state.command_route==='command.help'?'integration.help':state.command_route==='command.status'?'integration.status':state.command_route==='command.invalid'?'integration.invalid':'integration.failed';const c=state.context&&typeof state.context==='object'?state.context:{};const integration={integration_uuid:String(state.integration_uuid??''),pipeline_type:String(summary.pipeline_type??''),integration_status:statusKey,failed_stage:String(summary.failed_stage??''),novel_uuid:String(c.novel_uuid??''),workspace_uuid:String(c.workspace_uuid??''),root_folder_id:String(c.root_folder_id??''),root_folder_url:String(c.root_folder_url??''),chapter_uuid:String(c.chapter_uuid??''),story_bible_uuid:String(c.story_bible_uuid??''),persistence_id:String(c.persistence_id??''),integrity_report_uuid:String(c.integrity_report_uuid??''),started_at:String(state.started_at??''),completed_at:String(state.completed_at??new Date().toISOString())};const invalid=statusKey==='invalid_command';return[{json:{schema_version:'1.0',workflow_version:'1.0',route,target:'telegram.reply',status:success?'ready':'error',is_valid:success,validation_errors:Array.isArray(state.validation_errors)?state.validation_errors:[],integration,summary,execution_journal:Array.isArray(state.execution_journal)?state.execution_journal:[],result:success?(root.last_result??{}):null,context:{telegram_update_id:Number(c.telegram_update_id??0),telegram_chat_id:Number(c.telegram_chat_id??0),telegram_user_id:Number(c.telegram_user_id??0),novel_uuid:String(c.novel_uuid??''),novel_slug:String(c.novel_slug??''),novel_title:String(c.novel_title??''),workspace_uuid:String(c.workspace_uuid??''),workspace_name:String(c.workspace_name??''),existing_root_folder_id:String(c.existing_root_folder_id??''),root_folder_id:String(c.root_folder_id??''),chapter_uuid:String(c.chapter_uuid??''),chapter_number:Number.isInteger(c.chapter_number)?c.chapter_number:0,chapter_title:String(c.chapter_title??''),story_bible_uuid:String(c.story_bible_uuid??''),persistence_id:String(c.persistence_id??''),integrity_report_uuid:String(c.integrity_report_uuid??'')}}}];"
+      },
+      "id": "8ee1c846-c757-4eb7-a3ea-73e487047a62",
+      "name": "Build Final Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        8000,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Intake\nValidate the WF-001 command contract and preserve context.",
+        "height": 440,
+        "width": 900,
+        "color": 7
+      },
+      "id": "56ece8ba-ec7d-4ad0-88c4-e4b54d0112c0",
+      "name": "Intake",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Routing\nOnly the selected command branch executes.",
+        "height": 440,
+        "width": 500,
+        "color": 6
+      },
+      "id": "8ec89262-5e67-4c40-a255-24a49c2ce2fa",
+      "name": "Routing",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        700,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Novel Creation Pipeline\nWF-002 → WF-003 → WF-005",
+        "height": 440,
+        "width": 2300,
+        "color": 5
+      },
+      "id": "044a38ac-4c65-4b3f-8b31-031ebcdce5e8",
+      "name": "Novel Creation Pipeline",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        880,
+        -180
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Chapter Knowledge Pipeline\nWF-004 → WF-005 → WF-006 → WF-007 → WF-008 → WF-009 → WF-010 → WF-011 → WF-012",
+        "height": 440,
+        "width": 7000,
+        "color": 4
+      },
+      "id": "f2f978df-ac40-45ba-9c9a-41b37809a200",
+      "name": "Chapter Knowledge Pipeline",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        880,
+        580
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Error Handling\nEvery validation gate routes blocking results to the shared summary and marks remaining stages skipped.",
+        "height": 300,
+        "width": 2500,
+        "color": 3
+      },
+      "id": "81abe647-9ada-4fe4-81a9-a820815ccc94",
+      "name": "Error Handling",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        3000,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Output\nBuild one integration summary and telegram.reply contract.",
+        "height": 440,
+        "width": 700,
+        "color": 2
+      },
+      "id": "ae2d9c6c-b884-4f71-9c6e-7a4e0f478ad6",
+      "name": "Output",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        7680,
+        180
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Validate Orchestrator Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Orchestrator Input": {
+      "main": [
+        [
+          {
+            "node": "Extract Command Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Command Context": {
+      "main": [
+        [
+          {
+            "node": "Route Command Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Command Type": {
+      "main": [
+        [
+          {
+            "node": "Dispatch Command Route",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dispatch Command Route": {
+      "main": [
+        [
+          {
+            "node": "Prepare WF-002 Novel Input",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Call WF-004 Chapter Manager",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Integration Summary",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Integration Summary",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Integration Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call WF-002 Novel Manager": {
+      "main": [
+        [
+          {
+            "node": "Validate WF-002 Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate WF-002 Result": {
+      "main": [
+        [
+          {
+            "node": "WF-002 Succeeded?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WF-002 Succeeded?": {
+      "main": [
+        [
+          {
+            "node": "Call WF-003 Workspace Manager",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Integration Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call WF-003 Workspace Manager": {
+      "main": [
+        [
+          {
+            "node": "Validate WF-003 Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate WF-003 Result": {
+      "main": [
+        [
+          {
+            "node": "WF-003 Succeeded?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WF-003 Succeeded?": {
+      "main": [
+        [
+          {
+            "node": "Prepare WF-005 Novel Storage Input",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Integration Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare WF-005 Novel Storage Input": {
+      "main": [
+        [
+          {
+            "node": "Call WF-005 Novel Storage Manager",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Novel Storage Result": {
+      "main": [
+        [
+          {
+            "node": "Novel Storage Succeeded?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Novel Storage Succeeded?": {
+      "main": [
+        [
+          {
+            "node": "Build Integration Summary",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Integration Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call WF-004 Chapter Manager": {
+      "main": [
+        [
+          {
+            "node": "Validate WF-004 Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate WF-004 Result": {
+      "main": [
+        [
+          {
+            "node": "WF-004 Succeeded?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WF-004 Succeeded?": {
+      "main": [
+        [
+          {
+            "node": "Prepare WF-005 Chapter Storage Input",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Integration Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare WF-005 Chapter Storage Input": {
+      "main": [
+        [
+          {
+            "node": "Call WF-005 Chapter Storage Manager",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Chapter Storage Result": {
+      "main": [
+        [
+          {
+            "node": "Chapter Storage Succeeded?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chapter Storage Succeeded?": {
+      "main": [
+        [
+          {
+            "node": "Prepare WF-006 Canon Input",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Integration Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare WF-006 Canon Input": {
+      "main": [
+        [
+          {
+            "node": "Call WF-006 Canon Knowledge Manager",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call WF-006 Canon Knowledge Manager": {
+      "main": [
+        [
+          {
+            "node": "Validate WF-006 Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate WF-006 Result": {
+      "main": [
+        [
+          {
+            "node": "WF-006 Succeeded?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WF-006 Succeeded?": {
+      "main": [
+        [
+          {
+            "node": "Call WF-007 Character Knowledge Manager",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Integration Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call WF-007 Character Knowledge Manager": {
+      "main": [
+        [
+          {
+            "node": "Validate WF-007 Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate WF-007 Result": {
+      "main": [
+        [
+          {
+            "node": "WF-007 Succeeded?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WF-007 Succeeded?": {
+      "main": [
+        [
+          {
+            "node": "Call WF-008 World Knowledge Manager",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Integration Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call WF-008 World Knowledge Manager": {
+      "main": [
+        [
+          {
+            "node": "Validate WF-008 Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate WF-008 Result": {
+      "main": [
+        [
+          {
+            "node": "WF-008 Succeeded?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WF-008 Succeeded?": {
+      "main": [
+        [
+          {
+            "node": "Call WF-009 Timeline Knowledge Manager",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Integration Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call WF-009 Timeline Knowledge Manager": {
+      "main": [
+        [
+          {
+            "node": "Validate WF-009 Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate WF-009 Result": {
+      "main": [
+        [
+          {
+            "node": "WF-009 Succeeded?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WF-009 Succeeded?": {
+      "main": [
+        [
+          {
+            "node": "Call WF-010 Story Bible Manager",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Integration Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call WF-010 Story Bible Manager": {
+      "main": [
+        [
+          {
+            "node": "Validate WF-010 Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate WF-010 Result": {
+      "main": [
+        [
+          {
+            "node": "WF-010 Succeeded?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WF-010 Succeeded?": {
+      "main": [
+        [
+          {
+            "node": "Prepare WF-011 Persistence Input",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Integration Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare WF-011 Persistence Input": {
+      "main": [
+        [
+          {
+            "node": "Persistence Root Available?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Persistence Root Available?": {
+      "main": [
+        [
+          {
+            "node": "Call WF-011 Knowledge Persistence Manager",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Integration Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call WF-011 Knowledge Persistence Manager": {
+      "main": [
+        [
+          {
+            "node": "Validate WF-011 Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate WF-011 Result": {
+      "main": [
+        [
+          {
+            "node": "WF-011 Succeeded?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WF-011 Succeeded?": {
+      "main": [
+        [
+          {
+            "node": "Prepare WF-012 Integrity Input",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Integration Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare WF-012 Integrity Input": {
+      "main": [
+        [
+          {
+            "node": "Call WF-012 Knowledge Integrity Manager",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call WF-012 Knowledge Integrity Manager": {
+      "main": [
+        [
+          {
+            "node": "Validate WF-012 Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate WF-012 Result": {
+      "main": [
+        [
+          {
+            "node": "Build Integration Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Integration Summary": {
+      "main": [
+        [
+          {
+            "node": "Build Final Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call WF-005 Novel Storage Manager": {
+      "main": [
+        [
+          {
+            "node": "Validate Novel Storage Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call WF-005 Chapter Storage Manager": {
+      "main": [
+        [
+          {
+            "node": "Validate Chapter Storage Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare WF-002 Novel Input": {
+      "main": [
+        [
+          {
+            "node": "Call WF-002 Novel Manager",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "4c31d7e8-b890-40ad-bb88-19cea9f30618",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}
