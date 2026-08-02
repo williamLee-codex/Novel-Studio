@@ -289,7 +289,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const source=$('Resolve Parent Folder').first().json;const rootResult=$json;const rootId=source.existing_root_folder_id||rootResult.id||'';if(source.execution_rejected)return[{json:{...source,root_folder_id:'',root_folder_url:'',folder_execution_items:[],file_execution_items:[]}}];const folderItems=source.folder_plan.map(o=>({operation:o,parent_folder_id:o.parent_relative_path==='$root'?rootId:(source.folder_id_map[o.parent_relative_path]||rootId),root_folder_id:rootId,root_folder_url:rootResult.webViewLink||`https://drive.google.com/drive/folders/${rootId}`}));return folderItems.length?folderItems.map(x=>({json:{...source,...x}})):[{json:{...source,root_folder_id:rootId,root_folder_url:rootResult.webViewLink||''}}];"
+        "jsCode": "const source=$('Resolve Parent Folder').first().json;const rootResult=$json;const existingRootId=source.existing_root_folder_id||'';const newlyCreatedRootId=!existingRootId&&typeof rootResult.id==='string'?rootResult.id:'';const rootId=existingRootId||newlyCreatedRootId;if(source.execution_rejected)return[{json:{...source,root_folder_id:'',root_folder_url:'',folder_execution_items:[],file_execution_items:[]}}];const folderItems=source.folder_plan.map(o=>({operation:o,parent_folder_id:o.parent_relative_path==='$root'?rootId:(source.folder_id_map[o.parent_relative_path]||rootId),existing_root_folder_id:existingRootId,newly_created_root_folder_id:newlyCreatedRootId,root_folder_id:rootId,root_folder_url:rootResult.webViewLink||`https://drive.google.com/drive/folders/${rootId}`}));return folderItems.length?folderItems.map(x=>({json:{...source,...x}})):[{json:{...source,existing_root_folder_id:existingRootId,newly_created_root_folder_id:newlyCreatedRootId,root_folder_id:rootId,root_folder_url:rootResult.webViewLink||''}}];"
       },
       "id": "caea1a07-0685-4d35-816a-61ebeb008a29",
       "name": "Prepare Child Folder Items",
@@ -322,8 +322,8 @@
       "type": "n8n-nodes-base.googleDrive",
       "typeVersion": 3,
       "position": [
-        3600,
-        0
+        4320,
+        100
       ],
       "continueOnFail": true,
       "onError": "continueRegularOutput"
@@ -337,7 +337,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3840,
+        5040,
         0
       ]
     },
@@ -355,7 +355,7 @@
       "type": "n8n-nodes-base.convertToFile",
       "typeVersion": 1.1,
       "position": [
-        4080,
+        5280,
         0
       ],
       "continueOnFail": true,
@@ -384,7 +384,7 @@
       "type": "n8n-nodes-base.googleDrive",
       "typeVersion": 3,
       "position": [
-        4320,
+        5520,
         0
       ],
       "continueOnFail": true,
@@ -392,14 +392,14 @@
     },
     {
       "parameters": {
-        "jsCode": "const source=$('Resolve Parent Folder').first().json;if(source.execution_rejected)return[{json:{...source,execution_results:[],root_folder_id:'',root_folder_url:''}}];const now=()=>new Date().toISOString();const errorText=j=>String(j.error?.message??j.message??'').replace(/(token|authorization|credential)\\s*[:=]\\s*\\S+/giu,'$1: [redacted]');const results=[];const rootOutputs=$('Create Root Folder').all();const existingOutputs=$('Use Existing Root Folder').all();const root=(rootOutputs[0]??existingOutputs[0]??{json:{}}).json;const rootFailed=Boolean(root.error)||!root.id;results.push({operation_id:'ROOT-001',operation_type:'create_folder',resource_name:source.root_folder_plan.resource_name,status:rootFailed?'failed':'success',resource_id:root.id??'',resource_url:root.webViewLink??'',error_message:rootFailed?(errorText(root)||'Root folder could not be resolved or created.'):'',executed_at:now(),required:true});\nconst folderInputs=$('Prepare Child Folder Items').all();const folderOutputs=$('Create Child Folders').all();folderInputs.forEach((item,i)=>{if(!item.json.operation)return;const out=folderOutputs[i]?.json??{};const failed=Boolean(out.error)||!out.id;results.push({operation_id:item.json.operation.operation_id,operation_type:'create_folder',resource_name:item.json.operation.folder_name,status:failed?'failed':'success',resource_id:out.id??'',resource_url:out.webViewLink??'',error_message:failed?(errorText(out)||'Folder creation failed.'):'',executed_at:now(),required:item.json.operation.required!==false})});\nconst fileInputs=$('Prepare File Items').all();const fileOutputs=$('Create Text and JSON Files').all();fileInputs.forEach((item,i)=>{if(!item.json.operation)return;const out=fileOutputs[i]?.json??{};const failed=Boolean(out.error)||!out.id;results.push({operation_id:item.json.operation.operation_id,operation_type:'create_file',resource_name:item.json.operation.file_name,status:failed?'failed':'success',resource_id:out.id??'',resource_url:out.webViewLink??'',error_message:failed?(errorText(out)||'File creation failed.'):'',executed_at:now(),required:item.json.operation.required!==false})});return[{json:{...source,execution_results:results,root_folder_id:root.id??'',root_folder_url:root.webViewLink??''}}];"
+        "jsCode": "const source=$('Resolve Parent Folder').first().json;if(source.execution_rejected)return[{json:{...source,execution_results:[],root_folder_id:'',root_folder_url:''}}];const now=()=>new Date().toISOString();const errorText=j=>String(j.error?.message??j.message??'').replace(/(token|authorization|credential)\\s*[:=]\\s*\\S+/giu,'$1: [redacted]');const results=[];const rootOutputs=$('Create Root Folder').all();const existingOutputs=$('Use Existing Root Folder').all();const root=(rootOutputs[0]??existingOutputs[0]??{json:{}}).json;const rootFailed=Boolean(root.error)||!root.id;results.push({operation_id:'ROOT-001',operation_type:'create_folder',resource_name:source.root_folder_plan.resource_name,status:rootFailed?'failed':'success',resource_id:root.id??'',resource_url:root.webViewLink??'',error_message:rootFailed?(errorText(root)||'Root folder could not be resolved or created.'):'',executed_at:now(),required:true});\nconst folderInputs=$('Prepare Child Folder Items').all();const states=$('Resolve Child Folder State').all();const created=$('Create Child Folders').all();let createdIndex=0;folderInputs.forEach((item,i)=>{if(!item.json.operation)return;const state=states[i]?.json??{};const out=state.child_folder_exists?{id:state.existing_child_folder_id,webViewLink:state.existing_child_folder_url,reused:true}:(created[createdIndex++]?.json??{});const failed=Boolean(out.error)||!out.id;results.push({operation_id:item.json.operation.operation_id,operation_type:'create_folder',resource_name:item.json.operation.folder_name,status:failed?'failed':'success',resource_id:out.id??'',resource_url:out.webViewLink??'',error_message:failed?(errorText(out)||'Folder resolution or creation failed.'):'',executed_at:now(),required:item.json.operation.required!==false})});\nconst fileInputs=$('Prepare File Items').all();const fileOutputs=$('Create Text and JSON Files').all();fileInputs.forEach((item,i)=>{if(!item.json.operation)return;const out=fileOutputs[i]?.json??{};const failed=Boolean(out.error)||!out.id;results.push({operation_id:item.json.operation.operation_id,operation_type:'create_file',resource_name:item.json.operation.file_name,status:failed?'failed':'success',resource_id:out.id??'',resource_url:out.webViewLink??'',error_message:failed?(errorText(out)||'File creation failed.'):'',executed_at:now(),required:item.json.operation.required!==false})});return[{json:{...source,execution_results:results,root_folder_id:root.id??'',root_folder_url:root.webViewLink??''}}];"
       },
       "id": "077c1a9f-3771-451d-bb86-dcfeff50abde",
       "name": "Collect Execution Results",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        4560,
+        5760,
         0
       ]
     },
@@ -412,7 +412,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        4800,
+        6000,
         0
       ]
     },
@@ -425,7 +425,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        5040,
+        6240,
         0
       ]
     },
@@ -438,7 +438,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        5280,
+        6480,
         0
       ]
     },
@@ -502,7 +502,7 @@
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        4560,
+        5760,
         -360
       ]
     },
@@ -518,8 +518,101 @@
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        5040,
+        6240,
         -360
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "operation": "search",
+        "queryString": "={{ \"name = '\" + $json.operation.folder_name.replace(/'/g, \"\\\\'\") + \"' and '\" + $json.parent_folder_id + \"' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false\" }}",
+        "returnAll": false,
+        "limit": 1,
+        "filter": {},
+        "options": {}
+      },
+      "id": "78098544-c2f2-48e6-9305-bae53aef70a6",
+      "name": "Search Existing Child Folder",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        3600,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const searches=$input.all();const prepared=$('Prepare Child Folder Items').all();return prepared.map((item,index)=>{const data=item.json??{};const operation=data.operation??{};const mappedId=typeof data.folder_id_map?.[operation.relative_path]==='string'?data.folder_id_map[operation.relative_path]:'';const found=searches[index]?.json??{};const existingId=mappedId||(typeof found.id==='string'?found.id:'');const existingUrl=typeof found.webViewLink==='string'?found.webViewLink:(existingId?`https://drive.google.com/drive/folders/${existingId}`:'');return{json:{...data,existing_child_folder_id:existingId,existing_child_folder_url:existingUrl,child_folder_exists:Boolean(existingId)}}});"
+      },
+      "id": "b26bd145-50bb-494a-b59a-8d825c6e6133",
+      "name": "Resolve Child Folder State",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3840,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "f9311dcd-54a7-4607-ade1-d2f283761f17",
+              "leftValue": "={{ $json.child_folder_exists }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "deeb5bd0-1c9d-4083-b0d8-9102c54bc86e",
+      "name": "Child Folder Exists?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        4080,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items=$input.all();return items.map(item=>{const data=item.json??{};return{json:{...data,id:data.existing_child_folder_id??'',webViewLink:data.existing_child_folder_url??'',reused:true}}});"
+      },
+      "id": "de27b98e-c7cf-4310-92cb-d15aecea33bc",
+      "name": "Reuse Existing Child Folder",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4320,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "append"
+      },
+      "id": "3b34c7db-fb8c-4864-bb3b-47350292e7f0",
+      "name": "Merge Child Folder Results",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        4800,
+        0
       ]
     }
   ],
@@ -693,22 +786,11 @@
         ]
       ]
     },
-    "Use Existing Root Folder": {
-      "main": [
-        [
-          {
-            "node": "Prepare Child Folder Items",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Prepare Child Folder Items": {
       "main": [
         [
           {
-            "node": "Create Child Folders",
+            "node": "Search Existing Child Folder",
             "type": "main",
             "index": 0
           }
@@ -719,9 +801,9 @@
       "main": [
         [
           {
-            "node": "Prepare File Items",
+            "node": "Merge Child Folder Results",
             "type": "main",
-            "index": 0
+            "index": 1
           }
         ]
       ]
@@ -786,6 +868,79 @@
         [
           {
             "node": "Build Final Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Existing Child Folder": {
+      "main": [
+        [
+          {
+            "node": "Resolve Child Folder State",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve Child Folder State": {
+      "main": [
+        [
+          {
+            "node": "Child Folder Exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Child Folder Exists?": {
+      "main": [
+        [
+          {
+            "node": "Reuse Existing Child Folder",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Child Folders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reuse Existing Child Folder": {
+      "main": [
+        [
+          {
+            "node": "Merge Child Folder Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Child Folder Results": {
+      "main": [
+        [
+          {
+            "node": "Prepare File Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Use Existing Root Folder": {
+      "main": [
+        [
+          {
+            "node": "Prepare Child Folder Items",
             "type": "main",
             "index": 0
           }
