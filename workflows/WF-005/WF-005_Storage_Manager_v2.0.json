@@ -322,15 +322,15 @@
       "type": "n8n-nodes-base.googleDrive",
       "typeVersion": 3,
       "position": [
-        4320,
-        100
+        4560,
+        -100
       ],
       "continueOnFail": true,
       "onError": "continueRegularOutput"
     },
     {
       "parameters": {
-        "jsCode": "const source=$('Resolve Parent Folder').first().json;if(source.execution_rejected)return[{json:{...source,operation:null,parent_folder_id:''}}];let rootJson={};try{const createdRootItems=$('Create Root Folder').all();if(createdRootItems.length>0){rootJson=createdRootItems[0].json??{};}}catch{}if(!rootJson.id){try{const existingRootItems=$('Use Existing Root Folder').all();if(existingRootItems.length>0){rootJson=existingRootItems[0].json??{};}}catch{}}const rootId=source.existing_root_folder_id||source.root_folder_id||rootJson.id||'';return source.file_plan.map(o=>({json:{...source,operation:o,parent_folder_id:source.folder_id_map[o.parent_relative_path]||rootId,root_folder_id:rootId,root_folder_url:rootJson.webViewLink||`https://drive.google.com/drive/folders/${rootId}`,content:o.initial_content,file_name:o.file_name}}));"
+        "jsCode": "const source=$('Resolve Parent Folder').first().json;if(source.execution_rejected)return[{json:{...source,operation:null,parent_folder_id:''}}];let rootJson={};if(source.existing_root_folder_id){rootJson={id:source.existing_root_folder_id,webViewLink:source.root_folder_url||''};}else{const createdRootItems=$('Create Root Folder').all();if(createdRootItems.length>0)rootJson=createdRootItems[0].json??{};}const rootId=source.existing_root_folder_id||source.root_folder_id||rootJson.id||'';return source.file_plan.map(o=>({json:{...source,operation:o,parent_folder_id:source.folder_id_map[o.parent_relative_path]||rootId,root_folder_id:rootId,root_folder_url:rootJson.webViewLink||`https://drive.google.com/drive/folders/${rootId}`,content:o.initial_content,file_name:o.file_name}}));"
       },
       "id": "b3194a99-65d4-4850-aaa3-74f653e6bc14",
       "name": "Prepare File Items",
@@ -537,8 +537,8 @@
       "type": "n8n-nodes-base.googleDrive",
       "typeVersion": 3,
       "position": [
-        3600,
-        0
+        3840,
+        100
       ],
       "alwaysOutputData": true
     },
@@ -551,7 +551,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3840,
+        4080,
         0
       ]
     },
@@ -585,7 +585,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        4080,
+        4320,
         0
       ]
     },
@@ -598,7 +598,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        4320,
+        4560,
         -100
       ]
     },
@@ -611,7 +611,41 @@
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3,
       "position": [
-        4800,
+        5040,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "a580a0b1-cc0f-441d-872c-badfcda27458",
+              "leftValue": "={{ Boolean($json.newly_created_root_folder_id) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "1b216eb7-f383-46bb-be1c-41fe3442b3b8",
+      "name": "New Root Folder?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3600,
         0
       ]
     }
@@ -795,7 +829,7 @@
       "main": [
         [
           {
-            "node": "Search Existing Child Folder",
+            "node": "New Root Folder?",
             "type": "main",
             "index": 0
           }
@@ -935,6 +969,24 @@
         [
           {
             "node": "Prepare File Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "New Root Folder?": {
+      "main": [
+        [
+          {
+            "node": "Create Child Folders",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Search Existing Child Folder",
             "type": "main",
             "index": 0
           }
