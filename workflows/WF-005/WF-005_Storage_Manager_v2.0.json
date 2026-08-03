@@ -363,7 +363,7 @@
     },
     {
       "parameters": {
-        "resource": "fileFolder",
+        "resource": "file",
         "operation": "upload",
         "inputDataFieldName": "data",
         "name": "={{ $json.file_name }}",
@@ -379,7 +379,7 @@
         },
         "options": {}
       },
-      "id": "ccbfc3b6-6d11-4c3f-94a6-9c1d2b04ea24",
+      "id": "f672477b-b246-4e77-82d2-36800f0a7dfd",
       "name": "Create Text and JSON Files",
       "type": "n8n-nodes-base.googleDrive",
       "typeVersion": 3,
