@@ -42,7 +42,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const root=$json&&typeof $json==='object'?$json:{};let route=root.orchestrator_input_valid===true?String(root.route??''):'command.invalid';if(!['command.new','command.chapter','command.status','command.help','command.invalid'].includes(route))route='command.invalid';let seed=Date.now();const id='xxxxxxxx'.replace(/x/g,()=>{const r=(seed+Math.random()*16)%16|0;seed=Math.floor(seed/16);return r.toString(16)});const type=route==='command.new'?'novel_creation':route==='command.chapter'?'chapter_processing':route.slice(8);const expected=route==='command.new'?['WF-002','WF-003','WF-005']:route==='command.chapter'?['WF-004','WF-005','WF-006','WF-007','WF-008','WF-009','WF-010','WF-011','WF-012']:[];const now=new Date().toISOString();const state={integration_uuid:`INTG-${id}`,pipeline_type:type,command_route:route,started_at:now,next_started_at:now,expected_stages:expected,execution_journal:[],context:root.preserved_context&&typeof root.preserved_context==='object'?{...root.preserved_context}:{},artifacts:{},pipeline_active:route==='command.new'||route==='command.chapter',integration_status:route==='command.help'?'help':route==='command.status'?'status':route==='command.invalid'?'invalid_command':'completed',failed_stage:'',validation_errors:Array.isArray(root.validation_errors)?[...root.validation_errors]:[]};return[{json:{...root,route_key:route,_orchestration:state,pipeline_active:state.pipeline_active}}];"
+        "jsCode": "const root=$json&&typeof $json==='object'?$json:{};let route=root.orchestrator_input_valid===true?String(root.route??''):'command.invalid';if(!['command.new','command.chapter','command.status','command.help','command.invalid'].includes(route))route='command.invalid';let seed=Date.now();const id='xxxxxxxx'.replace(/x/g,()=>{const r=(seed+Math.random()*16)%16|0;seed=Math.floor(seed/16);return r.toString(16)});const type=route==='command.new'?'novel_creation':route==='command.chapter'?'chapter_processing':route.slice(8);const expected=route==='command.new'?['WF-002','WF-003','WF-005A','WF-005B']:route==='command.chapter'?['WF-004','WF-005','WF-006','WF-007','WF-008','WF-009','WF-010','WF-011','WF-012']:[];const now=new Date().toISOString();const state={integration_uuid:`INTG-${id}`,pipeline_type:type,command_route:route,started_at:now,next_started_at:now,expected_stages:expected,execution_journal:[],context:root.preserved_context&&typeof root.preserved_context==='object'?{...root.preserved_context}:{},artifacts:{},pipeline_active:route==='command.new'||route==='command.chapter',integration_status:route==='command.help'?'help':route==='command.status'?'status':route==='command.invalid'?'invalid_command':'completed',failed_stage:'',validation_errors:Array.isArray(root.validation_errors)?[...root.validation_errors]:[]};return[{json:{...root,route_key:route,_orchestration:state,pipeline_active:state.pipeline_active}}];"
       },
       "id": "fc8be4ed-34f0-403c-8685-dcb040e9957a",
       "name": "Route Command Type",
@@ -405,10 +405,10 @@
     },
     {
       "parameters": {
-        "jsCode": "const {_orchestration,pipeline_active,...workspacePersistenceContract}=$json;return[{json:{...workspacePersistenceContract,target:'WF-005',persistence_type:'workspace'}}];"
+        "jsCode": "const {_orchestration,pipeline_active,...workspacePersistenceContract}=$json;return[{json:{...workspacePersistenceContract,target:'WF-005A',persistence_type:'workspace'}}];"
       },
       "id": "49a24af8-b1f0-4af6-864f-d6b692215e35",
-      "name": "Prepare WF-005 Novel Storage Input",
+      "name": "Prepare WF-005A Input",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -420,12 +420,12 @@
       "parameters": {
         "workflowId": {
           "__rl": true,
-          "value": "",
+          "value": "REBOUND_REQUIRED_WF-005A",
           "mode": "list",
-          "cachedResultName": "WF-005 - Storage Manager v2"
+          "cachedResultName": "WF-005A - Storage Folder Manager v1"
         },
         "workflowInputs": {
-          "mappingMode": "defineBelow",
+          "mappingMode": "passThrough",
           "value": {},
           "matchingColumns": [],
           "schema": [],
@@ -438,7 +438,7 @@
         "source": "database"
       },
       "id": "dea15c87-b817-451e-8d05-890313a4d89d",
-      "name": "Call WF-005 Novel Storage Manager",
+      "name": "Call WF-005A Storage Folder Manager",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
@@ -450,10 +450,10 @@
     },
     {
       "parameters": {
-        "jsCode": "const result=$json&&typeof $json==='object'&&!Array.isArray($json)?$json:{};let prior={};try{const candidate=$('Validate WF-003 Result').item.json;prior=candidate?._orchestration&&typeof candidate._orchestration==='object'?candidate._orchestration:{}}catch{prior={}}const isObj=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);const str=v=>typeof v==='string'?v.trim():'';const problems=[];if(!str(result.status))problems.push('status is required.');if(typeof result.is_valid!=='boolean')problems.push('is_valid is required.');if(!Array.isArray(result.validation_errors))problems.push('validation_errors must be an array.');if(result.route!=='storage.completed')problems.push('Expected route storage.completed; received '+str(result.route)+'.');const review=false;if(!review&&(result.status!=='ready'||result.is_valid!==true))problems.push('Stage returned a blocking contract.');const ctx=isObj(prior.context)?{...prior.context}:{};const artifacts=isObj(prior.artifacts)?{...prior.artifacts}:{};const storage=isObj(result.storage)?result.storage:{};if(storage.storage_status!=='completed')problems.push('storage.storage_status must be completed.');if(!str(storage.root_folder_id))problems.push('storage.root_folder_id is required.');ctx.root_folder_id=str(storage.root_folder_id);ctx.root_folder_url=str(storage.root_folder_url);ctx.existing_root_folder_id=str(storage.root_folder_id)||ctx.existing_root_folder_id;ctx.novel_uuid=str(storage.novel_uuid)||ctx.novel_uuid;ctx.workspace_uuid=str(storage.workspace_uuid)||ctx.workspace_uuid;artifacts.storage=result;const failed=problems.length>0;const now=new Date().toISOString();const errors=Array.isArray(result.validation_errors)?result.validation_errors.map(String):[];const journal=[...(Array.isArray(prior.execution_journal)?prior.execution_journal:[]),{stage:'WF-005',workflow_name:'WF-005 - Storage Manager v2',status:failed?(result.status==='blocked'?'blocked':'error'):(review?'review_required':'success'),is_valid:!failed,route:str(result.route),expected_route:'storage.completed',started_at:str(prior.next_started_at)||now,completed_at:now,error_message:failed?[...problems,...errors].join(' '):''}];const state={...prior,context:ctx,artifacts,execution_journal:journal,pipeline_active:!failed,failed_stage:failed?'WF-005':str(prior.failed_stage),integration_status:failed?(result.status==='blocked'?'blocked':'error'):(review?'review_required':str(prior.integration_status)||'completed'),next_started_at:now,validation_errors:failed?[...(Array.isArray(prior.validation_errors)?prior.validation_errors:[]),...problems,...errors]:(Array.isArray(prior.validation_errors)?prior.validation_errors:[])};return[{json:{...result,_orchestration:state,pipeline_active:state.pipeline_active}}];"
+        "jsCode": "const result=$json&&typeof $json==='object'&&!Array.isArray($json)?$json:{};let prior={};try{const candidate=$('Validate WF-003 Result').item.json;prior=candidate?._orchestration&&typeof candidate._orchestration==='object'?candidate._orchestration:{}}catch{prior={}}const isObj=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);const str=v=>typeof v==='string'?v.trim():'';const problems=[];if(result.route!=='storage.folders.completed')problems.push('Expected route storage.folders.completed; received '+str(result.route)+'.');if(result.status!=='ready')problems.push('status must be ready.');if(result.is_valid!==true)problems.push('is_valid must be true.');if(!Array.isArray(result.validation_errors))problems.push('validation_errors must be an array.');if(!str(result.root_folder_id))problems.push('root_folder_id is required.');if(!isObj(result.folder_id_map))problems.push('folder_id_map must be an object.');if(!Array.isArray(result.file_plan))problems.push('file_plan must be an array.');const returnedErrors=Array.isArray(result.validation_errors)?result.validation_errors.map(String):[];const failed=problems.length>0||returnedErrors.length>0;const ctx=isObj(prior.context)?{...prior.context}:{};const artifacts=isObj(prior.artifacts)?{...prior.artifacts}:{};if(!failed){artifacts.storage_folders=result;ctx.root_folder_id=str(result.root_folder_id);ctx.root_folder_url=str(result.root_folder_url);ctx.existing_root_folder_id=str(result.root_folder_id);ctx.workspace_folder_map={...result.folder_id_map};}const now=new Date().toISOString();const status=failed?(result.status==='blocked'?'blocked':'error'):'success';const journal=[...(Array.isArray(prior.execution_journal)?prior.execution_journal:[]),{stage:'WF-005A',workflow_name:'WF-005A - Storage Folder Manager v1',status,is_valid:!failed,route:str(result.route),expected_route:'storage.folders.completed',started_at:str(prior.next_started_at)||now,completed_at:now,error_message:failed?[...problems,...returnedErrors].join(' '):''}];const state={...prior,context:ctx,artifacts,execution_journal:journal,pipeline_active:!failed,failed_stage:failed?'WF-005A':str(prior.failed_stage),integration_status:failed?status:str(prior.integration_status)||'completed',next_started_at:now,validation_errors:failed?[...(Array.isArray(prior.validation_errors)?prior.validation_errors:[]),...problems,...returnedErrors]:(Array.isArray(prior.validation_errors)?prior.validation_errors:[])};return[{json:{...result,_orchestration:state,pipeline_active:state.pipeline_active}}];"
       },
       "id": "dc4eb297-b779-41e8-b099-7fa3ecf8c544",
-      "name": "Validate Novel Storage Result",
+      "name": "Validate WF-005A Result",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -487,7 +487,7 @@
         "options": {}
       },
       "id": "ecd09eb9-4a8d-4c29-a369-95ffb3ab7f2e",
-      "name": "Novel Storage Succeeded?",
+      "name": "WF-005A Succeeded?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
@@ -1318,7 +1318,7 @@
     },
     {
       "parameters": {
-        "content": "## Novel Creation Pipeline\nWF-002 → WF-003 → WF-005",
+        "content": "## Novel Creation Pipeline\nWF-002 → WF-003 → WF-005A → WF-005B",
         "height": 440,
         "width": 2300,
         "color": 5
@@ -1378,6 +1378,85 @@
       "position": [
         7680,
         180
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "REBOUND_REQUIRED_WF-005B",
+          "mode": "list",
+          "cachedResultName": "WF-005B - Storage File Writer v1"
+        },
+        "workflowInputs": {
+          "mappingMode": "passThrough",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        },
+        "source": "database"
+      },
+      "id": "ae796a8b-e386-4560-bdab-81bb393a9f74",
+      "name": "Call WF-005B Storage File Writer",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        3560,
+        0
+      ],
+      "onError": "continueRegularOutput",
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const result=$json&&typeof $json==='object'&&!Array.isArray($json)?$json:{};let prior={};try{const candidate=$('Validate WF-005A Result').item.json;prior=candidate?._orchestration&&typeof candidate._orchestration==='object'?candidate._orchestration:{}}catch{prior={}}const isObj=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);const str=v=>typeof v==='string'?v.trim():'';const problems=[];if(result.route!=='storage.completed')problems.push('Expected route storage.completed; received '+str(result.route)+'.');if(result.status!=='ready')problems.push('status must be ready.');if(result.is_valid!==true)problems.push('is_valid must be true.');if(!Array.isArray(result.validation_errors))problems.push('validation_errors must be an array.');const storage=isObj(result.storage)?result.storage:{};if(storage.storage_status!=='completed')problems.push('storage.storage_status must be completed.');if(!str(storage.root_folder_id))problems.push('storage.root_folder_id is required.');const returnedErrors=Array.isArray(result.validation_errors)?result.validation_errors.map(String):[];const failed=problems.length>0||returnedErrors.length>0;const ctx=isObj(prior.context)?{...prior.context}:{};const artifacts=isObj(prior.artifacts)?{...prior.artifacts}:{};if(!failed){artifacts.storage=result;ctx.root_folder_id=str(storage.root_folder_id);ctx.root_folder_url=str(storage.root_folder_url);ctx.existing_root_folder_id=str(storage.root_folder_id);if(str(storage.novel_uuid))ctx.novel_uuid=str(storage.novel_uuid);if(str(storage.workspace_uuid))ctx.workspace_uuid=str(storage.workspace_uuid);}const now=new Date().toISOString();const status=failed?(result.status==='blocked'?'blocked':'error'):'success';const journal=[...(Array.isArray(prior.execution_journal)?prior.execution_journal:[]),{stage:'WF-005B',workflow_name:'WF-005B - Storage File Writer v1',status,is_valid:!failed,route:str(result.route),expected_route:'storage.completed',started_at:str(prior.next_started_at)||now,completed_at:now,error_message:failed?[...problems,...returnedErrors].join(' '):''}];const state={...prior,context:ctx,artifacts,execution_journal:journal,pipeline_active:!failed,failed_stage:failed?'WF-005B':str(prior.failed_stage),integration_status:failed?status:str(prior.integration_status)||'completed',next_started_at:now,validation_errors:failed?[...(Array.isArray(prior.validation_errors)?prior.validation_errors:[]),...problems,...returnedErrors]:(Array.isArray(prior.validation_errors)?prior.validation_errors:[])};return[{json:{...result,_orchestration:state,pipeline_active:state.pipeline_active}}];"
+      },
+      "id": "9e933096-9ff7-420e-b4da-af01db8d64ef",
+      "name": "Validate WF-005B Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3780,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "b0209cd7-0cf0-4d72-bb16-3ba3f515f63a",
+              "leftValue": "={{ $json.pipeline_active }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "9ddeead0-e42d-489d-acd1-2d929b503c29",
+      "name": "WF-005B Succeeded?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        4000,
+        0
       ]
     }
   ],
@@ -1543,7 +1622,7 @@
       "main": [
         [
           {
-            "node": "Prepare WF-005 Novel Storage Input",
+            "node": "Prepare WF-005A Input",
             "type": "main",
             "index": 0
           }
@@ -1557,33 +1636,33 @@
         ]
       ]
     },
-    "Prepare WF-005 Novel Storage Input": {
+    "Prepare WF-005A Input": {
       "main": [
         [
           {
-            "node": "Call WF-005 Novel Storage Manager",
+            "node": "Call WF-005A Storage Folder Manager",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Validate Novel Storage Result": {
+    "Validate WF-005A Result": {
       "main": [
         [
           {
-            "node": "Novel Storage Succeeded?",
+            "node": "WF-005A Succeeded?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Novel Storage Succeeded?": {
+    "WF-005A Succeeded?": {
       "main": [
         [
           {
-            "node": "Build Integration Summary",
+            "node": "Call WF-005B Storage File Writer",
             "type": "main",
             "index": 0
           }
@@ -2001,11 +2080,11 @@
         ]
       ]
     },
-    "Call WF-005 Novel Storage Manager": {
+    "Call WF-005A Storage Folder Manager": {
       "main": [
         [
           {
-            "node": "Validate Novel Storage Result",
+            "node": "Validate WF-005A Result",
             "type": "main",
             "index": 0
           }
@@ -2039,6 +2118,46 @@
         [
           {
             "node": "Call WF-003 Workspace Manager",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Integration Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call WF-005B Storage File Writer": {
+      "main": [
+        [
+          {
+            "node": "Validate WF-005B Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate WF-005B Result": {
+      "main": [
+        [
+          {
+            "node": "WF-005B Succeeded?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WF-005B Succeeded?": {
+      "main": [
+        [
+          {
+            "node": "Build Integration Summary",
             "type": "main",
             "index": 0
           }
