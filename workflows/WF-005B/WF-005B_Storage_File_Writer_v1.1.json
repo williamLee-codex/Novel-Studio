@@ -1,0 +1,314 @@
+{
+  "name": "WF-005B - Storage File Writer v1.1",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "6486931a-6012-440a-bf9d-ba799453b62c",
+      "name": "Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const errors=[];if($json.route!=='storage.files.write.requested')errors.push('route must target WF-005B');const map=$json.folder_id_map??{};if(!map.workspace)errors.push('folder_id_map.workspace is required');if(!Array.isArray($json.file_operations))errors.push('file_operations must be an array');for(const f of $json.file_operations??[])if(!map[f.folder_key])errors.push(`folder_id_map.${f.folder_key} is required for ${f.file_name}`);return[{json:{...$json,is_valid:errors.length===0,validation_errors:errors}}];"
+      },
+      "id": "10c9a148-48ac-4d7b-aff5-76b6c2997d3e",
+      "name": "Validate folder_id_map",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "if(!$json.is_valid)return[{json:{...$json,operation:null}}];return $json.file_operations.map(operation=>({json:{...$json,operation,file_name:operation.file_name,content:operation.initial_content,parent_folder_id:$json.folder_id_map[operation.folder_key]}}));"
+      },
+      "id": "7e663f39-3a11-4d20-bcef-1ac8faead04a",
+      "name": "Prepare Workspace Files",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "toText",
+        "sourceProperty": "content",
+        "options": {
+          "fileName": "={{ $json.file_name }}",
+          "encoding": "utf8"
+        }
+      },
+      "id": "17fa3068-c945-40cd-a933-ebdfd0f8ed44",
+      "name": "Convert Workspace Content",
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "operation": "upload",
+        "inputDataFieldName": "data",
+        "name": "={{ $json.file_name }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $json.parent_folder_id }}"
+        },
+        "options": {}
+      },
+      "id": "6108358e-c8c9-4bf7-88db-b8bd8ffc403a",
+      "name": "Write Workspace Markdown and JSON",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        880,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const s=$('Validate folder_id_map').first().json;const now=new Date().toISOString();return[{json:{...s,index_entry:{title:s.workspace.novel_title,novel_uuid:s.workspace.novel_uuid,project_folder_id:s.project_folder_id,latest_workspace:s.workspace_version,workspace_count:s.workspace_count,created_at:s.workspace.created_at,updated_at:now}}}];"
+      },
+      "id": "41f18d25-89bb-4384-9cd2-25bb0baac2f9",
+      "name": "Prepare Novel Index Entry",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "operation": "search",
+        "queryString": "={{ \"name = '_index.json' and '\" + $json.storage_root_id + \"' in parents and trashed = false\" }}",
+        "returnAll": true,
+        "filter": {},
+        "options": {}
+      },
+      "id": "6642d791-fc7a-4385-8868-361c59515e9c",
+      "name": "Find _index.json",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1320,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const s=$('Prepare Novel Index Entry').first().json;const hit=$input.all().map(i=>i.json).find(x=>x&&x.id);let index={novels:[]};if(hit?.content){try{index=JSON.parse(hit.content)}catch{index={novels:[]}}}if(!Array.isArray(index.novels))index.novels=[];const i=index.novels.findIndex(n=>n.novel_uuid===s.index_entry.novel_uuid||n.title===s.index_entry.title);if(i>=0){s.index_entry.created_at=index.novels[i].created_at||s.index_entry.created_at;index.novels.splice(i,1,s.index_entry);}else index.novels.push(s.index_entry);return[{json:{...s,index_file_id:hit?.id??'',file_name:'_index.json',parent_folder_id:s.storage_root_id,content:JSON.stringify(index,null,2)}}];"
+      },
+      "id": "e0e67490-fdf5-47a4-9c9b-cb5242f82c91",
+      "name": "Build Updated _index.json",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1540,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "toText",
+        "sourceProperty": "content",
+        "options": {
+          "fileName": "_index.json",
+          "encoding": "utf8"
+        }
+      },
+      "id": "066903e8-625c-4cb0-94e3-d6fa9495c4ce",
+      "name": "Convert Novel Index",
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        1760,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "operation": "upload",
+        "inputDataFieldName": "data",
+        "name": "_index.json",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $json.storage_root_id }}"
+        },
+        "options": {}
+      },
+      "id": "4ff58ffe-e3c3-4eac-99ea-b3904767880a",
+      "name": "Write _index.json Under 小說",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1980,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const s=$('Prepare Novel Index Entry').first().json;return[{json:{schema_version:'1.1',workflow_version:'1.0',route:'storage.completed',target:'WF-006',status:'ready',is_valid:true,storage:{provider:'google_drive',storage_root_id:s.storage_root_id,project_folder_id:s.project_folder_id,workspace_folder_id:s.workspace_folder_id,workspace_version:s.workspace_version,folder_id_map:s.folder_id_map,workspace_uuid:s.workspace.workspace_uuid,novel_uuid:s.workspace.novel_uuid,executed_at:new Date().toISOString()},context:s.context??{}}}];"
+      },
+      "id": "df610d7f-2f96-4c18-bd17-502dd9eafbd7",
+      "name": "Build Storage Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2200,
+        0
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Validate folder_id_map",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate folder_id_map": {
+      "main": [
+        [
+          {
+            "node": "Prepare Workspace Files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Workspace Files": {
+      "main": [
+        [
+          {
+            "node": "Convert Workspace Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert Workspace Content": {
+      "main": [
+        [
+          {
+            "node": "Write Workspace Markdown and JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Workspace Markdown and JSON": {
+      "main": [
+        [
+          {
+            "node": "Prepare Novel Index Entry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Novel Index Entry": {
+      "main": [
+        [
+          {
+            "node": "Find _index.json",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find _index.json": {
+      "main": [
+        [
+          {
+            "node": "Build Updated _index.json",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Updated _index.json": {
+      "main": [
+        [
+          {
+            "node": "Convert Novel Index",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert Novel Index": {
+      "main": [
+        [
+          {
+            "node": "Write _index.json Under 小說",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write _index.json Under 小說": {
+      "main": [
+        [
+          {
+            "node": "Build Storage Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "2f5a11fa-bd96-40f4-b44c-fad945c9c7cd",
+  "meta": {
+    "storageArchitecture": "1.1"
+  },
+  "tags": []
+}

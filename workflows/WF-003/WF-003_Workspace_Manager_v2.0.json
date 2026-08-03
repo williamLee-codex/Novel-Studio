@@ -1,5 +1,5 @@
 {
-  "name": "WF-003 - Workspace Manager v2",
+  "name": "WF-003 - Workspace Manager v2.1 (Storage V1.1)",
   "nodes": [
     {
       "parameters": {
@@ -55,7 +55,7 @@
     },
     {
       "parameters": {
-        "jsCode": "if ($json.is_valid !== true) return [{ json: { ...$json, workspace_name: '', root_folder_name: '' } }];\nconst safeSlug = $json.novel_slug.toLowerCase().replace(/[^a-z0-9-]+/gu, '-').replace(/^-+|-+$/gu, '').replace(/-{2,}/gu, '-');\nconst fallback = `novel-${$json.workspace_uuid.replace(/^WS-/u, '').toLowerCase()}`;\nreturn [{ json: { ...$json, workspace_name: $json.novel_title, root_folder_name: safeSlug || fallback } }];"
+        "jsCode": "if ($json.is_valid !== true) return [{ json: { ...$json, workspace_name: '', storage_root_name: '', project_folder_name: '' } }];\nreturn [{ json: { ...$json, workspace_name: $json.novel_title, storage_root_name: '小說', project_folder_name: $json.novel_title } }];"
       },
       "id": "f275c3d1-bc07-43ef-b360-5e8cee7d7a00",
       "name": "Generate Workspace Names",
@@ -81,7 +81,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const fileManifest = ['Novel.json','Metadata.json','README.md','StoryBible.md','CharacterIndex.json','CanonIndex.json','WorldIndex.json','Outline.md','PublishLog.json'];\nreturn [{ json: { ...$json, file_manifest: $json.is_valid === true ? fileManifest : [] } }];"
+        "jsCode": "if ($json.is_valid !== true) return [{ json: { ...$json, file_manifest: [] } }];\nreturn [{ json: { ...$json, file_manifest: ['Novel.json','Metadata.json','README.md','StoryBible.md','CharacterIndex.json','CanonIndex.json','WorldIndex.json','Outline.md','PublishLog.json','workspace.json'] } }];"
       },
       "id": "0cf5e7ac-6509-4da0-b33a-dbc3df1e44b6",
       "name": "Generate File Manifest",
@@ -94,7 +94,7 @@
     },
     {
       "parameters": {
-        "jsCode": "if ($json.is_valid !== true) return [{ json: { ...$json, workspace_draft: null } }];\nconst timestamp = new Date().toISOString();\nreturn [{ json: { ...$json, workspace_draft: {\n  workspace_uuid: $json.workspace_uuid, workspace_name: $json.workspace_name,\n  novel_uuid: $json.novel_uuid, novel_id: $json.novel_id, novel_slug: $json.novel_slug,\n  novel_title: $json.novel_title, novel_genre: $json.novel_genre, novel_status: $json.novel_status,\n  root_folder_name: $json.root_folder_name, folder_manifest: [...$json.folder_manifest], file_manifest: [...$json.file_manifest],\n  workspace_version: '1.0', created_at: timestamp, updated_at: timestamp, created_by: 'Novel Studio WF-003',\n} } }];"
+        "jsCode": "if ($json.is_valid !== true) return [{ json: { ...$json, workspace_draft: null } }];\nconst timestamp = new Date().toISOString();\nreturn [{ json: { ...$json, workspace_draft: {\n  workspace_uuid: $json.workspace_uuid, workspace_name: $json.workspace_name,\n  novel_uuid: $json.novel_uuid, novel_id: $json.novel_id, novel_slug: $json.novel_slug,\n  novel_title: $json.novel_title, novel_genre: $json.novel_genre, novel_status: $json.novel_status,\n  storage_root_name: '小說', project_folder_name: $json.novel_title, workspace_version: null,\n  folder_manifest: [...$json.folder_manifest], file_manifest: [...$json.file_manifest],\n  created_at: timestamp, updated_at: timestamp, created_by: 'Novel Studio WF-003', storage_schema_version: '1.1'\n} } }];"
       },
       "id": "9abd076e-9163-49f4-927d-347c6e329ed0",
       "name": "Build Workspace Object",
@@ -107,7 +107,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const validationErrors = [...($json.validation_errors ?? [])];\nif ($json.is_valid === true) {\n  const workspace = $json.workspace_draft ?? {};\n  for (const field of ['workspace_uuid','workspace_name','novel_uuid','novel_slug','novel_title','root_folder_name','workspace_version','created_at']) {\n    if (typeof workspace[field] !== 'string' || !workspace[field].trim()) validationErrors.push(`workspace.${field} is required.`);\n  }\n  if (!Array.isArray(workspace.folder_manifest)) validationErrors.push('workspace.folder_manifest must be an array.');\n  if (!Array.isArray(workspace.file_manifest)) validationErrors.push('workspace.file_manifest must be an array.');\n}\nreturn [{ json: { ...$json, is_valid: validationErrors.length === 0, validation_errors: validationErrors } }];"
+        "jsCode": "const validationErrors = [...($json.validation_errors ?? [])];\nif ($json.is_valid === true) {\n const w=$json.workspace_draft??{};\n for(const f of ['workspace_uuid','workspace_name','novel_uuid','novel_title','storage_root_name','project_folder_name','created_at']) if(typeof w[f]!=='string'||!w[f].trim()) validationErrors.push(`workspace.${f} is required.`);\n if(w.storage_root_name!=='小說') validationErrors.push('workspace.storage_root_name must be 小說.');\n if(!Array.isArray(w.folder_manifest)||w.folder_manifest.length!==9) validationErrors.push('workspace.folder_manifest must contain nine folders.');\n if(!Array.isArray(w.file_manifest)||!w.file_manifest.includes('workspace.json')) validationErrors.push('workspace.file_manifest must include workspace.json.');\n}\nreturn [{json:{...$json,is_valid:validationErrors.length===0,validation_errors:validationErrors}}];"
       },
       "id": "81835cda-da45-431a-aa53-220ab5e3cbd9",
       "name": "Validate Workspace Object",
@@ -120,7 +120,7 @@
     },
     {
       "parameters": {
-        "jsCode": "if ($json.is_valid !== true) return [{ json: { ...$json, folder_operations: [] } }];\nconst workspace = $json.workspace_draft;\nconst operations = [{ operation_id: 'FOLDER-001', operation_type: 'create_folder', relative_path: '', folder_name: workspace.root_folder_name, sequence: 1, required: true }];\nworkspace.folder_manifest.forEach((folderName, index) => operations.push({\n  operation_id: `FOLDER-${String(index + 2).padStart(3, '0')}`, operation_type: 'create_folder',\n  relative_path: workspace.root_folder_name, folder_name: folderName, sequence: index + 2, required: true,\n}));\nreturn [{ json: { ...$json, folder_operations: operations } }];"
+        "jsCode": "if($json.is_valid!==true)return[{json:{...$json,folder_operations:[]}}];\nconst w=$json.workspace_draft;\nconst operations=w.folder_manifest.map((folderName,index)=>({operation_id:`FOLDER-${String(index+1).padStart(3,'0')}`,operation_type:'create_folder',parent_key:'workspace',folder_key:folderName,folder_name:folderName,sequence:index+1,required:true}));\nreturn [{json:{...$json,folder_operations:operations}}];"
       },
       "id": "074aa090-cb4a-42c5-bdcb-074d5a10e207",
       "name": "Build Folder Operations",
@@ -133,7 +133,7 @@
     },
     {
       "parameters": {
-        "jsCode": "if ($json.is_valid !== true) return [{ json: { ...$json, file_operations: [] } }];\nconst workspace = $json.workspace_draft;\nconst content = {\n  'Novel.json': '{}', 'Metadata.json': '{}', 'README.md': `# ${workspace.novel_title}`,\n  'StoryBible.md': '# Story Bible', 'CharacterIndex.json': '[]', 'CanonIndex.json': '[]',\n  'WorldIndex.json': '[]', 'Outline.md': '# Outline', 'PublishLog.json': '[]',\n};\nconst operations = workspace.file_manifest.map((fileName, index) => ({\n  operation_id: `FILE-${String(index + 1).padStart(3, '0')}`, operation_type: 'create_file',\n  relative_path: workspace.root_folder_name, file_name: fileName,\n  content_type: fileName.endsWith('.json') ? 'application/json' : 'text/markdown',\n  initial_content: content[fileName], sequence: index + 1, required: true,\n}));\nreturn [{ json: { ...$json, file_operations: operations } }];"
+        "jsCode": "if($json.is_valid!==true)return[{json:{...$json,file_operations:[]}}];\nconst w=$json.workspace_draft;const content={\n 'Novel.json':'{}','Metadata.json':'{}','README.md':`# ${w.novel_title}`,'StoryBible.md':'# Story Bible','CharacterIndex.json':'[]','CanonIndex.json':'[]','WorldIndex.json':'[]','Outline.md':'# Outline','PublishLog.json':'[]',\n 'workspace.json':JSON.stringify({workspace_uuid:w.workspace_uuid,workspace_version:null,novel_uuid:w.novel_uuid,title:w.novel_title,created_at:w.created_at},null,2)\n};\nconst folderFor={'StoryBible.md':'03_Canon','CharacterIndex.json':'04_Characters','CanonIndex.json':'03_Canon','WorldIndex.json':'05_World','Outline.md':'06_Outline','PublishLog.json':'08_Publish'};\nconst operations=w.file_manifest.map((fileName,index)=>({operation_id:`FILE-${String(index+1).padStart(3,'0')}`,operation_type:'create_file',folder_key:folderFor[fileName]|| (fileName==='workspace.json'?'workspace':'01_Source'),file_name:fileName,content_type:fileName.endsWith('.json')?'application/json':'text/markdown',initial_content:content[fileName],sequence:index+1,required:true}));\nreturn [{json:{...$json,file_operations:operations}}];"
       },
       "id": "5a7362c7-07cc-42bb-9485-47c953040e52",
       "name": "Build File Operations",
@@ -146,7 +146,7 @@
     },
     {
       "parameters": {
-        "jsCode": "function uuidHelper() {\n  let timestamp = Date.now();\n  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (token) => {\n    const randomValue = (timestamp + Math.random() * 16) % 16 | 0;\n    timestamp = Math.floor(timestamp / 16);\n    return (token === 'x' ? randomValue : (randomValue & 0x3) | 0x8).toString(16);\n  });\n}\nif ($json.is_valid !== true) return [{ json: { ...$json, persistence_plan_draft: null } }];\nconst baseParentFolderId = (typeof $json.base_parent_folder_id === 'string' && $json.base_parent_folder_id.trim())\n  || (typeof $json.context?.base_parent_folder_id === 'string' && $json.context.base_parent_folder_id.trim())\n  || 'root';\nconst validationErrors = [...($json.validation_errors ?? [])];\nreturn [{ json: { ...$json, is_valid: validationErrors.length === 0, validation_errors: validationErrors, persistence_plan_draft: {\n  persistence_plan_id: `PLAN-${uuidHelper().replace(/-/g, '').slice(0, 8)}`,\n  provider: 'unassigned', persistence_mode: 'deferred', workspace_uuid: $json.workspace_draft.workspace_uuid,\n  base_parent_folder_id: baseParentFolderId,\n  root_folder_name: $json.workspace_draft.root_folder_name, folder_operations: $json.folder_operations,\n  file_operations: $json.file_operations, total_operations: $json.folder_operations.length + $json.file_operations.length,\n  created_at: new Date().toISOString(),\n} } }];"
+        "jsCode": "function uuidHelper(){let t=Date.now();return'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=(t+Math.random()*16)%16|0;t=Math.floor(t/16);return(c==='x'?r:(r&3)|8).toString(16)})}\nif($json.is_valid!==true)return[{json:{...$json,persistence_plan_draft:null}}];const w=$json.workspace_draft;\nreturn [{json:{...$json,persistence_plan_draft:{persistence_plan_id:`PLAN-${uuidHelper().replace(/-/g,'').slice(0,8)}`,provider:'google_drive',persistence_mode:'live',storage_schema_version:'1.1',storage_root_name:'小說',project_folder_name:w.novel_title,workspace_version:null,workspace_uuid:w.workspace_uuid,novel_uuid:w.novel_uuid,folder_operations:$json.folder_operations,file_operations:$json.file_operations,total_operations:$json.folder_operations.length+$json.file_operations.length,created_at:new Date().toISOString()}}}];"
       },
       "id": "d9880bb6-3a4f-4f8a-88e2-86a1e5454da2",
       "name": "Build Persistence Plan",
@@ -159,7 +159,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const context = { telegram_update_id: $json.telegram_update_id, telegram_chat_id: $json.telegram_chat_id, telegram_user_id: $json.telegram_user_id, received_at: $json.received_at };\nif ($json.is_valid !== true) return [{ json: { is_valid: false, validation_errors: $json.validation_errors ?? [], workspace: null, persistence_plan: null, context } }];\nconst w = $json.workspace_draft;\nconst p = $json.persistence_plan_draft;\nreturn [{ json: { is_valid: true, validation_errors: [], workspace: {\n  workspace_uuid: w.workspace_uuid, workspace_name: w.workspace_name, novel_uuid: w.novel_uuid, novel_id: w.novel_id,\n  novel_slug: w.novel_slug, novel_title: w.novel_title, novel_genre: w.novel_genre, novel_status: w.novel_status,\n  base_parent_folder_id: p.base_parent_folder_id, root_folder_name: w.root_folder_name, folder_manifest: w.folder_manifest, file_manifest: w.file_manifest,\n  workspace_version: w.workspace_version, created_at: w.created_at, updated_at: w.updated_at, created_by: w.created_by,\n}, persistence_plan: {\n  persistence_plan_id: p.persistence_plan_id, provider: p.provider, persistence_mode: p.persistence_mode,\n  workspace_uuid: p.workspace_uuid, base_parent_folder_id: p.base_parent_folder_id, root_folder_name: p.root_folder_name,\n  folder_operations: p.folder_operations, file_operations: p.file_operations,\n  total_operations: p.total_operations, created_at: p.created_at,\n}, context } }];"
+        "jsCode": "const context={telegram_update_id:$json.telegram_update_id,telegram_chat_id:$json.telegram_chat_id,telegram_user_id:$json.telegram_user_id,received_at:$json.received_at};\nif($json.is_valid!==true)return[{json:{is_valid:false,validation_errors:$json.validation_errors??[],workspace:null,persistence_plan:null,context}}];\nreturn [{json:{is_valid:true,validation_errors:[],workspace:$json.workspace_draft,persistence_plan:$json.persistence_plan_draft,context}}];"
       },
       "id": "55fae819-dd23-4778-b854-3c1e7c605897",
       "name": "Normalize Workspace Contract",
@@ -172,7 +172,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const isValid = $json.is_valid === true;\nreturn [{ json: {\n  schema_version: '1.0', workflow_version: '2.0', route: 'workspace.persistence.requested', target: 'WF-004',\n  status: isValid ? 'ready' : 'error', is_valid: isValid, validation_errors: $json.validation_errors ?? [],\n  base_parent_folder_id: isValid ? $json.persistence_plan.base_parent_folder_id : '',\n  workspace: isValid ? $json.workspace : null, persistence_plan: isValid ? $json.persistence_plan : null,\n  context: $json.context,\n} }];"
+        "jsCode": "const ok=$json.is_valid===true;return[{json:{schema_version:'1.1',workflow_version:'2.1',route:'workspace.storage.provision.requested',target:'WF-005A',status:ok?'ready':'error',is_valid:ok,validation_errors:$json.validation_errors??[],workspace:ok?$json.workspace:null,persistence_plan:ok?$json.persistence_plan:null,context:$json.context}}];"
       },
       "id": "caa95022-c5a7-4e83-992c-725c3c847f23",
       "name": "Build Final Output",

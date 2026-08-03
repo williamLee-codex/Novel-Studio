@@ -1,0 +1,564 @@
+{
+  "name": "WF-005A - Storage Folder Manager v1.1",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "271ad2fe-9eb1-4afc-9bd8-197431ce49f2",
+      "name": "Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const errors=[];const w=$json.workspace??{};const p=$json.persistence_plan??{};if($json.route!=='workspace.storage.provision.requested')errors.push('route must target WF-005A');if(w.storage_root_name!=='小說'||p.storage_root_name!=='小說')errors.push('storage root must be 小說');for(const f of ['workspace_uuid','novel_uuid','novel_title'])if(typeof w[f]!=='string'||!w[f].trim())errors.push(`workspace.${f} is required`);return[{json:{...$json,is_valid:errors.length===0,validation_errors:errors}}];"
+      },
+      "id": "715a9153-5e7d-43bf-8a70-3316dff1a434",
+      "name": "Validate Storage V1.1 Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "operation": "search",
+        "queryString": "={{ \"name = '小說' and 'root' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false\" }}",
+        "returnAll": true,
+        "filter": {},
+        "options": {}
+      },
+      "id": "cc5aefc1-717c-4b2f-a7b6-51c11386e228",
+      "name": "Find 小說 Storage Root",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        440,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const req=$('Validate Storage V1.1 Request').first().json;const hits=$input.all().map(i=>i.json).filter(x=>x&&x.id);if(hits.length>1)return[{json:{...req,is_valid:false,validation_errors:[...(req.validation_errors??[]),'duplicate 小說 roots found']}}];return[{json:{...req,storage_root_id:hits[0]?.id??'',create_storage_root:hits.length===0}}];"
+      },
+      "id": "b4b97b90-0686-4316-a203-c758b42b5dc7",
+      "name": "Resolve Storage Root",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "folder",
+        "operation": "create",
+        "name": "小說",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "root"
+        },
+        "options": {}
+      },
+      "id": "8c681faa-3aae-485d-825a-9c5da43ab8ff",
+      "name": "Create 小說 Storage Root",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        880,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const s=$('Resolve Storage Root').first().json;const id=s.storage_root_id||$json.id;if(!id)return[{json:{...s,is_valid:false,validation_errors:[...(s.validation_errors??[]),'storage root creation failed']}}];return[{json:{...s,storage_root_id:id}}];"
+      },
+      "id": "7a9a94bf-85f4-407e-a9c7-a579c3666a42",
+      "name": "Capture Storage Root",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "operation": "search",
+        "queryString": "={{ \"name = '\" + $('Capture Storage Root').first().json.workspace.novel_title.replace(/'/g, \"\\\\'\") + \"' and '\" + $('Capture Storage Root').first().json.storage_root_id + \"' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false\" }}",
+        "returnAll": true,
+        "filter": {},
+        "options": {}
+      },
+      "id": "4cd3bda5-c5c2-46c6-ab5b-30dcfceb68dc",
+      "name": "Find Novel Project Folder",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1320,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const s=$('Capture Storage Root').first().json;const hits=$input.all().map(i=>i.json).filter(x=>x&&x.id);if(hits.length>1)return[{json:{...s,is_valid:false,validation_errors:[...(s.validation_errors??[]),'duplicate project folders found']}}];return[{json:{...s,project_folder_id:hits[0]?.id??'',create_project:hits.length===0}}];"
+      },
+      "id": "d493774f-1774-4ba1-9ccb-8987634f7798",
+      "name": "Resolve Novel Project",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1540,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "folder",
+        "operation": "create",
+        "name": "={{ $json.workspace.novel_title }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $json.storage_root_id }}"
+        },
+        "options": {}
+      },
+      "id": "25e9a549-0229-4c0e-a98f-34ae03eb251f",
+      "name": "Create Novel Project Folder",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1760,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const s=$('Resolve Novel Project').first().json;return[{json:{...s,project_folder_id:s.project_folder_id||$json.id}}];"
+      },
+      "id": "a88488d2-7685-4cda-b6b7-e138868df5cd",
+      "name": "Capture Novel Project",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1980,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "operation": "search",
+        "queryString": "={{ \"name contains 'novel-v' and '\" + $('Capture Novel Project').first().json.project_folder_id + \"' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false\" }}",
+        "returnAll": true,
+        "filter": {},
+        "options": {}
+      },
+      "id": "a8a718ce-8527-4f42-9875-a104f0d879dd",
+      "name": "List Versioned Workspaces",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        2200,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const s=$('Capture Novel Project').first().json;const versions=$input.all().map(i=>i.json.name).filter(n=>/^novel-v\\d{3,}$/.test(n)).map(n=>Number(n.slice(7)));const next=(versions.length?Math.max(...versions):0)+1;const workspace_version=`novel-v${String(next).padStart(3,'0')}`;return[{json:{...s,workspace_version,workspace_count:next}}];"
+      },
+      "id": "918a2035-6088-4eb8-ba27-5c391a0c2508",
+      "name": "Determine Next Workspace Version",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2420,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "folder",
+        "operation": "create",
+        "name": "={{ $json.workspace_version }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $json.project_folder_id }}"
+        },
+        "options": {}
+      },
+      "id": "088f45b6-f79e-4e09-8e1d-cb84bd7ee478",
+      "name": "Create Versioned Workspace",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        2640,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const s=$('Determine Next Workspace Version').first().json;const workspace_folder_id=$json.id;return s.workspace.folder_manifest.map(name=>({json:{...s,workspace_folder_id,folder_name:name}}));"
+      },
+      "id": "a438cab3-6ef3-4f61-a2be-25134d7592e9",
+      "name": "Prepare Nine Workspace Folders",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2860,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "folder",
+        "operation": "create",
+        "name": "={{ $json.folder_name }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $json.workspace_folder_id }}"
+        },
+        "options": {}
+      },
+      "id": "1c288d3e-4361-440e-a820-6eb9e3438004",
+      "name": "Create Nine Workspace Folders",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        3080,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const base=$('Prepare Nine Workspace Folders').first().json;const prepared=$('Prepare Nine Workspace Folders').all();const made=$input.all();const folder_id_map={workspace:base.workspace_folder_id};prepared.forEach((p,i)=>{folder_id_map[p.json.folder_name]=made[i]?.json?.id??''});if(Object.values(folder_id_map).some(v=>!v))return[{json:{...base,is_valid:false,validation_errors:[...(base.validation_errors??[]),'one or more workspace folders failed']}}];const created_at=base.workspace.created_at;const workspace={...base.workspace,workspace_version:base.workspace_version};const files=base.persistence_plan.file_operations.map(o=>({...o,initial_content:o.file_name==='workspace.json'?JSON.stringify({workspace_uuid:workspace.workspace_uuid,workspace_version:base.workspace_version,novel_uuid:workspace.novel_uuid,title:workspace.novel_title,created_at},null,2):o.initial_content}));return[{json:{schema_version:'1.1',workflow_version:'1.0',route:'storage.files.write.requested',target:'WF-005B',status:'ready',is_valid:true,storage_root_id:base.storage_root_id,project_folder_id:base.project_folder_id,workspace_folder_id:base.workspace_folder_id,workspace_version:base.workspace_version,workspace_count:base.workspace_count,folder_id_map,file_operations:files,workspace,context:base.context??{}}}];"
+      },
+      "id": "c3c7b6f6-8726-4c46-9f59-18b2d3061834",
+      "name": "Build folder_id_map",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3300,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "bcd356a5-8edc-4316-8d75-27b3a3485d6f",
+              "leftValue": "={{ $json.create_storage_root }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "4697185a-0f3f-4645-bdaf-0fb51c2129ba",
+      "name": "Storage Root Missing?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        820,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "ffb54674-9c00-4d8a-bb78-9e06c562ff45",
+              "leftValue": "={{ $json.create_project }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "d741f45a-27e4-4458-9169-4fa2cb3310d0",
+      "name": "Novel Project Missing?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1700,
+        0
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Validate Storage V1.1 Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Storage V1.1 Request": {
+      "main": [
+        [
+          {
+            "node": "Find 小說 Storage Root",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find 小說 Storage Root": {
+      "main": [
+        [
+          {
+            "node": "Resolve Storage Root",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve Storage Root": {
+      "main": [
+        [
+          {
+            "node": "Storage Root Missing?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Storage Root Missing?": {
+      "main": [
+        [
+          {
+            "node": "Create 小說 Storage Root",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Capture Storage Root",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create 小說 Storage Root": {
+      "main": [
+        [
+          {
+            "node": "Capture Storage Root",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Capture Storage Root": {
+      "main": [
+        [
+          {
+            "node": "Find Novel Project Folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Novel Project Folder": {
+      "main": [
+        [
+          {
+            "node": "Resolve Novel Project",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve Novel Project": {
+      "main": [
+        [
+          {
+            "node": "Novel Project Missing?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Novel Project Missing?": {
+      "main": [
+        [
+          {
+            "node": "Create Novel Project Folder",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Capture Novel Project",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Novel Project Folder": {
+      "main": [
+        [
+          {
+            "node": "Capture Novel Project",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Capture Novel Project": {
+      "main": [
+        [
+          {
+            "node": "List Versioned Workspaces",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List Versioned Workspaces": {
+      "main": [
+        [
+          {
+            "node": "Determine Next Workspace Version",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Determine Next Workspace Version": {
+      "main": [
+        [
+          {
+            "node": "Create Versioned Workspace",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Versioned Workspace": {
+      "main": [
+        [
+          {
+            "node": "Prepare Nine Workspace Folders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Nine Workspace Folders": {
+      "main": [
+        [
+          {
+            "node": "Create Nine Workspace Folders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Nine Workspace Folders": {
+      "main": [
+        [
+          {
+            "node": "Build folder_id_map",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "6f0d7285-c6f5-477a-a29f-ea41b131ee6f",
+  "meta": {
+    "storageArchitecture": "1.1"
+  },
+  "tags": []
+}
