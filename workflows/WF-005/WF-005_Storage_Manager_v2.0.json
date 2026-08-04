@@ -377,7 +377,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const state = $('Capture v001 Folder').first().json;\nreturn [{ json: { storage_engine_version: '2.1', storage: { storage_root_id: state.storage_root_id, project_folder_id: state.project_folder_id, workspace_folder_id: state.workspace_folder_id, workspace_version: 'v001' } } }];"
+        "jsCode": "const state = $('Capture v001 Folder').first().json;\nreturn [{ json: { schema_version: '1.0', workflow_version: '2.1', route: 'storage.completed', target: 'telegram.reply', status: 'ready', is_valid: true, validation_errors: [], storage_engine_version: '2.1', storage: { storage_root_id: state.storage_root_id, project_folder_id: state.project_folder_id, workspace_folder_id: state.workspace_folder_id, workspace_version: 'v001' } } }];"
       },
       "id": "305fae4b-917f-4491-b9a6-a6f73e36817e",
       "name": "Return",
