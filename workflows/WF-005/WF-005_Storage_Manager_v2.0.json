@@ -25,6 +25,7 @@
       "parameters": {
         "resource": "fileFolder",
         "operation": "search",
+        "searchMethod": "query",
         "queryString": "name = '小說' and 'root' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false",
         "returnAll": true,
         "filter": {},
@@ -125,6 +126,7 @@
       "parameters": {
         "resource": "fileFolder",
         "operation": "search",
+        "searchMethod": "query",
         "queryString": "={{ \"name = '\" + $json.storage_request.project_name.replace(/'/g, \"\\\\'\") + \"' and '\" + $json.storage_root_id + \"' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false\" }}",
         "returnAll": true,
         "filter": {},
