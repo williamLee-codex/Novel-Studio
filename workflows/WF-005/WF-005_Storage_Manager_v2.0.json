@@ -215,13 +215,98 @@
     },
     {
       "parameters": {
-        "jsCode": "const state = $('Resolve Project Folder').first().json;\nreturn [{ json: { storage_engine_version: '2.1', storage: { storage_root_id: state.storage_root_id, project_folder_id: state.project_folder_id || $json.id } } }];"
+        "jsCode": "const state = $('Resolve Project Folder').first().json;\nreturn [{ json: { ...state, project_folder_id: state.project_folder_id || $json.id } }];"
+      },
+      "id": "18a64fd1-4318-4670-b054-56e515540e94",
+      "name": "Capture Project Folder",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2640, 0]
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "operation": "search",
+        "searchMethod": "query",
+        "queryString": "={{ \"name = 'v001' and '\" + $json.project_folder_id + \"' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false\" }}",
+        "returnAll": true,
+        "filter": {},
+        "options": {}
+      },
+      "id": "6932b20b-47a3-487b-8ff0-c89f5d2a6ded",
+      "name": "Find v001",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [2880, 0],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "google-drive-oauth2",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const folders = $input.all().map(item => item.json).filter(item => item && item.id);\nconst state = $('Capture Project Folder').first().json;\nreturn [{ json: { ...state, workspace_folder_id: folders[0]?.id || '', workspace_missing: folders.length === 0 } }];"
+      },
+      "id": "5c62c0dc-f017-4554-b0d0-d79d6fb4c1c6",
+      "name": "Resolve v001 Folder",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3120, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "typeValidation": "strict", "version": 2 },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.workspace_missing }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "abc3f221-ccf6-40a8-b4d7-e4a65c362c6f",
+      "name": "v001 Missing?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [3360, 0]
+    },
+    {
+      "parameters": {
+        "resource": "folder",
+        "operation": "create",
+        "name": "v001",
+        "driveId": { "__rl": true, "mode": "list", "value": "My Drive" },
+        "folderId": { "__rl": true, "mode": "id", "value": "={{ $json.project_folder_id }}" },
+        "options": {}
+      },
+      "id": "78e585fc-b064-4f8a-aaf1-bbf5c5319ab4",
+      "name": "Create v001",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [3600, -100],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "google-drive-oauth2",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const state = $('Resolve v001 Folder').first().json;\nreturn [{ json: { storage: { workspace_version: 'v001', workspace_folder_id: state.workspace_folder_id || $json.id } } }];"
       },
       "id": "305fae4b-917f-4491-b9a6-a6f73e36817e",
       "name": "Return",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2640, 0]
+      "position": [3840, 0]
     }
   ],
   "pinData": {},
@@ -259,10 +344,28 @@
     "Project Missing?": {
       "main": [
         [{"node": "Create Project Folder", "type": "main", "index": 0}],
-        [{"node": "Return", "type": "main", "index": 0}]
+        [{"node": "Capture Project Folder", "type": "main", "index": 0}]
       ]
     },
     "Create Project Folder": {
+      "main": [[{"node": "Capture Project Folder", "type": "main", "index": 0}]]
+    },
+    "Capture Project Folder": {
+      "main": [[{"node": "Find v001", "type": "main", "index": 0}]]
+    },
+    "Find v001": {
+      "main": [[{"node": "Resolve v001 Folder", "type": "main", "index": 0}]]
+    },
+    "Resolve v001 Folder": {
+      "main": [[{"node": "v001 Missing?", "type": "main", "index": 0}]]
+    },
+    "v001 Missing?": {
+      "main": [
+        [{"node": "Create v001", "type": "main", "index": 0}],
+        [{"node": "Return", "type": "main", "index": 0}]
+      ]
+    },
+    "Create v001": {
       "main": [[{"node": "Return", "type": "main", "index": 0}]]
     }
   },
