@@ -384,8 +384,136 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
+        5520,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "operation": "search",
+        "searchMethod": "query",
+        "queryString": "={{ \"'\" + $json.workspace_folder_id + \"' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false\" }}",
+        "returnAll": true,
+        "filter": {},
+        "options": {}
+      },
+      "id": "ffff8b14-45a1-4691-9ee2-eb5d8d76c4b9",
+      "name": "Find Canonical Folders",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
         4080,
         0
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "m8Ze5QDWBQQ0zNjj",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const canonicalFolders = ['01_Source','02_Chapters','03_Canon','04_Characters','05_World','06_Outline','07_Assets','08_Publish','09_Backup'];\nconst state = $('Capture v001 Folder').first().json;\nconst existing = new Map();\nfor (const item of $input.all()) {\n  const folder = item.json;\n  if (folder && typeof folder.name === 'string' && folder.id && canonicalFolders.includes(folder.name) && !existing.has(folder.name)) {\n    existing.set(folder.name, folder.id);\n  }\n}\nconst missing_folders = canonicalFolders.filter(name => !existing.has(name));\nreturn [{ json: { ...state, canonical_folders: canonicalFolders, existing_canonical_folder_ids: Object.fromEntries(existing), missing_folders, canonical_folders_missing: missing_folders.length > 0 } }];"
+      },
+      "id": "97d174d1-dd21-409e-8173-1fffff5caab9",
+      "name": "Plan Canonical Folders",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4320,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "af9969dd-299d-4a19-9b5b-2a32d5a0745e",
+              "leftValue": "={{ $json.canonical_folders_missing }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "93446baa-7b21-47b8-955f-ca73e388799a",
+      "name": "Canonical Folders Missing?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        4560,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const state = $json;\nreturn state.missing_folders.map(folder_name => ({ json: { ...state, folder_name } }));"
+      },
+      "id": "f31c304d-c35f-42ad-9032-00cfe594cd14",
+      "name": "Expand Missing Canonical Folders",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4800,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "folder",
+        "operation": "create",
+        "name": "={{ $json.folder_name }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $json.workspace_folder_id }}"
+        },
+        "options": {}
+      },
+      "id": "92b88433-bf4e-44ea-ae81-35603c8d6723",
+      "name": "Create Canonical Folder",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        5040,
+        -100
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "m8Ze5QDWBQQ0zNjj",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const state = $('Plan Canonical Folders').first().json;\nconst created = {};\nfor (const item of $input.all()) {\n  const name = item.json?.name || item.json?.folder_name;\n  const id = item.json?.id;\n  if (name && id) created[name] = id;\n}\nreturn [{ json: { ...state, created_canonical_folder_ids: created } }];"
+      },
+      "id": "cd888448-e743-466b-b4d3-2f88c031b122",
+      "name": "Capture Canonical Folders",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5280,
+        -100
       ]
     }
   ],
@@ -589,6 +717,79 @@
       ]
     },
     "Capture v001 Folder": {
+      "main": [
+        [
+          {
+            "node": "Find Canonical Folders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Canonical Folders": {
+      "main": [
+        [
+          {
+            "node": "Plan Canonical Folders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Plan Canonical Folders": {
+      "main": [
+        [
+          {
+            "node": "Canonical Folders Missing?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Canonical Folders Missing?": {
+      "main": [
+        [
+          {
+            "node": "Expand Missing Canonical Folders",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Return",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Expand Missing Canonical Folders": {
+      "main": [
+        [
+          {
+            "node": "Create Canonical Folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Canonical Folder": {
+      "main": [
+        [
+          {
+            "node": "Capture Canonical Folders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Capture Canonical Folders": {
       "main": [
         [
           {
