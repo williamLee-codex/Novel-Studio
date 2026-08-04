@@ -5,7 +5,7 @@
 Novel Manager v2 consolidates novel command intake, title/genre parsing,
 validation, UUID and slug generation, metadata assembly, and final routing into
 one n8n workflow. It accepts the versioned `command.new` contract from WF-001
-and returns canonical novel metadata for WF-003.
+and returns canonical novel metadata for WF-005.
 
 It performs plain-JavaScript data transformation only. It has no Telegram node,
 external API, OpenAI, Google integration, database, filesystem operation,
@@ -150,7 +150,7 @@ Successful output:
   "schema_version": "1.0",
   "workflow_version": "2.0",
   "route": "novel.metadata.created",
-  "target": "WF-003",
+  "target": "WF-005",
   "status": "ready",
   "is_valid": true,
   "validation_errors": [],
@@ -197,13 +197,13 @@ throwing. UUID, slug, and metadata generation are skipped when invalid.
 ## Connection Instructions
 
 Configure WF-001's NEW route caller to invoke **WF-002 - Novel Manager v2**, pass
-the entire contract, and wait for completion. The output targets WF-003.
+the entire contract, and wait for completion. The output targets WF-005.
 
-The current legacy WF-003 P01 export expects its novel values under `metadata`
+The current legacy WF-005 export expects its novel values under `metadata`
 (or as top-level aliases), whereas the approved v2 contract uses `novel`. Until
-WF-003 is consolidated for the v2 envelope, configure the WF-003 caller boundary
+WF-005 is consolidated for the v2 envelope, configure the WF-005 caller boundary
 to map `novel` to `metadata` without changing the values. This deployment mapping
-preserves existing WF-003 behavior without leaking legacy aliases into the v2
+preserves existing WF-005 behavior without leaking legacy aliases into the v2
 canonical output.
 
 ## Testing
@@ -244,7 +244,7 @@ WF-002 - Novel Manager v2
 ```
 
 The caller should invoke only the consolidated workflow. Import and contract-test
-v2, update WF-001 NEW to the new workflow, configure the temporary WF-003
+v2, update WF-001 NEW to the new workflow, configure the temporary WF-005
 boundary mapping described above, and keep the old chain inactive during the
 rollback window. Do not delete the old workflows from n8n.
 
@@ -253,7 +253,7 @@ rollback window. Do not delete the old workflows from n8n.
 1. Stop new calls to Novel Manager v2.
 2. Restore WF-001's NEW target to WF-002 P01.
 3. Restore the P01-to-P02 call with its prior deployment configuration.
-4. Restore the prior P02-to-WF-003 mapping.
+4. Restore the prior P02-to-WF-005 mapping.
 5. Execute Chinese, English, and missing-title smoke tests.
 6. Use `archive/P01` and `archive/P02` for comparison or re-import while
    retaining the original repository directories.
@@ -265,7 +265,7 @@ rollback window. Do not delete the old workflows from n8n.
 - Uniqueness is probabilistic until a persistence layer enforces it.
 - `novel_id` is intentionally null.
 - Duplicate-title detection, persistence, and lifecycle transitions are deferred.
-- Current legacy WF-003 P01 needs the documented boundary mapping for the v2
+- Current legacy WF-005 needs the documented boundary mapping for the v2
   `novel` envelope.
 
 ## Version History
