@@ -1,36 +1,33 @@
-# Storage Engine V2 Validation Checklist
+# Storage Engine V2.1 Validation Checklist
 
-## Static
+## Static architecture
 
-- [ ] WF-003, WF-005A, and WF-005B exports are absent.
-- [ ] WF-000 creation stages are exactly WF-002 then WF-005.
-- [ ] WF-002 contains no Google Drive node and targets WF-005.
-- [ ] WF-005 is the only new-storage workflow containing Google Drive nodes.
-- [ ] WF-005 returns only the `storage` top-level contract.
-- [ ] No returned V1 aliases or execution plans are present.
+- [ ] WF-005 input has only `storage_request`; output has only `storage`.
+- [ ] WF-005 code contains no Novel, Chapter, Canon, Story Bible, Character, or Timeline object inspection.
+- [ ] WF-000, WF-002, and WF-004 contain no Google Drive nodes or Drive queries.
+- [ ] Only first initialization can execute a Drive search.
+- [ ] Project resolution and next `vNNN` use Repository lookup.
+- [ ] Repository.json has all six required fields.
+- [ ] No code node embeds README, workspace.json, Repository.json, or `_index.json` bodies.
+- [ ] All three default template assets exist.
+- [ ] Response contains none of `root_folder_id`, `workspace_folder_map`, `folder_id_map`, or `file_plan`.
 
 ## Live `/new`
 
-- [ ] Run `/new <unique novel title>` successfully.
-- [ ] `小說` is found or created under My Drive.
-- [ ] `<unique novel title>` is created under `小說`.
-- [ ] `v001` is created under the title (not a UUID).
-- [ ] All nine canonical folders exist under `v001`.
-- [ ] `README.md` and `workspace.json` exist under `v001`.
-- [ ] `_index.json` exists under `小說` and references the new `v001`.
-- [ ] The response has `storage_version: 2.0` and all nine folder IDs.
+- [ ] Run `/new <unique title>` and observe `小說/<title>/v001`.
+- [ ] Verify all nine canonical folders, README.md, workspace.json, and Repository.json.
+- [ ] Verify the exact five-field `storage` response with storage version 2.1.
+- [ ] Repeat the title and observe the same project folder and a new `v002`.
+- [ ] Confirm the second run performs no Drive search and Repository.json points to `v002`.
 
-## Reuse and sequencing
+## Live `/chapter`
 
-- [ ] Run `/new <same novel title>` again.
-- [ ] The same project folder is reused.
-- [ ] `v002` is created without changing `v001`.
-- [ ] `_index.json` points to `v002` while retaining the novel entry.
-- [ ] No legacy Drive folder is deleted or migrated.
+- [ ] Run `/chapter` with an existing V2.1 storage contract.
+- [ ] Verify WF-004 domain output is unchanged before boundary mapping.
+- [ ] Verify WF-005 performs all Drive writes and returns only `storage`.
+- [ ] Verify WF-006 receives the post-storage flow.
 
-## Chapter regression boundary
+## Non-migration guarantee
 
-- [ ] Run `/chapter` with an existing V2 storage contract.
-- [ ] WF-004 business output is unchanged.
-- [ ] WF-005 performs the Drive write and returns the V2 storage contract.
-- [ ] WF-006 receives the post-storage flow.
+- [ ] Existing workspaces are neither renamed, copied, deleted, nor rewritten.
+- [ ] Rollback is routing/configuration only.

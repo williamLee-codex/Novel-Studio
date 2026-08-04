@@ -1,0 +1,6 @@
+{
+  "storage_version": "2.1",
+  "project_key": "{{project_key}}",
+  "workspace_version": "{{workspace_version}}",
+  "created_at": "{{created_at}}"
+}

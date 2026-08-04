@@ -1,50 +1,35 @@
-# Storage Engine V2 Architecture
+# Storage Engine V2.1 Architecture Freeze
 
 ## Boundary
 
-WF-005 is the sole owner of Google Drive storage behavior. WF-002 produces novel
-metadata; WF-004 produces chapter data; WF-006 and later workflows retain their
-knowledge responsibilities. Storage must not create or transform domain data.
-
-## Runtime topology
+WF-005 is a domain-independent storage service and the only workflow that owns Google Drive behavior. It accepts only `storage_request`, never examines Novel, Chapter, Canon, Story Bible, Character, or Timeline objects, and returns only `storage`. WF-000 maps command results into provider-neutral storage operations; WF-002 and WF-004 retain domain ownership and contain no Drive operations.
 
 ```text
-/new     → WF-002 → WF-005 → Done
-/chapter → WF-004 → WF-005 → WF-006
+/new     → WF-002 → WF-000 boundary mapping → WF-005 → Done
+/chapter → WF-004 → WF-000 boundary mapping → WF-005 → WF-006
 ```
 
-WF-000 has one Execute Workflow dependency for storage: **WF-005 — Storage
-Engine V2**. The creation path no longer invokes a workspace planner, folder
-manager, and file writer as separate workflows.
+## Repository-first lifecycle
 
-## Drive layout
+`Repository.json` is the single source of truth. On the first initialization only, WF-005 may search My Drive for `小說`, create it when absent, establish the repository, and seed the template set. Once initialized, the workflow resolves the project, latest workspace version, counts, and folder IDs from the repository. It must not search Drive to calculate a version or rediscover a known folder. A successful mutation updates the repository before returning.
+
+Example: repository `latest_version: v008` produces `v009`.
+
+## Fixed Drive layout
 
 ```text
-My Drive/
-└── 小說/
-    ├── _index.json
-    └── <Novel Title>/
-        └── vNNN/
-            ├── README.md
-            ├── workspace.json
-            ├── 01_Source/
-            ├── 02_Chapters/
-            ├── 03_Canon/
-            ├── 04_Characters/
-            ├── 05_World/
-            ├── 06_Outline/
-            ├── 07_Assets/
-            ├── 08_Publish/
-            └── 09_Backup/
+Google Drive/小說/<project name>/vNNN/
+├── 01_Source/       ├── 02_Chapters/    ├── 03_Canon/
+├── 04_Characters/   ├── 05_World/       ├── 06_Outline/
+├── 07_Assets/       ├── 08_Publish/      └── 09_Backup/
 ```
 
-A project folder is reused by exact novel title. Workspace names use a monotonic
-three-digit version and never a UUID. IDs remain metadata in `workspace.json`
-and `_index.json`.
+No alternative workspace layout is valid. `README.md` and `workspace.json` are copied/rendered from the WF-005 template set. `Repository.json` lives under `小說` and is copied from its template.
 
-## Public contract
+## Invariants
 
-The only returned top-level key is `storage`. Its stable V2 fields are
-`storage_version`, `project_folder_id`, `workspace_folder_id`,
-`workspace_version`, and `folder_map`. Provider execution plans and V1 aliases
-are private implementation details and never cross the workflow boundary.
+1. Storage version is `2.1`; workspace names are monotonic `vNNN` values.
+2. Repository lookup replaces project and workspace Drive searches after bootstrap.
+3. Provider IDs and implementation plans never escape except through the five-field `storage` contract.
+4. Template content is maintained in `workflows/WF-005/templates`, not embedded in generation code.
+5. Failed operations do not publish a successful response.

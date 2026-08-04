@@ -1,5 +1,5 @@
 {
-  "name": "WF-005 - Storage Engine V2",
+  "name": "WF-005 - Storage Engine V2.1",
   "nodes": [
     {
       "parameters": {
@@ -16,7 +16,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const novel=$json.novel??{};const isChapter=$json.route==='chapter.persistence.created';const errors=[];if(!isChapter){for(const k of ['novel_uuid','novel_title'])if(typeof novel[k]!=='string'||!novel[k].trim())errors.push(`novel.${k} is required`);}else if(!$json.storage?.workspace_folder_id&&!$json.workspace_folder_id)errors.push('storage.workspace_folder_id is required for chapter storage');return[{json:{...$json,storage_mode:isChapter?'chapter':'workspace',novel,validation_errors:errors,is_valid:errors.length===0}}];"
+        "jsCode": "const input=$json&&typeof $json==='object'&&!Array.isArray($json)?$json:{};\nconst request=input.storage_request&&typeof input.storage_request==='object'&&!Array.isArray(input.storage_request)?input.storage_request:{};\nconst allowed=['initialize_workspace','persist_files'];\nconst errors=[];\nif(!allowed.includes(request.operation))errors.push('storage_request.operation must be initialize_workspace or persist_files');\nif(request.operation==='initialize_workspace'&&(!request.project_key||!request.project_name))errors.push('storage_request.project_key and project_name are required');\nif(request.operation==='persist_files'&&(!request.storage||!request.storage.workspace_folder_id))errors.push('storage_request.storage.workspace_folder_id is required');\nif(errors.length)throw new Error(errors.join('; '));\nreturn[{json:{storage_request:structuredClone(request),storage_mode:request.operation==='persist_files'?'write':'workspace'}}];"
       },
       "id": "ec6dbdbd-5e73-4afd-992f-bb077e4b6054",
       "name": "Validate Storage Request",
@@ -61,7 +61,7 @@
                 "conditions": [
                   {
                     "leftValue": "={{ $json.storage_mode }}",
-                    "rightValue": "chapter",
+                    "rightValue": "write",
                     "operator": {
                       "type": "string",
                       "operation": "equals"
@@ -189,17 +189,12 @@
     },
     {
       "parameters": {
-        "resource": "fileFolder",
-        "operation": "search",
-        "queryString": "={{ \"name = '\" + $('Capture 小說').first().json.novel.novel_title.replace(/'/g, \"\\\\'\") + \"' and '\" + $('Capture 小說').first().json.storage_root_id + \"' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false\" }}",
-        "returnAll": true,
-        "filter": {},
-        "options": {}
+        "jsCode": "const state=$json;const request=state.storage_request;const repository=state.repository??{storage_version:'2.1',workspace_version:'v000',latest_version:'v000',workspace_count:0,project_folder_id:'',workspace_folder_ids:{},projects:{}};const project=repository.projects?.[request.project_key]??null;return[{json:{...state,repository,project_folder_id:project?.project_folder_id??'',create_project:!project}}];"
       },
       "id": "75f519ad-8c91-4b26-b810-be93540376cb",
-      "name": "Find Novel Project",
-      "type": "n8n-nodes-base.googleDrive",
-      "typeVersion": 3,
+      "name": "Repository Project Lookup",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         1760,
         0
@@ -208,10 +203,10 @@
     },
     {
       "parameters": {
-        "jsCode": "const s=$('Capture 小說').first().json;const hit=$input.all().map(i=>i.json).find(x=>x?.id);return[{json:{...s,project_folder_id:hit?.id??'',create_project:!hit}}];"
+        "jsCode": "const s=$('Repository Project Lookup').first().json;return[{json:s}];"
       },
       "id": "e5ef0952-e6af-4edc-b414-3c5fbdb047c4",
-      "name": "Resolve Novel Project",
+      "name": "Resolve Repository Project",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -243,7 +238,7 @@
         "options": {}
       },
       "id": "737eb796-5fc3-45fa-8c97-80e984a06b47",
-      "name": "Novel Project Missing?",
+      "name": "Project Missing?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 1.1,
       "position": [
@@ -255,7 +250,7 @@
       "parameters": {
         "resource": "folder",
         "operation": "create",
-        "name": "={{ $json.novel.novel_title }}",
+        "name": "={{ $json.storage_request.project_name }}",
         "driveId": {
           "__rl": true,
           "mode": "list",
@@ -269,7 +264,7 @@
         "options": {}
       },
       "id": "4804b80e-fbfc-461e-a5f5-96e416fcbcff",
-      "name": "Create Novel Project",
+      "name": "Create Project",
       "type": "n8n-nodes-base.googleDrive",
       "typeVersion": 3,
       "position": [
@@ -279,10 +274,10 @@
     },
     {
       "parameters": {
-        "jsCode": "const s=$('Resolve Novel Project').first().json;return[{json:{...s,project_folder_id:s.project_folder_id||$json.id}}];"
+        "jsCode": "const s=$('Resolve Repository Project').first().json;return[{json:{...s,project_folder_id:s.project_folder_id||$json.id}}];"
       },
       "id": "43ea0083-142b-4c67-b16c-6bdab456948f",
-      "name": "Capture Novel Project",
+      "name": "Capture Project",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -292,17 +287,12 @@
     },
     {
       "parameters": {
-        "resource": "fileFolder",
-        "operation": "search",
-        "queryString": "={{ \"name contains 'v' and '\" + $('Capture Novel Project').first().json.project_folder_id + \"' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false\" }}",
-        "returnAll": true,
-        "filter": {},
-        "options": {}
+        "jsCode": "const s=$('Capture Project').first().json;const r=s.repository??{};return[{json:{...s,repository_latest_version:String(r.projects?.[s.storage_request.project_key]?.latest_version??'v000')}}];"
       },
       "id": "5302eeb9-7db9-410f-a30f-dbce1972d4ea",
-      "name": "List Workspace Versions",
-      "type": "n8n-nodes-base.googleDrive",
-      "typeVersion": 3,
+      "name": "Repository Latest Version",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         2860,
         0
@@ -311,7 +301,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const s=$('Capture Novel Project').first().json;const versions=$input.all().map(i=>i.json.name).filter(n=>/^v\\d{3}$/.test(n)).map(n=>Number(n.slice(1)));const next=(versions.length?Math.max(...versions):0)+1;return[{json:{...s,workspace_version:`v${String(next).padStart(3,'0')}`}}];"
+        "jsCode": "const s=$('Capture Project').first().json;const latest=$('Repository Latest Version').first().json.repository_latest_version;const current=/^v\\d{3}$/.test(latest)?Number(latest.slice(1)):0;return[{json:{...s,workspace_version:`v${String(current+1).padStart(3,'0')}`}}];"
       },
       "id": "4822b444-31d4-44bd-ba65-54200e6f43f9",
       "name": "Determine Next vNNN",
@@ -389,10 +379,10 @@
     },
     {
       "parameters": {
-        "jsCode": "const prepared=$('Prepare Nine Folders').all();const made=$input.all();const base=prepared[0].json;const folder_map={};prepared.forEach((p,i)=>folder_map[p.json.folder_name]=made[i]?.json?.id??'');const storage={storage_version:'2.0',project_folder_id:base.project_folder_id,workspace_folder_id:base.workspace_folder_id,workspace_version:base.workspace_version,folder_map};const workspace={storage_version:'2.0',novel_uuid:base.novel.novel_uuid,novel_title:base.novel.novel_title,workspace_version:base.workspace_version,created_at:new Date().toISOString()};const readme=`# ${base.novel.novel_title}\\n\\nWorkspace ${base.workspace_version} managed by Novel Studio Storage Engine V2.\\n`;return ['README.md','workspace.json'].map(file_name=>({json:{...base,storage,file_name,parent_folder_id:base.workspace_folder_id,content:file_name==='README.md'?readme:JSON.stringify(workspace,null,2)}}));"
+        "jsCode": "const prepared=$('Prepare Nine Folders').all();const made=$input.all();const base=prepared[0].json;const folder_map={};prepared.forEach((p,i)=>folder_map[p.json.folder_name]=made[i]?.json?.id??'');\nconst storage={storage_version:'2.1',project_folder_id:base.project_folder_id,workspace_folder_id:base.workspace_folder_id,workspace_version:base.workspace_version,folder_map};\nconst template_context={project_name:base.storage_request.project_name,project_key:base.storage_request.project_key,workspace_version:base.workspace_version,created_at:new Date().toISOString(),storage};\nreturn[{json:{...base,storage,template_context,template_names:['README.md','workspace.json']}}];"
       },
       "id": "0887b472-064b-4b99-ad0f-8b94911da68d",
-      "name": "Build Folder Map and Files",
+      "name": "Build Storage and Template Context",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -410,7 +400,7 @@
         }
       },
       "id": "c6ce56aa-d89b-421e-a84a-a6a77dddb05f",
-      "name": "Convert Workspace Files",
+      "name": "Convert Rendered Templates",
       "type": "n8n-nodes-base.convertToFile",
       "typeVersion": 1.1,
       "position": [
@@ -437,7 +427,7 @@
         "options": {}
       },
       "id": "9291209c-3d73-4235-8ea3-f5206ed1f6ff",
-      "name": "Write README and workspace.json",
+      "name": "Copy Workspace Templates",
       "type": "n8n-nodes-base.googleDrive",
       "typeVersion": 3,
       "position": [
@@ -447,17 +437,12 @@
     },
     {
       "parameters": {
-        "resource": "fileFolder",
-        "operation": "search",
-        "queryString": "={{ \"name = '_index.json' and '\" + $('Build Folder Map and Files').first().json.storage_root_id + \"' in parents and trashed = false\" }}",
-        "returnAll": true,
-        "filter": {},
-        "options": {}
+        "jsCode": "const b=$('Build Storage and Template Context').first().json;const assets=$getWorkflowStaticData('global').templates??{};const set=assets[b.storage_request.template_set??'default'];if(!set)throw new Error('Template set is not initialized');const render=(source,context)=>String(source).replace(/{{\\s*([\\w.]+)\\s*}}/g,(_,path)=>path.split('.').reduce((v,k)=>v?.[k],context)??'');return ['README.md','workspace.json'].map(file_name=>({json:{...b,file_name,parent_folder_id:b.workspace_folder_id,content:render(set[file_name],b.template_context)}}));"
       },
       "id": "fa41b934-0517-4c15-a64e-7acb0307b957",
-      "name": "Find _index.json",
-      "type": "n8n-nodes-base.googleDrive",
-      "typeVersion": 3,
+      "name": "Template Engine",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         4620,
         0
@@ -466,10 +451,10 @@
     },
     {
       "parameters": {
-        "jsCode": "const b=$('Build Folder Map and Files').first().json;const hit=$input.all().map(i=>i.json).find(x=>x?.id);let index={storage_version:'2.0',novels:[]};if(hit?.content){try{index=JSON.parse(hit.content)}catch{}}if(!Array.isArray(index.novels))index.novels=[];const entry={novel_uuid:b.novel.novel_uuid,title:b.novel.novel_title,project_folder_id:b.storage.project_folder_id,workspace_folder_id:b.storage.workspace_folder_id,latest_workspace:b.storage.workspace_version,updated_at:new Date().toISOString()};const i=index.novels.findIndex(x=>x.novel_uuid===entry.novel_uuid||x.title===entry.title);if(i<0)index.novels.push(entry);else index.novels[i]={...index.novels[i],...entry};return[{json:{...b,file_name:'_index.json',parent_folder_id:b.storage_root_id,content:JSON.stringify(index,null,2)}}];"
+        "jsCode": "const b=$('Build Storage and Template Context').first().json;const data=$getWorkflowStaticData('global');const old=b.repository??{};const projects={...(old.projects??{})};const previous=projects[b.storage_request.project_key]??{};const workspace_folder_ids={...(previous.workspace_folder_ids??{}),[b.storage.workspace_version]:b.storage.workspace_folder_id};projects[b.storage_request.project_key]={project_folder_id:b.storage.project_folder_id,workspace_folder_ids,workspace_version:b.storage.workspace_version,latest_version:b.storage.workspace_version,workspace_count:Object.keys(workspace_folder_ids).length};\nconst repository={storage_root_id:b.storage_root_id,storage_version:'2.1',workspace_version:b.storage.workspace_version,latest_version:b.storage.workspace_version,workspace_count:Object.values(projects).reduce((n,p)=>n+Number(p.workspace_count??0),0),project_folder_id:b.storage.project_folder_id,workspace_folder_ids,projects};data.repository=repository;\nconst set=($getWorkflowStaticData('global').templates??{})[b.storage_request.template_set??'default'];const source=set?.['Repository.json'];if(typeof source!=='string')throw new Error('Repository template is not initialized');\nconst content=source.replace('{{repository_json}}',JSON.stringify(repository,null,2));return[{json:{...b,file_name:'Repository.json',parent_folder_id:b.storage_root_id,content}}];"
       },
       "id": "cc88c05e-a294-4f00-8bbf-9938393d8b01",
-      "name": "Build _index.json",
+      "name": "Update Repository",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -482,12 +467,12 @@
         "operation": "toText",
         "sourceProperty": "content",
         "options": {
-          "fileName": "_index.json",
+          "fileName": "Repository.json",
           "encoding": "utf8"
         }
       },
       "id": "c3ce323b-b868-4878-a4fe-dd0aba69c604",
-      "name": "Convert _index.json",
+      "name": "Convert Repository.json",
       "type": "n8n-nodes-base.convertToFile",
       "typeVersion": 1.1,
       "position": [
@@ -500,7 +485,7 @@
         "resource": "file",
         "operation": "upload",
         "inputDataFieldName": "data",
-        "name": "_index.json",
+        "name": "Repository.json",
         "driveId": {
           "__rl": true,
           "mode": "list",
@@ -514,7 +499,7 @@
         "options": {}
       },
       "id": "a3bf3b3f-edf9-4e60-9876-e0baa4a32a1e",
-      "name": "Write _index.json",
+      "name": "Write Repository.json",
       "type": "n8n-nodes-base.googleDrive",
       "typeVersion": 3,
       "position": [
@@ -524,7 +509,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const b=$('Build Folder Map and Files').first().json;return[{json:{storage:b.storage}}];"
+        "jsCode": "const b=$('Build Storage and Template Context').first().json;return[{json:{storage:b.storage}}];"
       },
       "id": "702c9ab4-cf53-4f1d-86c4-cb2c53e0f24b",
       "name": "Return Storage Contract",
@@ -537,10 +522,10 @@
     },
     {
       "parameters": {
-        "jsCode": "const s=$json.storage??{};const map=s.folder_map??{};const w=$json.workspace??{};const folder_name=String(w.chapter_directory??'').split('/').pop();return[{json:{...$json,storage:s,folder_name,parent_folder_id:map['02_Chapters']}}];"
+        "jsCode": "const request=$json.storage_request;const s=request.storage??{};const op=request.operation_data??{};return[{json:{storage_request:request,storage:s,folder_name:String(op.directory_name??''),parent_folder_id:s.folder_map?.['02_Chapters']}}];"
       },
       "id": "40f01c1a-d738-4344-81be-fa44d216de6a",
-      "name": "Prepare Chapter Directory",
+      "name": "Prepare Directory",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -566,7 +551,7 @@
         "options": {}
       },
       "id": "ed9d8d58-caff-480e-9d85-eee5ff572d40",
-      "name": "Create Chapter Directory",
+      "name": "Create Directory",
       "type": "n8n-nodes-base.googleDrive",
       "typeVersion": 3,
       "position": [
@@ -576,10 +561,10 @@
     },
     {
       "parameters": {
-        "jsCode": "const b=$('Prepare Chapter Directory').first().json;const chapter_folder_id=$json.id;const w=b.workspace??{};return [w.assets_directory,w.images_directory,w.exports_directory,w.logs_directory].map(folder_name=>({json:{...b,chapter_folder_id,folder_name,parent_folder_id:chapter_folder_id}}));"
+        "jsCode": "const b=$('Prepare Directory').first().json;const directory_folder_id=$json.id;const names=b.storage_request.operation_data?.subdirectories??[];return names.map(folder_name=>({json:{...b,directory_folder_id,folder_name,parent_folder_id:directory_folder_id}}));"
       },
       "id": "452f312b-534e-4b19-ad1f-c6b688836957",
-      "name": "Prepare Chapter Subfolders",
+      "name": "Prepare Subdirectories",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -605,7 +590,7 @@
         "options": {}
       },
       "id": "d3e08e0a-3e49-4eff-a986-16b2419e2458",
-      "name": "Create Chapter Subfolders",
+      "name": "Create Subdirectories",
       "type": "n8n-nodes-base.googleDrive",
       "typeVersion": 3,
       "position": [
@@ -615,10 +600,10 @@
     },
     {
       "parameters": {
-        "jsCode": "const b=$('Prepare Chapter Directory').first().json;const w=b.workspace??{};const chapter=b.chapter??{};const files=[{file_name:w.draft_file,content:''},{file_name:w.notes_file,content:'# Notes\\n'},{file_name:w.metadata_file,content:JSON.stringify(chapter,null,2)}];return files.map(f=>({json:{...b,...f,parent_folder_id:$('Prepare Chapter Subfolders').first().json.chapter_folder_id}}));"
+        "jsCode": "const b=$('Prepare Directory').first().json;const files=b.storage_request.operation_data?.files??[];return files.map(f=>({json:{...b,file_name:String(f.name??''),content:String(f.content??''),parent_folder_id:$('Prepare Subdirectories').first().json.directory_folder_id}}));"
       },
       "id": "3773a604-5898-4097-a05e-3ccc21fd28cf",
-      "name": "Prepare Chapter Documents",
+      "name": "Prepare Files",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -636,7 +621,7 @@
         }
       },
       "id": "f343b450-98e7-4088-97b8-b067b0930901",
-      "name": "Convert Chapter Documents",
+      "name": "Convert Files",
       "type": "n8n-nodes-base.convertToFile",
       "typeVersion": 1.1,
       "position": [
@@ -663,7 +648,7 @@
         "options": {}
       },
       "id": "c3611f92-8f1b-4224-8806-534a265c7c46",
-      "name": "Write Chapter Documents",
+      "name": "Write Files",
       "type": "n8n-nodes-base.googleDrive",
       "typeVersion": 3,
       "position": [
@@ -673,15 +658,60 @@
     },
     {
       "parameters": {
-        "jsCode": "const b=$('Prepare Chapter Directory').first().json;return[{json:{storage:b.storage}}];"
+        "jsCode": "const b=$('Prepare Directory').first().json;return[{json:{storage:b.storage}}];"
       },
       "id": "efbbc4c4-001e-4e4f-904f-acfc8fe41669",
-      "name": "Return Chapter Storage Contract",
+      "name": "Return Existing Storage Contract",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
         2200,
         240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input=$json;const data=$getWorkflowStaticData('global');const repository=data.repository&&typeof data.repository==='object'?data.repository:null;return[{json:{...input,repository,repository_initialized:!!(repository?.storage_root_id),storage_root_id:repository?.storage_root_id??''}}];"
+      },
+      "id": "ce43ef95-11ed-484a-995d-09fb93a697c0",
+      "name": "Repository State",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -900,
+        -300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.repository_initialized }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b308a6a0-4a75-4890-9e84-fbc852cb601a",
+      "name": "Repository Initialized?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -680,
+        -300
       ]
     }
   ],
@@ -713,14 +743,14 @@
       "main": [
         [
           {
-            "node": "Find 小說",
+            "node": "Repository State",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Prepare Chapter Directory",
+            "node": "Prepare Directory",
             "type": "main",
             "index": 0
           }
@@ -782,76 +812,76 @@
       "main": [
         [
           {
-            "node": "Find Novel Project",
+            "node": "Repository Project Lookup",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Find Novel Project": {
+    "Repository Project Lookup": {
       "main": [
         [
           {
-            "node": "Resolve Novel Project",
+            "node": "Resolve Repository Project",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Resolve Novel Project": {
+    "Resolve Repository Project": {
       "main": [
         [
           {
-            "node": "Novel Project Missing?",
+            "node": "Project Missing?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Novel Project Missing?": {
+    "Project Missing?": {
       "main": [
         [
           {
-            "node": "Create Novel Project",
+            "node": "Create Project",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Capture Novel Project",
+            "node": "Capture Project",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Create Novel Project": {
+    "Create Project": {
       "main": [
         [
           {
-            "node": "Capture Novel Project",
+            "node": "Capture Project",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Capture Novel Project": {
+    "Capture Project": {
       "main": [
         [
           {
-            "node": "List Workspace Versions",
+            "node": "Repository Latest Version",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "List Workspace Versions": {
+    "Repository Latest Version": {
       "main": [
         [
           {
@@ -899,80 +929,80 @@
       "main": [
         [
           {
-            "node": "Build Folder Map and Files",
+            "node": "Build Storage and Template Context",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Build Folder Map and Files": {
+    "Build Storage and Template Context": {
       "main": [
         [
           {
-            "node": "Convert Workspace Files",
+            "node": "Template Engine",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Convert Workspace Files": {
+    "Convert Rendered Templates": {
       "main": [
         [
           {
-            "node": "Write README and workspace.json",
+            "node": "Copy Workspace Templates",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Write README and workspace.json": {
+    "Copy Workspace Templates": {
       "main": [
         [
           {
-            "node": "Find _index.json",
+            "node": "Update Repository",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Find _index.json": {
+    "Template Engine": {
       "main": [
         [
           {
-            "node": "Build _index.json",
+            "node": "Convert Rendered Templates",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Build _index.json": {
+    "Update Repository": {
       "main": [
         [
           {
-            "node": "Convert _index.json",
+            "node": "Convert Repository.json",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Convert _index.json": {
+    "Convert Repository.json": {
       "main": [
         [
           {
-            "node": "Write _index.json",
+            "node": "Write Repository.json",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Write _index.json": {
+    "Write Repository.json": {
       "main": [
         [
           {
@@ -983,77 +1013,106 @@
         ]
       ]
     },
-    "Prepare Chapter Directory": {
+    "Prepare Directory": {
       "main": [
         [
           {
-            "node": "Create Chapter Directory",
+            "node": "Create Directory",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Create Chapter Directory": {
+    "Create Directory": {
       "main": [
         [
           {
-            "node": "Prepare Chapter Subfolders",
+            "node": "Prepare Subdirectories",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Prepare Chapter Subfolders": {
+    "Prepare Subdirectories": {
       "main": [
         [
           {
-            "node": "Create Chapter Subfolders",
+            "node": "Create Subdirectories",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Create Chapter Subfolders": {
+    "Create Subdirectories": {
       "main": [
         [
           {
-            "node": "Prepare Chapter Documents",
+            "node": "Prepare Files",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Prepare Chapter Documents": {
+    "Prepare Files": {
       "main": [
         [
           {
-            "node": "Convert Chapter Documents",
+            "node": "Convert Files",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Convert Chapter Documents": {
+    "Convert Files": {
       "main": [
         [
           {
-            "node": "Write Chapter Documents",
+            "node": "Write Files",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Write Chapter Documents": {
+    "Write Files": {
       "main": [
         [
           {
-            "node": "Return Chapter Storage Contract",
+            "node": "Return Existing Storage Contract",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Repository State": {
+      "main": [
+        [
+          {
+            "node": "Repository Initialized?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Repository Initialized?": {
+      "main": [
+        [
+          {
+            "node": "Repository Project Lookup",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Find 小說",
             "type": "main",
             "index": 0
           }
