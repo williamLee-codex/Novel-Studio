@@ -312,7 +312,7 @@
         "source": "database"
       },
       "id": "88037a36-8ddd-4283-ae11-faaadd38809e",
-      "name": "Call WF-005 Storage Engine",
+      "name": "WF-005 Storage Engine",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
@@ -324,10 +324,10 @@
     },
     {
       "parameters": {
-        "jsCode": "const result=$json??{};let prior={};try{prior=$('Validate WF-002 Result').item.json._orchestration??{}}catch{}const storage=result.storage??{};const problems=[];for(const k of ['storage_version','project_folder_id','workspace_folder_id','workspace_version'])if(typeof storage[k]!=='string'||!storage[k])problems.push(`storage.${k} is required.`);if(storage.storage_version!=='2.1')problems.push('storage.storage_version must be 2.1.');if(!storage.folder_map||typeof storage.folder_map!=='object')problems.push('storage.folder_map is required.');const failed=problems.length>0;const now=new Date().toISOString();const journal=[...(prior.execution_journal??[]),{stage:'WF-005',workflow_name:'WF-005 - Storage Engine V2',status:failed?'error':'success',is_valid:!failed,route:'storage',expected_route:'storage',started_at:prior.next_started_at||now,completed_at:now,error_message:problems.join(' ')}];const context={...(prior.context??{}),storage};const artifacts={...(prior.artifacts??{}),storage:result};const state={...prior,context,artifacts,execution_journal:journal,pipeline_active:!failed,failed_stage:failed?'WF-005':prior.failed_stage,integration_status:failed?'error':'completed',next_started_at:now,validation_errors:[...(prior.validation_errors??[]),...problems]};return[{json:{...result,_orchestration:state,pipeline_active:state.pipeline_active}}];"
+        "jsCode": "const result=$json&&typeof $json==='object'&&!Array.isArray($json)?$json:{};let prior={};try{const candidate=$('Validate WF-002 Result').item.json;prior=candidate?._orchestration&&typeof candidate._orchestration==='object'?candidate._orchestration:{}}catch{prior={}}const isObj=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);const str=v=>typeof v==='string'?v.trim():'';const problems=[];if(result.route!=='storage.completed')problems.push('Expected route storage.completed; received '+str(result.route)+'.');if(!str(result.storage_engine_version))problems.push('storage_engine_version is required.');if(!isObj(result.storage))problems.push('storage is required and must be an object.');const failed=problems.length>0;const now=new Date().toISOString();const context={...(isObj(prior.context)?prior.context:{}),storage_engine_version:str(result.storage_engine_version),storage:isObj(result.storage)?{...result.storage}:{}};const artifacts={...(isObj(prior.artifacts)?prior.artifacts:{}),storage:result};const journal=[...(Array.isArray(prior.execution_journal)?prior.execution_journal:[]),{stage:'WF-005',workflow_name:'WF-005 - Storage Engine V2',status:failed?'error':'success',is_valid:!failed,route:str(result.route),expected_route:'storage.completed',started_at:str(prior.next_started_at)||now,completed_at:now,error_message:problems.join(' ')}];const state={...prior,context,artifacts,execution_journal:journal,pipeline_active:!failed,failed_stage:failed?'WF-005':str(prior.failed_stage),integration_status:failed?'error':'completed',next_started_at:now,validation_errors:failed?[...(Array.isArray(prior.validation_errors)?prior.validation_errors:[]),...problems]:(Array.isArray(prior.validation_errors)?prior.validation_errors:[])};return[{json:{...result,_orchestration:state,pipeline_active:state.pipeline_active}}];"
       },
       "id": "c11ecc0f-098a-4213-9005-f87716279a4c",
-      "name": "Validate WF-005 Storage Result",
+      "name": "Validate WF-005 Result",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -1192,7 +1192,7 @@
     },
     {
       "parameters": {
-        "content": "## Novel Creation Pipeline\nWF-002 → WF-005 Storage Engine V2",
+        "content": "## Novel Creation Pipeline\nWF-002 → WF-005 Storage Engine",
         "height": 440,
         "width": 2300,
         "color": 5
@@ -1391,18 +1391,18 @@
         ]
       ]
     },
-    "Call WF-005 Storage Engine": {
+    "WF-005 Storage Engine": {
       "main": [
         [
           {
-            "node": "Validate WF-005 Storage Result",
+            "node": "Validate WF-005 Result",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Validate WF-005 Storage Result": {
+    "Validate WF-005 Result": {
       "main": [
         [
           {
@@ -1839,7 +1839,7 @@
       "main": [
         [
           {
-            "node": "Call WF-005 Storage Engine",
+            "node": "WF-005 Storage Engine",
             "type": "main",
             "index": 0
           }
