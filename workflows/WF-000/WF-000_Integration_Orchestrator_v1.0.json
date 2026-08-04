@@ -279,7 +279,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const result=$json&&typeof $json==='object'?$json:{};const state=result._orchestration??{};return[{json:{novel:result.novel,context:result.context??state.context??{}}}];"
+        "jsCode": "const result=$json&&typeof $json==='object'?$json:{};const novel=result.novel??{};return[{json:{storage_request:{operation:'initialize_workspace',project_key:String(novel.novel_uuid??''),project_name:String(novel.novel_title??''),template_set:'default'}}}];"
       },
       "id": "8b25e588-a24d-49ee-b07a-dd5084a6fc49",
       "name": "Prepare WF-005 Storage Input",
@@ -324,7 +324,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const result=$json??{};let prior={};try{prior=$('Validate WF-002 Result').item.json._orchestration??{}}catch{}const storage=result.storage??{};const problems=[];for(const k of ['storage_version','project_folder_id','workspace_folder_id','workspace_version'])if(typeof storage[k]!=='string'||!storage[k])problems.push(`storage.${k} is required.`);if(storage.storage_version!=='2.0')problems.push('storage.storage_version must be 2.0.');if(!storage.folder_map||typeof storage.folder_map!=='object')problems.push('storage.folder_map is required.');const failed=problems.length>0;const now=new Date().toISOString();const journal=[...(prior.execution_journal??[]),{stage:'WF-005',workflow_name:'WF-005 - Storage Engine V2',status:failed?'error':'success',is_valid:!failed,route:'storage',expected_route:'storage',started_at:prior.next_started_at||now,completed_at:now,error_message:problems.join(' ')}];const context={...(prior.context??{}),storage};const artifacts={...(prior.artifacts??{}),storage:result};const state={...prior,context,artifacts,execution_journal:journal,pipeline_active:!failed,failed_stage:failed?'WF-005':prior.failed_stage,integration_status:failed?'error':'completed',next_started_at:now,validation_errors:[...(prior.validation_errors??[]),...problems]};return[{json:{...result,_orchestration:state,pipeline_active:state.pipeline_active}}];"
+        "jsCode": "const result=$json??{};let prior={};try{prior=$('Validate WF-002 Result').item.json._orchestration??{}}catch{}const storage=result.storage??{};const problems=[];for(const k of ['storage_version','project_folder_id','workspace_folder_id','workspace_version'])if(typeof storage[k]!=='string'||!storage[k])problems.push(`storage.${k} is required.`);if(storage.storage_version!=='2.1')problems.push('storage.storage_version must be 2.1.');if(!storage.folder_map||typeof storage.folder_map!=='object')problems.push('storage.folder_map is required.');const failed=problems.length>0;const now=new Date().toISOString();const journal=[...(prior.execution_journal??[]),{stage:'WF-005',workflow_name:'WF-005 - Storage Engine V2',status:failed?'error':'success',is_valid:!failed,route:'storage',expected_route:'storage',started_at:prior.next_started_at||now,completed_at:now,error_message:problems.join(' ')}];const context={...(prior.context??{}),storage};const artifacts={...(prior.artifacts??{}),storage:result};const state={...prior,context,artifacts,execution_journal:journal,pipeline_active:!failed,failed_stage:failed?'WF-005':prior.failed_stage,integration_status:failed?'error':'completed',next_started_at:now,validation_errors:[...(prior.validation_errors??[]),...problems]};return[{json:{...result,_orchestration:state,pipeline_active:state.pipeline_active}}];"
       },
       "id": "c11ecc0f-098a-4213-9005-f87716279a4c",
       "name": "Validate WF-005 Storage Result",
@@ -450,7 +450,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const state=$json._orchestration??{};const result={...$json};delete result._orchestration;delete result.pipeline_active;return[{json:{...result,storage:state.context?.storage??{}}}];"
+        "jsCode": "const state=$json._orchestration??{};const w=$json.workspace??{};const chapter=$json.chapter??{};const names=[w.assets_directory,w.images_directory,w.exports_directory,w.logs_directory].filter(Boolean);const files=[{name:w.draft_file,content:''},{name:w.notes_file,content:'# Notes\\n'},{name:w.metadata_file,content:JSON.stringify(chapter,null,2)}].filter(f=>f.name);return[{json:{storage_request:{operation:'persist_files',storage:state.context?.storage??{},operation_data:{directory_name:String(w.chapter_directory??'').split('/').pop(),subdirectories:names,files}}}}];"
       },
       "id": "86681f78-56ee-4444-840d-e23c0e4347ef",
       "name": "Prepare WF-005 Chapter Storage Input",
