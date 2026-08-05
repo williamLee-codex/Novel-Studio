@@ -30,7 +30,7 @@
         "resource": "fileFolder",
         "operation": "search",
         "searchMethod": "query",
-        "queryString": "={{ $json.chapters_folder_id ? \"name = '02_Chapters' and 'NO_PARENT_SEARCH' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false\" : \"name = '02_Chapters' and '\" + $json.workspace_folder_id + \"' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false\" }}",
+        "queryString": "={{ $json.chapters_folder_id ? \"name = '02_Chapters' and id = '\" + $json.chapters_folder_id + \"' and mimeType = 'application/vnd.google-apps.folder' and trashed = false\" : \"name = '02_Chapters' and '\" + $json.workspace_folder_id + \"' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false\" }}",
         "returnAll": true,
         "filter": {},
         "options": {}
@@ -38,11 +38,12 @@
       "id": "6bb1de42-a8b1-4a68-a06b-71e515d5de83",
       "name": "Find 02_Chapters",
       "type": "n8n-nodes-base.googleDrive",
-      "typeVersion": 1,
+      "typeVersion": 3,
       "position": [
         480,
         0
-      ]
+      ],
+      "alwaysOutputData": true
     },
     {
       "parameters": {
@@ -70,11 +71,12 @@
       "id": "ee7ef316-a754-4d70-ab0e-3a1e35cf0d0f",
       "name": "Find Chapter Folder",
       "type": "n8n-nodes-base.googleDrive",
-      "typeVersion": 1,
+      "typeVersion": 3,
       "position": [
         960,
         0
-      ]
+      ],
+      "alwaysOutputData": true
     },
     {
       "parameters": {
@@ -129,7 +131,7 @@
       "id": "f128890b-931c-4585-b6ed-92e0cadfc57a",
       "name": "Create Chapter Folder",
       "type": "n8n-nodes-base.googleDrive",
-      "typeVersion": 1,
+      "typeVersion": 3,
       "position": [
         1680,
         -100
