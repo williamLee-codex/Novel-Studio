@@ -14,7 +14,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const root = $json && typeof $json === 'object' && !Array.isArray($json) ? $json : {};\nconst context = root.context && typeof root.context === 'object' && !Array.isArray(root.context) ? { ...root.context, ...root } : root;\nconst args = Array.isArray(context.command_args) ? context.command_args : [];\nconst argumentText = typeof context.argument_text === 'string' ? context.argument_text.trim() : '';\nconst explicit = typeof context.chapter_number === 'string' ? context.chapter_number : (Number.isInteger(context.chapter_number) && context.chapter_number > 0 ? String(context.chapter_number) : '');\nconst rawChapter = explicit || args.find((value) => /^\\d+$/u.test(String(value ?? '').trim())) || argumentText.match(/\\b(\\d+)\\b/u)?.[1] || '';\nconst chapterNumber = String(rawChapter).trim().padStart(3, '0');\nconst workspaceFolderId = String(context.workspace_folder_id ?? '').trim();\nconst errors = [];\nif (!workspaceFolderId) errors.push('workspace_folder_id is required.');\nif (!/^\\d{3}$/u.test(chapterNumber)) errors.push('chapter_number is required and must resolve to a three digit chapter id such as 001.');\nreturn [{ json: { ...root, ...context, chapter_number: chapterNumber, workspace_folder_id: workspaceFolderId, validation_errors: errors, is_valid: errors.length === 0 } }];"
+        "jsCode": "const root = $json && typeof $json === 'object' && !Array.isArray($json) ? $json : {};\nconst context = root.context && typeof root.context === 'object' && !Array.isArray(root.context) ? root.context : root;\nconst args = Array.isArray(context.command_args) ? context.command_args : [];\nconst argumentText = typeof context.argument_text === 'string' ? context.argument_text.trim() : '';\nconst explicit = typeof context.chapter_number === 'string' ? context.chapter_number : (Number.isInteger(context.chapter_number) && context.chapter_number > 0 ? String(context.chapter_number) : '');\nconst rawChapter = explicit || args.find((value) => /^\\d+$/u.test(String(value ?? '').trim())) || argumentText.match(/\\b(\\d+)\\b/u)?.[1] || '';\nconst chapterNumber = String(rawChapter).trim().padStart(3, '0');\nconst folderMap = context.workspace_folder_map && typeof context.workspace_folder_map === 'object' && !Array.isArray(context.workspace_folder_map) ? context.workspace_folder_map : {};\nconst chaptersFolderId = String(folderMap['02_Chapters'] ?? folderMap['chapters'] ?? context.chapters_folder_id ?? '').trim();\nconst workspaceFolderId = String(context.workspace_folder_id ?? context.root_folder_id ?? context.existing_root_folder_id ?? context.workspace_uuid ?? '').trim();\nconst errors = [];\nif (!/^\\d{3}$/u.test(chapterNumber)) errors.push('chapter_number must resolve to a three digit chapter id such as 001.');\nif (!chaptersFolderId && !workspaceFolderId) errors.push('workspace folder id or 02_Chapters folder id is required.');\nreturn [{ json: { ...root, chapter_number: chapterNumber, chapters_folder_id: chaptersFolderId, workspace_folder_id: workspaceFolderId, validation_errors: errors, is_valid: errors.length === 0 } }];"
       },
       "id": "e5f7dd37-34b6-49de-b2b5-39a7b50e04ac",
       "name": "Parse Chapter Command",
@@ -30,7 +30,7 @@
         "resource": "file",
         "operation": "list",
         "searchMethod": "query",
-        "queryString": "={{ \"name = '02_Chapters' and '\" + $json.workspace_folder_id + \"' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false\" }}",
+        "queryString": "={{ $json.chapters_folder_id ? \"name = '02_Chapters' and id = '\" + $json.chapters_folder_id + \"' and mimeType = 'application/vnd.google-apps.folder' and trashed = false\" : \"name = '02_Chapters' and '\" + $json.workspace_folder_id + \"' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false\" }}",
         "returnAll": true,
         "filter": {
           "folderId": {
@@ -61,7 +61,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const prior = $('Parse Chapter Command').item.json;\nconst found = $input.all().map((item) => item.json).find((item) => item && item.id) ?? null;\nconst chaptersFolderId = found ? String(found.id) : '';\nconst errors = [...(prior.validation_errors ?? [])];\nif (prior.is_valid === true && !chaptersFolderId) errors.push('02_Chapters folder was not found under workspace_folder_id.');\nreturn [{ json: { ...prior, chapters_folder_id: chaptersFolderId, is_valid: errors.length === 0, validation_errors: errors } }];"
+        "jsCode": "let prior = {};\ntry { prior = $('Parse Chapter Command').item.json; } catch { prior = {}; }\nconst found = Array.isArray($input.all()) ? $input.all().map((item) => item.json).find((item) => item && item.id) : null;\nconst chaptersFolderId = prior.chapters_folder_id || (found ? String(found.id) : '');\nconst errors = [...(prior.validation_errors ?? [])];\nif (!chaptersFolderId) errors.push('02_Chapters folder was not found.');\nreturn [{ json: { ...prior, chapters_folder_id: chaptersFolderId, is_valid: errors.length === 0, validation_errors: errors } }];"
       },
       "id": "17e8078d-1aef-430a-a483-49f33f13e114",
       "name": "Resolve 02_Chapters",
@@ -167,7 +167,7 @@
     },
     {
       "parameters": {
-        "jsCode": "let prior = {};\ntry { prior = $('Resolve Chapter Folder').item.json; } catch { prior = $json; }\nconst createdId = $json && $json.id ? String($json.id) : '';\nconst chapterFolderId = prior.chapter_folder_id || createdId;\nconst errors = [...(prior.validation_errors ?? [])];\nif (prior.is_valid === true && !chapterFolderId) errors.push('chapter_folder_id is required.');\nconst isValid = errors.length === 0;\nreturn [{ json: { route: 'chapter.completed', target: 'WF-000', status: isValid ? 'ready' : 'error', is_valid: isValid, validation_errors: errors, novel_uuid: String(prior.novel_uuid ?? ''), workspace_uuid: String(prior.workspace_uuid ?? ''), workspace_folder_id: String(prior.workspace_folder_id ?? ''), workspace_version: String(prior.workspace_version ?? ''), chapter_number: prior.chapter_number, chapter_folder_id: chapterFolderId, chapter_folder_existed: Boolean(prior.chapter_folder_existed) } }];"
+        "jsCode": "let prior = {};\ntry { prior = $('Resolve Chapter Folder').item.json; } catch { prior = $json; }\nconst createdId = $json && $json.id ? String($json.id) : '';\nconst chapterFolderId = prior.chapter_folder_id || createdId;\nconst errors = [...(prior.validation_errors ?? [])];\nif (prior.is_valid === true && !chapterFolderId) errors.push('chapter folder id is required.');\nconst isValid = errors.length === 0;\nreturn [{ json: { route: 'chapter.completed', status: isValid ? 'ready' : 'error', is_valid: isValid, validation_errors: errors, chapter_number: prior.chapter_number, chapter_folder_id: chapterFolderId } }];"
       },
       "id": "9fdbc4de-85da-4ff2-9100-7807b6268e83",
       "name": "Build Chapter Completed Output",
