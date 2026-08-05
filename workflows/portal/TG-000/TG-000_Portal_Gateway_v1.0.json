@@ -85,7 +85,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const data = $input.first()?.json ?? {};\nconst detection = (data.detection && typeof data.detection === 'object') ? data.detection : {};\nconst callback = (detection.callback && typeof detection.callback === 'object') ? detection.callback : {};\nconst command = (detection.command && typeof detection.command === 'object') ? detection.command : {};\nconst portalCommands = new Set(['start', 'menu', 'back']);\nconst novelCommands = new Set(['new', 'chapter', 'novel', 'storybible']);\nconst socialCommands = new Set(['publish', 'results', 'socialstatus']);\nconst adminCommands = new Set(['system', 'health']);\nlet domain = 'portal', action = 'fallback', target = 'portal.fallback', branch = 'fallback';\nif (callback.detected === true) {\n  domain = String(callback.prefix ?? 'portal'); action = String(callback.action ?? 'fallback');\n  if (domain === 'social') { target = 'TG-100'; branch = 'social'; }\n  else if (domain === 'novel' && ['new', 'chapter'].includes(action)) { target = 'WF-000'; branch = 'novel'; }\n  else if (domain === 'novel') { target = ''; branch = 'fallback'; }\n  else if (domain === 'admin') { target = 'admin.route'; branch = 'admin'; }\n  else { target = action.startsWith('planned:') ? 'portal.planned' : 'portal.menu'; branch = 'portal'; }\n} else if (command.detected === true) {\n  const name = String(command.name ?? ''); action = name || 'fallback';\n  if (portalCommands.has(name)) { domain = 'portal'; action = name === 'back' ? 'back' : 'menu'; target = 'portal.menu'; branch = 'portal'; }\n  else if (novelCommands.has(name)) { domain = 'novel'; target = ['new', 'chapter'].includes(name) ? 'WF-000' : ''; branch = ['new', 'chapter'].includes(name) ? 'novel' : 'fallback'; }\n  else if (socialCommands.has(name)) { domain = 'social'; target = 'TG-100'; branch = 'social'; }\n  else if (adminCommands.has(name)) { domain = 'admin'; target = 'admin.route'; branch = 'admin'; }\n} \nconst ctx = (data.gateway_context && typeof data.gateway_context === 'object') ? data.gateway_context : {};\nreturn [{ json: { ...data, gateway_context: { ...ctx, route: { domain, action, target_workflow: target } }, route_branch: branch } }];"
+        "jsCode": "const data = $input.first()?.json ?? {};\nconst detection = (data.detection && typeof data.detection === 'object') ? data.detection : {};\nconst callback = (detection.callback && typeof detection.callback === 'object') ? detection.callback : {};\nconst command = (detection.command && typeof detection.command === 'object') ? detection.command : {};\nconst portalCommands = new Set(['start', 'menu', 'back']);\nconst novelCommands = new Set(['new', 'chapter', 'novel', 'storybible']);\nconst socialCommands = new Set(['publish', 'results', 'socialstatus']);\nconst adminCommands = new Set(['system', 'health']);\nlet domain = 'portal', action = 'fallback', target = 'portal.fallback', branch = 'fallback';\nif (callback.detected === true) {\n  domain = String(callback.prefix ?? 'portal'); action = String(callback.action ?? 'fallback');\n  if (domain === 'social') { target = 'TG-100'; branch = 'social'; }\n  else if (domain === 'novel' && ['new', 'chapter'].includes(action)) { target = 'WF-000'; branch = 'novel'; }\n  else if (domain === 'novel') { target = ''; branch = 'fallback'; }\n  else if (domain === 'admin') { target = 'admin.route'; branch = 'admin'; }\n  else { target = action.startsWith('planned:') ? 'portal.planned' : 'portal.menu'; branch = 'portal'; }\n} else if (command.detected === true) {\n  const name = String(command.name ?? ''); action = name || 'fallback';\n  if (portalCommands.has(name)) { domain = 'portal'; action = name === 'back' ? 'back' : 'menu'; target = 'portal.menu'; branch = 'portal'; }\n  else if (novelCommands.has(name)) {\n    if (name === 'novel') { domain = 'social'; action = 'novel'; target = 'TG-100'; branch = 'social'; }\n    else { domain = 'novel'; target = ['new', 'chapter'].includes(name) ? 'WF-000' : ''; branch = ['new', 'chapter'].includes(name) ? 'novel' : 'fallback'; }\n  }\n  else if (socialCommands.has(name)) { domain = 'social'; target = 'TG-100'; branch = 'social'; }\n  else if (adminCommands.has(name)) { domain = 'admin'; target = 'admin.route'; branch = 'admin'; }\n} \nconst ctx = (data.gateway_context && typeof data.gateway_context === 'object') ? data.gateway_context : {};\nreturn [{ json: { ...data, gateway_context: { ...ctx, route: { domain, action, target_workflow: target } }, route_branch: branch } }];"
       },
       "id": "7403e598-21e2-5157-8d9e-c0b5edea936a",
       "name": "Resolve Portal Route",
@@ -191,6 +191,29 @@
               },
               "renameOutput": true,
               "outputKey": "admin"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route_branch }}",
+                    "rightValue": "novel_menu",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "novel_menu"
             },
             {
               "conditions": {
@@ -328,6 +351,19 @@
       "typeVersion": 2,
       "position": [
         600,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first()?.json ?? {};\nconst menu = { text: '📚 Novel Studio\\n\\n請選擇功能：', inline_keyboard: [[{ text: '➕ 新增小說', callback_data: 'novel_create' }], [{ text: '📖 選擇小說', callback_data: 'novel_select' }], [{ text: '📝 建立章節', callback_data: 'chapter_create' }], [{ text: '✍️ 寫作章節', callback_data: 'chapter_write' }], [{ text: '📊 小說狀態', callback_data: 'novel_status' }], [{ text: '⬅ 返回社群中心', callback_data: 'social_home' }]] };\nreturn [{ json: { ...data, branch_result: { kind: 'novel_menu', status: 'ready', is_valid: true, message: '', menu } } }];"
+      },
+      "id": "d3f6f82a-8d7b-4d1f-b2d4-1d8b8d8e0001",
+      "name": "Route Novel Studio Menu",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        600,
         320
       ]
     },
@@ -341,7 +377,7 @@
       "typeVersion": 2,
       "position": [
         600,
-        520
+        720
       ]
     },
     {
@@ -420,7 +456,7 @@
     },
     {
       "parameters": {
-        "content": "## Subsystem Dispatch\nTG-100 與 WF-000 必須在 import 後手動綁定。Gateway 不含業務邏輯。",
+        "content": "## Subsystem Dispatch\nTG-100 與 WF-000 必須在 import 後手動綁定。Gateway 不含業務邏輯。/NOVEL 只回傳 Novel Studio 選單，不呼叫 WF-000。",
         "height": 690,
         "width": 620,
         "color": 3
@@ -578,6 +614,13 @@
         ],
         [
           {
+            "node": "Route Novel Studio Menu",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
             "node": "Route Unknown Input",
             "type": "main",
             "index": 0
@@ -656,6 +699,17 @@
         [
           {
             "node": "Build Audit Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Novel Studio Menu": {
+      "main": [
+        [
+          {
+            "node": "Build Gateway Result",
             "type": "main",
             "index": 0
           }

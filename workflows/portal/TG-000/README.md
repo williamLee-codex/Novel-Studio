@@ -35,6 +35,7 @@ flowchart LR
     R --> S{Switch Domain}
     S -->|portal| M[Portal Menu]
     S -->|social| TG100[Call TG-100]
+    S -->|novel_menu| NM[Novel Studio Menu]
     S -->|novel| P[Prepare Novel Input]
     P --> WF000[Call WF-000]
     S -->|admin| A[Admin Route]
@@ -43,11 +44,12 @@ flowchart LR
     TG100 --> O
     WF000 --> O
     A --> O
+    NM --> O
     F --> O
     O --> AU[Build Audit Context]
 ```
 
-The export contains 16 functional nodes and six Sticky Notes. The `Build Audit Context` output is informational only; v1 does not persist audit records.
+The export contains 17 functional nodes and six Sticky Notes. The `Build Audit Context` output is informational only; v1 does not persist audit records.
 
 ## Telegram Trigger ownership
 
@@ -62,8 +64,9 @@ Commands are recognized only at the beginning of `message.text`, after optional 
 | Domain | Commands | Behavior |
 |---|---|---|
 | Portal | `/start`, `/menu`, `/back` | Return `gateway.menu`; no subsystem call. |
+| Novel Studio | `/NOVEL` (`/novel`) | Return the Novel Studio inline-keyboard menu; do not call `WF-000`. |
 | Novel Studio | `/new`, `/chapter` | Prepare the Novel Studio v2 input contract and call `WF-000`. |
-| Novel Studio | `/novel`, `/storybible` | Return `supported_not_implemented`; do not invent success or call `WF-000`. |
+| Novel Studio | `/storybible` | Return `supported_not_implemented`; do not invent success or call `WF-000`. |
 | Social Center | `/publish`, `/results`, `/socialstatus` | Call the manually bound `TG-100` adapter. |
 | Administration | `/system`, `/health` | Return a deterministic `admin.route` result without internal system data. |
 
@@ -129,6 +132,23 @@ The Telegram-compatible definition contains `text` and `inline_keyboard`:
 
 The menu is a response definition. TG-000 does not add a Telegram Send Message node; final Telegram reply formatting may be supplied by the caller or subsystem.
 
+
+## Novel Studio menu
+
+`/NOVEL` is command-detected case-insensitively as `/novel` and returns exactly one Telegram-compatible menu definition without invoking `WF-000` or any workflow:
+
+- Title/body text: `📚 Novel Studio
+
+請選擇功能：`
+- ➕ 新增小說 → `novel_create`
+- 📖 選擇小說 → `novel_select`
+- 📝 建立章節 → `chapter_create`
+- ✍️ 寫作章節 → `chapter_write`
+- 📊 小說狀態 → `novel_status`
+- ⬅ 返回社群中心 → `social_home`
+
+Callback handling for these button payloads is intentionally not implemented in TG-000 Milestone 1.
+
 ## Social Center integration
 
 `Call TG-100 Social Center` is an official **Execute Sub-workflow** node with an intentionally empty workflow selection. After import, bind it to the TG-100 adapter. TG-100 may then adapt to `IC-TG-001 Router v3.1.4 FINAL（三按鈕版）` while preserving its original three-button behavior.
@@ -162,7 +182,7 @@ TG-000 passes the original Telegram update, normalized context, detection data, 
 }
 ```
 
-For `/chapter`, the route is `command.chapter` and `command.name` is `chapter`. `/novel`, `/storybible`, `novel:home`, `novel:list`, and `novel:storybible` return a truthful supported-not-implemented result without calling WF-000. WF-000 remains the orchestration owner; TG-000 performs only input adaptation.
+For `/chapter`, the route is `command.chapter` and `command.name` is `chapter`. `/NOVEL` returns the Novel Studio menu without calling WF-000. `/storybible`, `novel:home`, `novel:list`, and `novel:storybible` return a truthful supported-not-implemented result without calling WF-000. WF-000 remains the orchestration owner; TG-000 performs only input adaptation.
 
 ## Command parsing
 
