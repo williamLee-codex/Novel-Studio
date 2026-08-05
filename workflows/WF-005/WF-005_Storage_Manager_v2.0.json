@@ -384,7 +384,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        5520,
+        7920,
         0
       ]
     },
@@ -403,8 +403,8 @@
       "type": "n8n-nodes-base.googleDrive",
       "typeVersion": 3,
       "position": [
-        4080,
-        0
+        4320,
+        -100
       ],
       "credentials": {
         "googleDriveOAuth2Api": {
@@ -415,14 +415,14 @@
     },
     {
       "parameters": {
-        "jsCode": "const canonicalFolders = ['01_Source','02_Chapters','03_Canon','04_Characters','05_World','06_Outline','07_Assets','08_Publish','09_Backup'];\nconst state = $('Capture v001 Folder').first().json;\nconst existing = new Map();\nfor (const item of $input.all()) {\n  const folder = item.json;\n  if (folder && typeof folder.name === 'string' && folder.id && canonicalFolders.includes(folder.name) && !existing.has(folder.name)) {\n    existing.set(folder.name, folder.id);\n  }\n}\nconst missing_folders = canonicalFolders.filter(name => !existing.has(name));\nreturn [{ json: { ...state, canonical_folders: canonicalFolders, existing_canonical_folder_ids: Object.fromEntries(existing), missing_folders, canonical_folders_missing: missing_folders.length > 0 } }];"
+        "jsCode": "const canonicalFolders = ['01_Source','02_Chapters','03_Canon','04_Characters','05_World','06_Outline','07_Assets','08_Publish','09_Backup'];\nconst state = $('Capture v001 Folder').first().json;\nconst existing = new Map();\nfor (const item of $input.all()) {\n  const folder = item.json;\n  if (folder?.__canonical_folder_search_seed) continue;\n  if (folder && typeof folder.name === 'string' && folder.id && canonicalFolders.includes(folder.name) && !existing.has(folder.name)) {\n    existing.set(folder.name, folder.id);\n  }\n}\nconst missing_folders = canonicalFolders.filter(name => !existing.has(name));\nreturn [{ json: { ...state, canonical_folders: canonicalFolders, existing_canonical_folder_ids: Object.fromEntries(existing), missing_folders, canonical_folders_missing: missing_folders.length > 0 } }];"
       },
       "id": "97d174d1-dd21-409e-8173-1fffff5caab9",
       "name": "Plan Canonical Folders",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        4320,
+        4800,
         0
       ]
     },
@@ -454,7 +454,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        4560,
+        5040,
         0
       ]
     },
@@ -467,7 +467,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        4800,
+        5280,
         -100
       ]
     },
@@ -493,7 +493,7 @@
       "type": "n8n-nodes-base.googleDrive",
       "typeVersion": 3,
       "position": [
-        5040,
+        5520,
         -100
       ],
       "credentials": {
@@ -512,7 +512,188 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        5280,
+        5760,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const state = $('Capture v001 Folder').first().json;\nreturn [{ json: { ...state, __canonical_folder_search_seed: true } }];"
+      },
+      "id": "a32f6142-3559-415a-b360-71e7355bc307",
+      "name": "Seed Canonical Folder Search",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4080,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "append"
+      },
+      "id": "203fd283-801d-472c-818e-327c8c6950f4",
+      "name": "Merge Canonical Folder Search",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        4560,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "operation": "search",
+        "searchMethod": "query",
+        "queryString": "={{ \"'\" + $json.workspace_folder_id + \"' in parents and (name = 'README.md' or name = 'workspace.json') and trashed = false\" }}",
+        "returnAll": true,
+        "filter": {},
+        "options": {}
+      },
+      "id": "13b0331e-a1b6-4524-ba43-e4450a5c85e2",
+      "name": "Find Workspace Files",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        6000,
+        0
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "m8Ze5QDWBQQ0zNjj",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const state = $json;\nreturn [{ json: { ...state, __workspace_file_search_seed: true } }];"
+      },
+      "id": "419904f3-b000-4ff6-ac41-48ba2bf7752a",
+      "name": "Seed Workspace File Search",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6000,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "append"
+      },
+      "id": "c623447a-37ec-43c8-bc3a-820eed5a5d19",
+      "name": "Merge Workspace File Search",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        6240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const expectedFiles = ['README.md', 'workspace.json'];\nconst inputItems = $input.all();\nconst seedItem = inputItems.find(item => item.json?.__workspace_file_search_seed);\nconst state = seedItem?.json || inputItems[0]?.json;\nconst existing = new Map();\nfor (const item of inputItems) {\n  const file = item.json;\n  if (file?.__workspace_file_search_seed) continue;\n  if (file && typeof file.name === 'string' && file.id && expectedFiles.includes(file.name) && !existing.has(file.name)) {\n    existing.set(file.name, file.id);\n  }\n}\nconst now = new Date().toISOString();\nconst readme = `# ${state.project_name}\n\nWorkspace Version\n\nv001\n\nGenerated by\n\nNovel Studio\n\nStorage Engine\n\nVersion 2.1\n`;\nconst workspace = JSON.stringify({\n  storage_engine_version: '2.1',\n  workspace_version: 'v001',\n  project_name: state.project_name,\n  project_key: state.project_key,\n  project_folder_id: state.project_folder_id,\n  workspace_folder_id: state.workspace_folder_id,\n  created_at: now,\n  last_updated: now,\n}, null, 2);\nconst fileDefinitions = {\n  'README.md': { mimeType: 'text/markdown', content: readme },\n  'workspace.json': { mimeType: 'application/json', content: workspace },\n};\nconst missing_files = expectedFiles.filter(name => !existing.has(name));\nreturn [{ json: { ...state, workspace_files: expectedFiles, existing_workspace_file_ids: Object.fromEntries(existing), missing_files, workspace_files_missing: missing_files.length > 0, file_definitions: fileDefinitions } }];"
+      },
+      "id": "86092465-d7e7-4a78-9ea5-3ba7020a5a65",
+      "name": "Plan Workspace Files",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "f34b62a9-31d4-4b9a-baa3-4d8b96f96f34",
+              "leftValue": "={{ $json.workspace_files_missing }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "73a8ca22-da29-410a-bf67-0e4f1fcb913c",
+      "name": "Workspace Files Missing?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        6720,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const state = $json;\nreturn state.missing_files.map(file_name => {\n  const definition = state.file_definitions[file_name];\n  return {\n    json: { ...state, file_name, mimeType: definition.mimeType },\n    binary: {\n      data: {\n        data: Buffer.from(definition.content, 'utf8').toString('base64'),\n        mimeType: definition.mimeType,\n        fileName: file_name,\n      },\n    },\n  };\n});"
+      },
+      "id": "5e6347c3-6607-416b-a026-0197b516672b",
+      "name": "Expand Missing Workspace Files",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6960,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "operation": "upload",
+        "name": "={{ $json.file_name }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $json.workspace_folder_id }}"
+        },
+        "inputDataFieldName": "data",
+        "options": {}
+      },
+      "id": "4736ba8f-1b6f-4632-a5bb-e4a08d7fa62e",
+      "name": "Create Workspace File",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        7200,
+        -100
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "m8Ze5QDWBQQ0zNjj",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const state = $('Plan Workspace Files').first().json;\nconst created = {};\nfor (const item of $input.all()) {\n  const name = item.json?.name || item.json?.file_name;\n  const id = item.json?.id;\n  if (name && id) created[name] = id;\n}\nreturn [{ json: { ...state, created_workspace_file_ids: created } }];"
+      },
+      "id": "76847c43-d428-47d3-85ce-f6a3616c8a88",
+      "name": "Capture Workspace Files",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        7440,
         -100
       ]
     }
@@ -723,6 +904,11 @@
             "node": "Find Canonical Folders",
             "type": "main",
             "index": 0
+          },
+          {
+            "node": "Seed Canonical Folder Search",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -731,7 +917,7 @@
       "main": [
         [
           {
-            "node": "Plan Canonical Folders",
+            "node": "Merge Canonical Folder Search",
             "type": "main",
             "index": 0
           }
@@ -760,7 +946,12 @@
         ],
         [
           {
-            "node": "Return",
+            "node": "Find Workspace Files",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Seed Workspace File Search",
             "type": "main",
             "index": 0
           }
@@ -790,6 +981,128 @@
       ]
     },
     "Capture Canonical Folders": {
+      "main": [
+        [
+          {
+            "node": "Find Workspace Files",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Seed Workspace File Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Seed Canonical Folder Search": {
+      "main": [
+        [
+          {
+            "node": "Merge Canonical Folder Search",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Canonical Folder Search": {
+      "main": [
+        [
+          {
+            "node": "Plan Canonical Folders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Workspace Files": {
+      "main": [
+        [
+          {
+            "node": "Merge Workspace File Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Seed Workspace File Search": {
+      "main": [
+        [
+          {
+            "node": "Merge Workspace File Search",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Workspace File Search": {
+      "main": [
+        [
+          {
+            "node": "Plan Workspace Files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Plan Workspace Files": {
+      "main": [
+        [
+          {
+            "node": "Workspace Files Missing?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Workspace Files Missing?": {
+      "main": [
+        [
+          {
+            "node": "Expand Missing Workspace Files",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Return",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Expand Missing Workspace Files": {
+      "main": [
+        [
+          {
+            "node": "Create Workspace File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Workspace File": {
+      "main": [
+        [
+          {
+            "node": "Capture Workspace Files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Capture Workspace Files": {
       "main": [
         [
           {
