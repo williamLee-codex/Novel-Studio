@@ -42,7 +42,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const items = $input.all();\nconst data = items[0]?.json ?? {};\nconst telegram = (data.telegram && typeof data.telegram === 'object') ? data.telegram : {};\nconst route = (data.gateway?.route && typeof data.gateway.route === 'object') ? data.gateway.route : {};\nconst normalize = value => { const v=String(value ?? '').toLowerCase(); if (['social.home','social.menu','home','menu'].includes(v)) return 'menu'; if (['social.publish','publish'].includes(v)) return 'publish'; if (['social.results','results'].includes(v)) return 'results'; if (['social.status','socialstatus','status'].includes(v)) return 'status'; return ''; };\nlet action = normalize(route.action);\nlet source = action ? 'route.action' : '';\nif (!action) { const cb=String(telegram.callback_data ?? ''); const m=cb.match(/^social:(home|menu|publish|results|status)$/i); if(m){action=normalize(m[1]);source='telegram.callback_data';} }\nif (!action) { const text=String(telegram.message_text ?? ''); const m=text.match(/^\\s*\\/(publish|results|socialstatus)(?:@[A-Za-z0-9_]+)?(?=\\s|$)/i); if(m){action=normalize(m[1]);source='telegram.message_text';} }\nif (!action) { action='menu'; source='fallback'; }\nreturn [{ json: { ...data, social_action: action, action_source: source, route_branch: data.contract_valid === true ? action : 'error' } }];"
+        "jsCode": "const items = $input.all();\nconst data = items[0]?.json ?? {};\nconst telegram = (data.telegram && typeof data.telegram === 'object') ? data.telegram : {};\nconst route = (data.gateway?.route && typeof data.gateway.route === 'object') ? data.gateway.route : {};\nconst normalize = value => { const v=String(value ?? '').toLowerCase(); if (['social.home','social.menu','home','menu'].includes(v)) return 'menu'; if (['social.publish','publish'].includes(v)) return 'publish'; if (['social.results','results'].includes(v)) return 'results'; if (['social.status','socialstatus','status'].includes(v)) return 'status'; if (['social.novel','novel'].includes(v)) return 'novel'; return ''; };\nlet action = normalize(route.action);\nlet source = action ? 'route.action' : '';\nif (!action) { const cb=String(telegram.callback_data ?? ''); const m=cb.match(/^social:(home|menu|publish|results|status|novel)$/i); if(m){action=normalize(m[1]);source='telegram.callback_data';} }\nif (!action) { const text=String(telegram.message_text ?? ''); const m=text.match(/^\\s*\\/(publish|results|socialstatus|novel)(?:@[A-Za-z0-9_]+)?(?=\\s|$)/i); if(m){action=normalize(m[1]);source='telegram.message_text';} }\nif (!action) { action='menu'; source='fallback'; }\nreturn [{ json: { ...data, social_action: action, action_source: source, route_branch: data.contract_valid === true ? action : 'error' } }];"
       },
       "id": "3be635b9-da70-52ef-84ab-aae89c4c9d68",
       "name": "Detect Social Action",
@@ -160,6 +160,29 @@
                 "conditions": [
                   {
                     "leftValue": "={{ $json.route_branch }}",
+                    "rightValue": "novel",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "novel"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route_branch }}",
                     "rightValue": "error",
                     "operator": {
                       "type": "string",
@@ -187,7 +210,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const items = $input.all();\nconst data = items[0]?.json ?? {};\nconst response = { type: 'telegram_menu', text: '📢 社群中心', inline_keyboard: [[{ text: '🚀 今日發布', callback_data: 'social:publish' }],[{ text: '📊 發布結果', callback_data: 'social:results' },{ text: '⚙️ 系統狀態', callback_data: 'social:status' }],[{ text: '🏠 返回主選單', callback_data: 'portal:home' }]] };\nreturn [{ json: { ...data, branch_result: { kind: 'menu', response } } }];"
+        "jsCode": "const items = $input.all();\nconst data = items[0]?.json ?? {};\nconst response = { type: 'telegram_menu', text: '📢 社群中心', inline_keyboard: [[{ text: '🚀 今日發布', callback_data: 'social:publish' }],[{ text: '📊 發布結果', callback_data: 'social:results' },{ text: '⚙️ 系統狀態', callback_data: 'social:status' }],[{ text: '📚 小說中心', callback_data: 'social:novel' }],[{ text: '🏠 返回主選單', callback_data: 'portal:home' }]] };\nreturn [{ json: { ...data, branch_result: { kind: 'menu', response } } }];"
       },
       "id": "b969c6d4-5026-5180-b699-0611d49f5bf9",
       "name": "Build Social Main Menu",
@@ -196,6 +219,19 @@
       "position": [
         80,
         -260
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst data = items[0]?.json ?? {};\nconst response = {\n  type: 'telegram_menu',\n  text: '📚 Novel Studio\\n\\n請選擇功能：',\n  inline_keyboard: [\n    [\n      { text: '➕ 新增小說', callback_data: 'novel:create' },\n      { text: '📖 選擇小說', callback_data: 'novel:select' }\n    ],\n    [\n      { text: '📝 建立章節', callback_data: 'novel:chapter:create' },\n      { text: '✍️ 寫作章節', callback_data: 'novel:chapter:write' }\n    ],\n    [\n      { text: '📊 小說狀態', callback_data: 'novel:status' }\n    ],\n    [\n      { text: '⬅ 返回社群中心', callback_data: 'social:menu' }\n    ]\n  ]\n};\nreturn [{ json: { ...data, branch_result: { kind: 'novel_menu', response } } }];"
+      },
+      "id": "build-novel-menu",
+      "name": "Build Novel Menu",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        80,
+        500
       ]
     },
     {
@@ -297,7 +333,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const items = $input.all();\nconst data = items[0]?.json ?? {};\nif (data.is_placeholder === true && data.normalized_result && typeof data.normalized_result === 'object') return [{ json: data.normalized_result }];\nif (data.branch_result?.kind === 'menu') { const response=(data.branch_result.response && typeof data.branch_result.response === 'object')?data.branch_result.response:{}; return [{json:{schema_version:'1.0',adapter_version:'1.0',route:'social.menu.created',status:'ready',is_valid:true,validation_errors:[],social:{action:'menu',dispatched:false,target_workflow:''},response,telegram:(data.telegram&&typeof data.telegram==='object')?data.telegram:{},user:(data.user&&typeof data.user==='object')?data.user:{}}}]; }\nconst meta=(data.adapter_context&&typeof data.adapter_context==='object')?data.adapter_context:{};\nconst telegram=(meta.telegram&&typeof meta.telegram==='object')?meta.telegram:{}; const user=(meta.user&&typeof meta.user==='object')?meta.user:{};\nif(data.dispatch_failed===true){return [{json:{schema_version:'1.0',adapter_version:'1.0',route:'social.action.failed',status:'error',is_valid:false,validation_errors:Array.isArray(data.dispatch_errors)?data.dispatch_errors:[],social:{action:String(meta.action??''),dispatched:false,target_workflow:String(meta.target_workflow??''),failed_stage:'downstream_dispatch'},result:null,telegram,user}}];}\nreturn [{json:{schema_version:'1.0',adapter_version:'1.0',route:'social.action.completed',status:'ready',is_valid:true,validation_errors:[],social:{action:String(meta.action??''),dispatched:true,target_workflow:String(meta.target_workflow??''),completed_at:new Date().toISOString()},result:(data.normalized_result&&typeof data.normalized_result==='object')?data.normalized_result:{},telegram,user}}];"
+        "jsCode": "const items = $input.all();\nconst data = items[0]?.json ?? {};\nif (data.is_placeholder === true && data.normalized_result && typeof data.normalized_result === 'object') return [{ json: data.normalized_result }];\nif (['menu','novel_menu'].includes(data.branch_result?.kind)) { const response=(data.branch_result.response && typeof data.branch_result.response === 'object')?data.branch_result.response:{}; return [{json:{schema_version:'1.0',adapter_version:'1.0',route:data.branch_result?.kind === 'novel_menu' ? 'social.novel.menu.created' : 'social.menu.created',status:'ready',is_valid:true,validation_errors:[],social:{action:data.branch_result?.kind === 'novel_menu' ? 'novel' : 'menu',dispatched:false,target_workflow:''},response,telegram:(data.telegram&&typeof data.telegram==='object')?data.telegram:{},user:(data.user&&typeof data.user==='object')?data.user:{}}}]; }\nconst meta=(data.adapter_context&&typeof data.adapter_context==='object')?data.adapter_context:{};\nconst telegram=(meta.telegram&&typeof meta.telegram==='object')?meta.telegram:{}; const user=(meta.user&&typeof meta.user==='object')?meta.user:{};\nif(data.dispatch_failed===true){return [{json:{schema_version:'1.0',adapter_version:'1.0',route:'social.action.failed',status:'error',is_valid:false,validation_errors:Array.isArray(data.dispatch_errors)?data.dispatch_errors:[],social:{action:String(meta.action??''),dispatched:false,target_workflow:String(meta.target_workflow??''),failed_stage:'downstream_dispatch'},result:null,telegram,user}}];}\nreturn [{json:{schema_version:'1.0',adapter_version:'1.0',route:'social.action.completed',status:'ready',is_valid:true,validation_errors:[],social:{action:String(meta.action??''),dispatched:true,target_workflow:String(meta.target_workflow??''),completed_at:new Date().toISOString()},result:(data.normalized_result&&typeof data.normalized_result==='object')?data.normalized_result:{},telegram,user}}];"
       },
       "id": "403c60e6-1e6d-548d-b06c-d30cb9f2486d",
       "name": "Build Social Output",
@@ -464,6 +500,13 @@
         ],
         [
           {
+            "node": "Build Novel Menu",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
             "node": "Build Social Error Output",
             "type": "main",
             "index": 0
@@ -549,6 +592,17 @@
       ]
     },
     "Build Social Main Menu": {
+      "main": [
+        [
+          {
+            "node": "Build Social Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Novel Menu": {
       "main": [
         [
           {
