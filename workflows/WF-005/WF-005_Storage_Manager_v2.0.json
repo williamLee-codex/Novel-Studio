@@ -384,7 +384,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        5520,
+        6000,
         0
       ]
     },
@@ -403,8 +403,8 @@
       "type": "n8n-nodes-base.googleDrive",
       "typeVersion": 3,
       "position": [
-        4080,
-        0
+        4320,
+        -100
       ],
       "credentials": {
         "googleDriveOAuth2Api": {
@@ -415,14 +415,14 @@
     },
     {
       "parameters": {
-        "jsCode": "const canonicalFolders = ['01_Source','02_Chapters','03_Canon','04_Characters','05_World','06_Outline','07_Assets','08_Publish','09_Backup'];\nconst state = $('Capture v001 Folder').first().json;\nconst existing = new Map();\nfor (const item of $input.all()) {\n  const folder = item.json;\n  if (folder && typeof folder.name === 'string' && folder.id && canonicalFolders.includes(folder.name) && !existing.has(folder.name)) {\n    existing.set(folder.name, folder.id);\n  }\n}\nconst missing_folders = canonicalFolders.filter(name => !existing.has(name));\nreturn [{ json: { ...state, canonical_folders: canonicalFolders, existing_canonical_folder_ids: Object.fromEntries(existing), missing_folders, canonical_folders_missing: missing_folders.length > 0 } }];"
+        "jsCode": "const canonicalFolders = ['01_Source','02_Chapters','03_Canon','04_Characters','05_World','06_Outline','07_Assets','08_Publish','09_Backup'];\nconst state = $('Capture v001 Folder').first().json;\nconst existing = new Map();\nfor (const item of $input.all()) {\n  const folder = item.json;\n  if (folder?.__canonical_folder_search_seed) continue;\n  if (folder && typeof folder.name === 'string' && folder.id && canonicalFolders.includes(folder.name) && !existing.has(folder.name)) {\n    existing.set(folder.name, folder.id);\n  }\n}\nconst missing_folders = canonicalFolders.filter(name => !existing.has(name));\nreturn [{ json: { ...state, canonical_folders: canonicalFolders, existing_canonical_folder_ids: Object.fromEntries(existing), missing_folders, canonical_folders_missing: missing_folders.length > 0 } }];"
       },
       "id": "97d174d1-dd21-409e-8173-1fffff5caab9",
       "name": "Plan Canonical Folders",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        4320,
+        4800,
         0
       ]
     },
@@ -454,7 +454,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        4560,
+        5040,
         0
       ]
     },
@@ -467,7 +467,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        4800,
+        5280,
         -100
       ]
     },
@@ -493,7 +493,7 @@
       "type": "n8n-nodes-base.googleDrive",
       "typeVersion": 3,
       "position": [
-        5040,
+        5520,
         -100
       ],
       "credentials": {
@@ -512,8 +512,34 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        5280,
+        5760,
         -100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const state = $('Capture v001 Folder').first().json;\nreturn [{ json: { ...state, __canonical_folder_search_seed: true } }];"
+      },
+      "id": "a32f6142-3559-415a-b360-71e7355bc307",
+      "name": "Seed Canonical Folder Search",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4080,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "append"
+      },
+      "id": "203fd283-801d-472c-818e-327c8c6950f4",
+      "name": "Merge Canonical Folder Search",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        4560,
+        0
       ]
     }
   ],
@@ -723,6 +749,11 @@
             "node": "Find Canonical Folders",
             "type": "main",
             "index": 0
+          },
+          {
+            "node": "Seed Canonical Folder Search",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -731,7 +762,7 @@
       "main": [
         [
           {
-            "node": "Plan Canonical Folders",
+            "node": "Merge Canonical Folder Search",
             "type": "main",
             "index": 0
           }
@@ -794,6 +825,28 @@
         [
           {
             "node": "Return",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Seed Canonical Folder Search": {
+      "main": [
+        [
+          {
+            "node": "Merge Canonical Folder Search",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Canonical Folder Search": {
+      "main": [
+        [
+          {
+            "node": "Plan Canonical Folders",
             "type": "main",
             "index": 0
           }
