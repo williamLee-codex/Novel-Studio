@@ -1,0 +1,566 @@
+{
+  "name": "WF-001A - Session Manager v1.0",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "workflow-trigger",
+      "name": "Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const root = $json && typeof $json === 'object' && !Array.isArray($json) ? $json : {};\nconst req = root.session_request && typeof root.session_request === 'object' ? root.session_request : {};\nconst operation = String(req.operation ?? '').trim();\nconst errors = [];\nif (!['read_session','upsert_session','update_chapter','clear_session'].includes(operation)) errors.push('session_request.operation must be read_session, upsert_session, update_chapter, or clear_session.');\nconst telegram_user_id = String(req.telegram_user_id ?? '').trim();\nconst telegram_chat_id = String(req.telegram_chat_id ?? '').trim();\nif (!telegram_user_id) errors.push('telegram_user_id is required.');\nif (!telegram_chat_id) errors.push('telegram_chat_id is required.');\nconst session = req.session && typeof req.session === 'object' && !Array.isArray(req.session) ? req.session : {};\nreturn [{ json: { operation, telegram_user_id, telegram_chat_id, session, is_valid: errors.length === 0, validation_errors: errors } }];"
+      },
+      "id": "validate-session-request",
+      "name": "Validate Session Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.operation }}",
+                    "rightValue": "read_session",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "read_session"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.operation }}",
+                    "rightValue": "upsert_session",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "upsert_session"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.operation }}",
+                    "rightValue": "update_chapter",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "update_chapter"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.operation }}",
+                    "rightValue": "clear_session",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "clear_session"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "route-session-operation",
+      "name": "Route Session Operation",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 2,
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "novel_studio_sessions"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "telegram_user_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.telegram_user_id }}"
+            },
+            {
+              "keyName": "telegram_chat_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.telegram_chat_id }}"
+            }
+          ]
+        },
+        "returnAll": false,
+        "limit": 1,
+        "orderBy": false
+      },
+      "id": "read-session-row",
+      "name": "Read Session Row",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        -240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const prior = $('Validate Session Request').item.json;\nconst rows = $input.all().map(i => i.json).filter(r => r && Object.keys(r).length);\nconst row = rows[0] || {};\nconst found = Boolean(row.telegram_user_id || row.active_workspace_uuid || row.workspace_folder_id);\nreturn [{ json: { schema_version:'1.0', workflow_version:'1.0', route:'session.completed', target:'WF-000', status: prior.is_valid ? 'ready' : 'error', is_valid: prior.is_valid, validation_errors: prior.validation_errors || [], session_found: found, session: found ? { telegram_user_id:String(row.telegram_user_id ?? prior.telegram_user_id), telegram_chat_id:String(row.telegram_chat_id ?? prior.telegram_chat_id), active_novel_uuid:String(row.active_novel_uuid ?? ''), active_workspace_uuid:String(row.active_workspace_uuid ?? ''), storage_root_id:String(row.storage_root_id ?? ''), project_folder_id:String(row.project_folder_id ?? ''), workspace_folder_id:String(row.workspace_folder_id ?? ''), workspace_version:String(row.workspace_version ?? ''), active_chapter_number:String(row.active_chapter_number ?? ''), updated_at:String(row.updated_at ?? '') } : {} } }];"
+      },
+      "id": "build-read-session-output",
+      "name": "Build Read Session Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        -240
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "row",
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "novel_studio_sessions"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "telegram_user_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.telegram_user_id }}"
+            },
+            {
+              "keyName": "telegram_chat_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.telegram_chat_id }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "telegram_user_id": "={{ $json.telegram_user_id }}",
+            "telegram_chat_id": "={{ $json.telegram_chat_id }}",
+            "active_novel_uuid": "={{ $json.session.active_novel_uuid }}",
+            "active_workspace_uuid": "={{ $json.session.active_workspace_uuid }}",
+            "storage_root_id": "={{ $json.session.storage_root_id }}",
+            "project_folder_id": "={{ $json.session.project_folder_id }}",
+            "workspace_folder_id": "={{ $json.session.workspace_folder_id }}",
+            "workspace_version": "={{ $json.session.workspace_version }}",
+            "active_chapter_number": "={{ $json.session.active_chapter_number || \"\" }}",
+            "updated_at": "={{ $json.session.updated_at || new Date().toISOString() }}"
+          },
+          "matchingColumns": [
+            "telegram_user_id",
+            "telegram_chat_id"
+          ],
+          "schema": [
+            {
+              "id": "telegram_user_id",
+              "displayName": "telegram_user_id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "telegram_chat_id",
+              "displayName": "telegram_chat_id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "active_novel_uuid",
+              "displayName": "active_novel_uuid",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "active_workspace_uuid",
+              "displayName": "active_workspace_uuid",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "storage_root_id",
+              "displayName": "storage_root_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "project_folder_id",
+              "displayName": "project_folder_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "workspace_folder_id",
+              "displayName": "workspace_folder_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "workspace_version",
+              "displayName": "workspace_version",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "active_chapter_number",
+              "displayName": "active_chapter_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "updated_at",
+              "displayName": "updated_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "id": "upsert-session-row",
+      "name": "Upsert Session Row",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const prior = $('Validate Session Request').item.json; const s = prior.session || {}; const session = { telegram_user_id:prior.telegram_user_id, telegram_chat_id:prior.telegram_chat_id, active_novel_uuid:String(s.active_novel_uuid ?? ''), active_workspace_uuid:String(s.active_workspace_uuid ?? ''), storage_root_id:String(s.storage_root_id ?? ''), project_folder_id:String(s.project_folder_id ?? ''), workspace_folder_id:String(s.workspace_folder_id ?? ''), workspace_version:String(s.workspace_version ?? ''), active_chapter_number:String(s.active_chapter_number ?? ''), updated_at:String(s.updated_at ?? new Date().toISOString())};\nreturn [{ json: { schema_version:'1.0', workflow_version:'1.0', route:'session.completed', target:'WF-000', status:'ready', is_valid:true, validation_errors:[], session_found:true, session } }];"
+      },
+      "id": "build-upsert-session-output",
+      "name": "Build Upsert Session Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "row",
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "novel_studio_sessions"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "telegram_user_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.telegram_user_id }}"
+            },
+            {
+              "keyName": "telegram_chat_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.telegram_chat_id }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "active_chapter_number": "={{ $json.session.active_chapter_number }}",
+            "updated_at": "={{ $json.session.updated_at || new Date().toISOString() }}"
+          },
+          "matchingColumns": [
+            "telegram_user_id",
+            "telegram_chat_id"
+          ],
+          "schema": [
+            {
+              "id": "active_chapter_number",
+              "displayName": "active_chapter_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "updated_at",
+              "displayName": "updated_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "id": "update-chapter-row",
+      "name": "Update Chapter Row",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const prior = $('Validate Session Request').item.json; const s = prior.session || {}; return [{ json: { schema_version:'1.0', workflow_version:'1.0', route:'session.completed', target:'WF-000', status:'ready', is_valid:true, validation_errors:[], session_found:true, session:{ telegram_user_id: prior.telegram_user_id, telegram_chat_id: prior.telegram_chat_id, active_novel_uuid:String(s.active_novel_uuid ?? ''), active_workspace_uuid:String(s.active_workspace_uuid ?? ''), storage_root_id:String(s.storage_root_id ?? ''), project_folder_id:String(s.project_folder_id ?? ''), workspace_folder_id:String(s.workspace_folder_id ?? ''), workspace_version:String(s.workspace_version ?? ''), active_chapter_number:String(s.active_chapter_number ?? ''), updated_at:String(s.updated_at ?? new Date().toISOString()) } } }];"
+      },
+      "id": "build-update-chapter-output",
+      "name": "Build Update Chapter Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "row",
+        "operation": "deleteRows",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "novel_studio_sessions"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "telegram_user_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.telegram_user_id }}"
+            },
+            {
+              "keyName": "telegram_chat_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.telegram_chat_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "clear-session-row",
+      "name": "Clear Session Row",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const prior = $('Validate Session Request').item.json; return [{ json: { schema_version:'1.0', workflow_version:'1.0', route:'session.completed', target:'WF-000', status:'ready', is_valid:true, validation_errors:[], session_found:false, session:{ telegram_user_id: prior.telegram_user_id, telegram_chat_id: prior.telegram_chat_id, active_novel_uuid:'', active_workspace_uuid:'', storage_root_id:'', project_folder_id:'', workspace_folder_id:'', workspace_version:'', active_chapter_number:'', updated_at:new Date().toISOString() } } }];"
+      },
+      "id": "build-clear-session-output",
+      "name": "Build Clear Session Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        240
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Validate Session Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Session Request": {
+      "main": [
+        [
+          {
+            "node": "Route Session Operation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Session Operation": {
+      "main": [
+        [
+          {
+            "node": "Read Session Row",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Upsert Session Row",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update Chapter Row",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Clear Session Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Session Row": {
+      "main": [
+        [
+          {
+            "node": "Build Read Session Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upsert Session Row": {
+      "main": [
+        [
+          {
+            "node": "Build Upsert Session Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Chapter Row": {
+      "main": [
+        [
+          {
+            "node": "Build Update Chapter Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear Session Row": {
+      "main": [
+        [
+          {
+            "node": "Build Clear Session Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "session-manager-v1.0",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

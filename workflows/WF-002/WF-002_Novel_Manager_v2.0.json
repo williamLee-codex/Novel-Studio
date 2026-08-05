@@ -120,7 +120,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const isValid = $json.is_valid === true;\nreturn [{ json: {\n  schema_version: '1.0', workflow_version: '2.0', route: 'novel.metadata.created', target: 'WF-005',\n  status: isValid ? 'ready' : 'error', is_valid: isValid,\n  validation_errors: $json.validation_errors ?? [], novel: isValid ? $json.novel : null,\n  context: $json.output_context,\n} }];"
+        "jsCode": "const isValid = $json.is_valid === true;\nconst novel = isValid && $json.novel && typeof $json.novel === 'object' ? $json.novel : {};\nreturn [{ json: {\n  schema_version: '1.0', workflow_version: '2.0', route: 'novel.metadata.created', target: 'WF-005',\n  status: isValid ? 'ready' : 'error', is_valid: isValid,\n  validation_errors: $json.validation_errors ?? [], novel: isValid ? $json.novel : null,\n  novel_uuid: String(novel.novel_uuid ?? ''),\n  novel_title: String(novel.novel_title ?? ''),\n  genre: String(novel.genre ?? ''),\n  context: $json.output_context,\n} }];"
       },
       "id": "0c320a14-73c9-4b42-b6f1-6d8d6bacf518",
       "name": "Build Final Output",
