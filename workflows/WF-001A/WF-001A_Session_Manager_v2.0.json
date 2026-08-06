@@ -1,0 +1,382 @@
+{
+  "id": "wf001a-session-manager-v2",
+  "name": "WF-001A - Session Manager v2.0",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "6e174fb9-c535-4906-95cc-f69ee068a5a2",
+      "name": "Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = ($json && typeof $json === 'object' && !Array.isArray($json)) ? $json : {};\nconst allowed = ['read_session', 'upsert_session', 'update_chapter', 'clear_session'];\nconst operation = String(input.operation ?? '').trim();\nconst errors = [];\nconst numberField = (name) => {\n  const value = input[name];\n  if (typeof value !== 'number' || !Number.isFinite(value)) {\n    errors.push(`${name} must be a finite number.`);\n    return null;\n  }\n  return value;\n};\nconst telegram_chat_id = numberField('telegram_chat_id');\nconst telegram_user_id = numberField('telegram_user_id');\nif (!allowed.includes(operation)) errors.push('operation must be read_session, upsert_session, update_chapter, or clear_session.');\nconst novel_uuid = String(input.novel_uuid ?? '').trim();\nconst chapter_uuid = String(input.chapter_uuid ?? '').trim();\nconst session_data = input.session_data && typeof input.session_data === 'object' && !Array.isArray(input.session_data) ? input.session_data : {};\nif (['upsert_session', 'update_chapter'].includes(operation) && !novel_uuid) errors.push('novel_uuid is required for this operation.');\nif (operation === 'update_chapter' && !chapter_uuid) errors.push('chapter_uuid is required for update_chapter.');\nif (operation === 'upsert_session' && (!input.session_data || typeof input.session_data !== 'object' || Array.isArray(input.session_data))) errors.push('session_data must be an object for upsert_session.');\nreturn [{ json: { operation, telegram_chat_id, telegram_user_id, novel_uuid, chapter_uuid, session_data, valid: errors.length === 0, error: errors.join(' ') } }];"
+      },
+      "id": "c354b7b8-18e5-4df3-86ed-7d3b577ce88c",
+      "name": "Validate and Normalize Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.valid }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  },
+                  {
+                    "leftValue": "={{ $json.operation }}",
+                    "rightValue": "read_session",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "read_session"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.valid }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  },
+                  {
+                    "leftValue": "={{ $json.operation }}",
+                    "rightValue": "upsert_session",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "upsert_session"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.valid }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  },
+                  {
+                    "leftValue": "={{ $json.operation }}",
+                    "rightValue": "update_chapter",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "update_chapter"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.valid }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  },
+                  {
+                    "leftValue": "={{ $json.operation }}",
+                    "rightValue": "clear_session",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "clear_session"
+            },
+            {
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.valid }}",
+                    "rightValue": false,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "false",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "invalid"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fd8354a5-3199-4f71-87b7-0528fdde617d",
+      "name": "Route Operation",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 2,
+      "position": [
+        500,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTable": "novel_studio_sessions",
+        "filters": {
+          "telegram_chat_id": "={{ $json.telegram_chat_id }}",
+          "telegram_user_id": "={{ $json.telegram_user_id }}"
+        }
+      },
+      "name": "Read Session",
+      "position": [
+        780,
+        -240
+      ],
+      "id": "66a4f4eb-bad8-4c23-81a9-0581442376ca",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 2,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "dataTable": "novel_studio_sessions",
+        "matchColumns": [
+          "telegram_chat_id",
+          "telegram_user_id"
+        ],
+        "columns": "={{ { ...$json.session_data, telegram_chat_id: $json.telegram_chat_id, telegram_user_id: $json.telegram_user_id, active_novel_uuid: $json.novel_uuid, chapter_uuid: $json.chapter_uuid || $json.session_data.chapter_uuid || \"\", updated_at: new Date().toISOString() } }}"
+      },
+      "name": "Upsert Session",
+      "position": [
+        780,
+        -80
+      ],
+      "id": "6ed052c5-1041-4397-8eed-29b21273b926",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 2,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "dataTable": "novel_studio_sessions",
+        "filters": {
+          "telegram_chat_id": "={{ $json.telegram_chat_id }}",
+          "telegram_user_id": "={{ $json.telegram_user_id }}",
+          "active_novel_uuid": "={{ $json.novel_uuid }}"
+        },
+        "columns": "={{ { chapter_uuid: $json.chapter_uuid, active_chapter_uuid: $json.chapter_uuid, updated_at: new Date().toISOString() } }}"
+      },
+      "name": "Update Chapter",
+      "position": [
+        780,
+        80
+      ],
+      "id": "06bb0659-aab6-4d1c-b8f4-32d4466f71f2",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 2,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "dataTable": "novel_studio_sessions",
+        "filters": {
+          "telegram_chat_id": "={{ $json.telegram_chat_id }}",
+          "telegram_user_id": "={{ $json.telegram_user_id }}"
+        }
+      },
+      "name": "Clear Session",
+      "position": [
+        780,
+        240
+      ],
+      "id": "def798df-cd12-425f-993a-2b86331f12e9",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 2,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const request = $('Validate and Normalize Input').item.json;\nif (!request.valid) return [{ json: { ok: false, operation: request.operation, session: {}, error: request.error } }];\nconst result = ($json && typeof $json === 'object' && !Array.isArray($json)) ? $json : {};\nconst nodeError = String(result.error?.message ?? result.error ?? '').trim();\nif (nodeError) return [{ json: { ok: false, operation: request.operation, session: {}, error: nodeError } }];\nif (request.operation === 'clear_session') return [{ json: { ok: true, operation: request.operation, session: {}, error: '' } }];\nconst stored = Object.keys(result).length ? result : {};\nconst session = request.operation === 'read_session'\n  ? stored\n  : { ...request.session_data, ...stored, telegram_chat_id: request.telegram_chat_id, telegram_user_id: request.telegram_user_id, novel_uuid: request.novel_uuid, chapter_uuid: request.operation === 'update_chapter' ? request.chapter_uuid : String(request.session_data.chapter_uuid ?? request.chapter_uuid ?? '') };\nreturn [{ json: { ok: true, operation: request.operation, session, error: '' } }];"
+      },
+      "id": "8f6b7800-4a35-49ac-91d0-73ae68c0885f",
+      "name": "Normalize Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1060,
+        0
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Validate and Normalize Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate and Normalize Input": {
+      "main": [
+        [
+          {
+            "node": "Route Operation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Operation": {
+      "main": [
+        [
+          {
+            "node": "Read Session",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Upsert Session",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update Chapter",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Clear Session",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Normalize Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Session": {
+      "main": [
+        [
+          {
+            "node": "Normalize Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upsert Session": {
+      "main": [
+        [
+          {
+            "node": "Normalize Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Chapter": {
+      "main": [
+        [
+          {
+            "node": "Normalize Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear Session": {
+      "main": [
+        [
+          {
+            "node": "Normalize Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "f479cc41-c69d-40ad-83dc-0b686026ee10",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}

@@ -1293,7 +1293,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const state = $json._orchestration || {}; const ctx = state.context || {}; const storage = ctx.storage || $json.storage || {}; const now = new Date().toISOString();\nreturn [{ json: { session_request: { operation: 'upsert_session', telegram_user_id: String(ctx.telegram_user_id ?? ''), telegram_chat_id: String(ctx.telegram_chat_id ?? ''), session: { active_novel_uuid: String(ctx.novel_uuid ?? ''), active_workspace_uuid: String(ctx.workspace_uuid ?? ctx.novel_uuid ?? ''), storage_root_id: String(storage.storage_root_id ?? storage.root_folder_id ?? ''), project_folder_id: String(storage.project_folder_id ?? ''), workspace_folder_id: String(storage.workspace_folder_id ?? storage.root_folder_id ?? ''), workspace_version: String(storage.workspace_version ?? 'v001'), active_chapter_number: '', updated_at: now } }, _orchestration: state } }];"
+        "jsCode": "const state = $json._orchestration || {}; const ctx = state.context || {}; const storage = ctx.storage || $json.storage || {}; const now = new Date().toISOString(); return [{ json: { operation: 'upsert_session', telegram_user_id: Number(ctx.telegram_user_id), telegram_chat_id: Number(ctx.telegram_chat_id), novel_uuid: String(ctx.novel_uuid ?? ''), chapter_uuid: '', session_data: { active_novel_uuid: String(ctx.novel_uuid ?? ''), active_workspace_uuid: String(ctx.workspace_uuid ?? ctx.novel_uuid ?? ''), storage_root_id: String(storage.storage_root_id ?? storage.root_folder_id ?? ''), project_folder_id: String(storage.project_folder_id ?? ''), workspace_folder_id: String(storage.workspace_folder_id ?? storage.root_folder_id ?? ''), workspace_version: String(storage.workspace_version ?? 'v001'), active_chapter_number: '', updated_at: now }, _orchestration: state } }];"
       },
       "id": "prepare-session-upsert-input",
       "name": "Prepare Session Upsert Input",
@@ -1306,7 +1306,7 @@
     },
     {
       "parameters": {
-        "workflowId": "WF-001A - Session Manager v1.0",
+        "workflowId": "wf001a-session-manager-v2",
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {},
@@ -1331,7 +1331,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const result = $json || {}; const prior = $('Prepare Session Upsert Input').item.json._orchestration || {}; const ok = result.route === 'session.completed' && result.is_valid === true && result.status === 'ready'; const errors = ok ? [] : ['Session upsert failed.']; const state = { ...prior, pipeline_active: ok, integration_status: ok ? 'completed' : 'error', failed_stage: ok ? String(prior.failed_stage ?? '') : 'WF-001A', validation_errors: [...(prior.validation_errors || []), ...errors], context: { ...(prior.context || {}), session: result.session || {} }, artifacts: { ...(prior.artifacts || {}), session_upsert: result } }; return [{ json: { ...result, _orchestration: state, pipeline_active: ok } }];"
+        "jsCode": "const result = $json || {}; const prior = $('Prepare Session Upsert Input').item.json._orchestration || {}; const ok = result.ok === true && result.operation === 'upsert_session'; const errors = ok ? [] : ['Session upsert failed.']; const state = { ...prior, pipeline_active: ok, integration_status: ok ? 'completed' : 'error', failed_stage: ok ? String(prior.failed_stage ?? '') : 'WF-001A', validation_errors: [...(prior.validation_errors || []), ...errors], context: { ...(prior.context || {}), session: result.session || {} }, artifacts: { ...(prior.artifacts || {}), session_upsert: result } }; return [{ json: { ...result, _orchestration: state, pipeline_active: ok } }];"
       },
       "id": "validate-session-upsert-result",
       "name": "Validate Session Upsert Result",
@@ -1376,7 +1376,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const state = $json._orchestration || {}; const ctx = state.context || {}; return [{ json: { session_request: { operation: 'read_session', telegram_user_id: String(ctx.telegram_user_id ?? $json.telegram_user_id ?? ''), telegram_chat_id: String(ctx.telegram_chat_id ?? $json.telegram_chat_id ?? ''), session: {} }, _orchestration: state } }];"
+        "jsCode": "const state = $json._orchestration || {}; const ctx = state.context || {}; return [{ json: { operation: 'read_session', telegram_user_id: Number(ctx.telegram_user_id ?? $json.telegram_user_id), telegram_chat_id: Number(ctx.telegram_chat_id ?? $json.telegram_chat_id), novel_uuid: String(ctx.novel_uuid ?? ''), chapter_uuid: '', session_data: {}, _orchestration: state } }];"
       },
       "id": "prepare-session-read-input",
       "name": "Prepare Session Read Input",
@@ -1389,7 +1389,7 @@
     },
     {
       "parameters": {
-        "workflowId": "WF-001A - Session Manager v1.0",
+        "workflowId": "wf001a-session-manager-v2",
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {},
@@ -1414,7 +1414,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const result = $json || {}; const prior = $('Prepare Session Read Input').item.json._orchestration || {}; const session = result.session || {}; const ok = result.route === 'session.completed' && result.is_valid === true && result.session_found === true && String(session.workspace_folder_id ?? '').trim(); const block = 'No active novel workspace is selected. Create or select a novel first.'; const errors = ok ? [] : [block]; const state = { ...prior, pipeline_active: ok, integration_status: ok ? 'running' : 'blocked', failed_stage: ok ? String(prior.failed_stage ?? '') : 'WF-001A', validation_errors: [...(prior.validation_errors || []), ...errors], context: { ...(prior.context || {}), telegram_user_id: String(session.telegram_user_id ?? (prior.context||{}).telegram_user_id ?? ''), telegram_chat_id: String(session.telegram_chat_id ?? (prior.context||{}).telegram_chat_id ?? ''), novel_uuid: String(session.active_novel_uuid ?? ''), workspace_uuid: String(session.active_workspace_uuid ?? ''), storage_root_id: String(session.storage_root_id ?? ''), project_folder_id: String(session.project_folder_id ?? ''), workspace_folder_id: String(session.workspace_folder_id ?? ''), workspace_version: String(session.workspace_version ?? ''), session }, artifacts: { ...(prior.artifacts || {}), session_read: result } }; return [{ json: { ...result, route: ok ? result.route : 'integration.blocked', target: ok ? 'WF-000' : 'telegram.reply', status: ok ? 'ready' : 'blocked', is_valid: ok, validation_errors: errors, _orchestration: state, pipeline_active: ok } }];"
+        "jsCode": "const result = $json || {}; const prior = $('Prepare Session Read Input').item.json._orchestration || {}; const session = result.session || {}; const ok = result.ok === true && result.operation === 'read_session' && String(session.workspace_folder_id ?? '').trim(); const block = 'No active novel workspace is selected. Create or select a novel first.'; const errors = ok ? [] : [block]; const state = { ...prior, pipeline_active: ok, integration_status: ok ? 'running' : 'blocked', failed_stage: ok ? String(prior.failed_stage ?? '') : 'WF-001A', validation_errors: [...(prior.validation_errors || []), ...errors], context: { ...(prior.context || {}), telegram_user_id: String(session.telegram_user_id ?? (prior.context||{}).telegram_user_id ?? ''), telegram_chat_id: String(session.telegram_chat_id ?? (prior.context||{}).telegram_chat_id ?? ''), novel_uuid: String(session.active_novel_uuid ?? ''), workspace_uuid: String(session.active_workspace_uuid ?? ''), storage_root_id: String(session.storage_root_id ?? ''), project_folder_id: String(session.project_folder_id ?? ''), workspace_folder_id: String(session.workspace_folder_id ?? ''), workspace_version: String(session.workspace_version ?? ''), session }, artifacts: { ...(prior.artifacts || {}), session_read: result } }; return [{ json: { ...result, route: ok ? result.route : 'integration.blocked', target: ok ? 'WF-000' : 'telegram.reply', status: ok ? 'ready' : 'blocked', is_valid: ok, validation_errors: errors, _orchestration: state, pipeline_active: ok } }];"
       },
       "id": "validate-session-read-result",
       "name": "Validate Session Read Result",
@@ -1504,7 +1504,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const state = $json._orchestration || {}; const ctx = state.context || {}; return [{ json: { session_request: { operation: 'update_chapter', telegram_user_id: String(ctx.telegram_user_id ?? ''), telegram_chat_id: String(ctx.telegram_chat_id ?? ''), session: { ...(ctx.session || {}), active_chapter_number: String($json.chapter_number ?? ctx.chapter_number ?? '').padStart(3,'0'), updated_at: new Date().toISOString() } }, chapter_result: $json, _orchestration: state } }];"
+        "jsCode": "const state = $json._orchestration || {}; const ctx = state.context || {}; return [{ json: { operation: 'update_chapter', telegram_user_id: Number(ctx.telegram_user_id), telegram_chat_id: Number(ctx.telegram_chat_id), novel_uuid: String(ctx.novel_uuid ?? ''), chapter_uuid: String($json.chapter_uuid ?? ctx.chapter_uuid ?? $json.chapter_number ?? ctx.chapter_number ?? ''), session_data: { ...(ctx.session || {}), active_chapter_number: String($json.chapter_number ?? ctx.chapter_number ?? '').padStart(3, '0'), updated_at: new Date().toISOString() }, chapter_result: $json, _orchestration: state } }];"
       },
       "id": "prepare-session-chapter-update-input",
       "name": "Prepare Session Chapter Update Input",
@@ -1517,7 +1517,7 @@
     },
     {
       "parameters": {
-        "workflowId": "WF-001A - Session Manager v1.0",
+        "workflowId": "wf001a-session-manager-v2",
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {},
@@ -1542,7 +1542,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const result = $json || {}; const prior = $('Prepare Session Chapter Update Input').item.json; const state = prior._orchestration || {}; const ok = result.route === 'session.completed' && result.is_valid === true; const errors = ok ? [] : ['Session chapter update failed.']; return [{ json: { ...(prior.chapter_result || {}), _orchestration: { ...state, pipeline_active: ok, failed_stage: ok ? String(state.failed_stage ?? '') : 'WF-001A', validation_errors: [...(state.validation_errors || []), ...errors], context: { ...(state.context || {}), active_chapter_number: String(result.session?.active_chapter_number ?? '') }, artifacts: { ...(state.artifacts || {}), session_chapter_update: result } }, pipeline_active: ok } }];"
+        "jsCode": "const result = $json || {}; const prior = $('Prepare Session Chapter Update Input').item.json; const state = prior._orchestration || {}; const ok = result.ok === true && result.operation === 'update_chapter'; const errors = ok ? [] : ['Session chapter update failed.']; return [{ json: { ...(prior.chapter_result || {}), _orchestration: { ...state, pipeline_active: ok, failed_stage: ok ? String(state.failed_stage ?? '') : 'WF-001A', validation_errors: [...(state.validation_errors || []), ...errors], context: { ...(state.context || {}), active_chapter_number: String(result.session?.active_chapter_number ?? '') }, artifacts: { ...(state.artifacts || {}), session_chapter_update: result } }, pipeline_active: ok } }];"
       },
       "id": "validate-session-chapter-update",
       "name": "Validate Session Chapter Update",
@@ -1596,6 +1596,31 @@
       "position": [
         1040,
         -180
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": "wf001a-session-manager-v2",
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        },
+        "source": "database"
+      },
+      "id": "call-wf-001a-clear-session",
+      "name": "Call WF-001A Clear Session",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1,
+      "position": [
+        840,
+        420
       ]
     }
   ],
