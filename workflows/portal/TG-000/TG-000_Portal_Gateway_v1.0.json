@@ -517,18 +517,26 @@
     },
     {
       "parameters": {
-        "resource": "message",
-        "operation": "sendMessage",
-        "chatId": "={{ $json.telegram_response.chat_id }}",
-        "text": "={{ $json.telegram_response.text }}",
-        "replyMarkup": "={{ $json.telegram_response.inline_keyboard.length ? \"inlineKeyboard\" : \"none\" }}",
-        "inlineKeyboard": "={{ { rows: $json.telegram_response.inline_keyboard.map(row => ({ row: { buttons: row.map(button => ({ text: button.text, additionalFields: { callback_data: button.callback_data } })) } })) } }}",
-        "additionalFields": {}
+        "method": "POST",
+        "url": "https://api.telegram.org/bot{{$env.TELEGRAM_BOT_TOKEN}}/sendMessage",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"chat_id\": {{$json.telegram.chat_id}},\n  \"text\": {{$json.result.response.text}},\n  \"reply_markup\": {\n    \"inline_keyboard\": {{$json.result.response.inline_keyboard}}\n  }\n}",
+        "options": {}
       },
       "id": "0e767452-d1ec-42c7-bbf0-14c986d0b86d",
-      "name": "Telegram Reply",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1.2,
+      "name": "HTTP Request",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [
         1520,
         -60
@@ -757,7 +765,7 @@
       "main": [
         [
           {
-            "node": "Telegram Reply",
+            "node": "HTTP Request",
             "type": "main",
             "index": 0
           }
