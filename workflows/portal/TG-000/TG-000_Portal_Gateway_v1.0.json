@@ -501,6 +501,38 @@
         1020,
         -120
       ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first()?.json ?? {};\nconst result = (data.result && typeof data.result === 'object') ? data.result : {};\nconst response = (result.response && typeof result.response === 'object') ? result.response : null;\nif (!response) return [];\nconst type = typeof response.type === 'string' ? response.type : '';\nif (!['telegram_menu', 'telegram_message'].includes(type)) return [];\nconst telegram = (result.telegram && typeof result.telegram === 'object') ? result.telegram : {};\nconst inlineKeyboard = type === 'telegram_menu' && Array.isArray(response.inline_keyboard) ? response.inline_keyboard : [];\nreturn [{ json: { ...data, telegram_response: { chat_id: telegram.chat_id, text: typeof response.text === 'string' ? response.text : '', inline_keyboard: inlineKeyboard } } }];"
+      },
+      "id": "7b6dbd38-0db2-4e8d-84bd-11a2f010a121",
+      "name": "Telegram Response Renderer",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1300,
+        -60
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $json.telegram_response.chat_id }}",
+        "text": "={{ $json.telegram_response.text }}",
+        "replyMarkup": "={{ $json.telegram_response.inline_keyboard.length ? \"inlineKeyboard\" : \"none\" }}",
+        "inlineKeyboard": "={{ { rows: $json.telegram_response.inline_keyboard.map(row => ({ row: { buttons: row.map(button => ({ text: button.text, additionalFields: { callback_data: button.callback_data } })) } })) } }}",
+        "additionalFields": {}
+      },
+      "id": "0e767452-d1ec-42c7-bbf0-14c986d0b86d",
+      "name": "Telegram Reply",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1520,
+        -60
+      ]
     }
   ],
   "pinData": {},
@@ -701,6 +733,11 @@
             "node": "Build Audit Context",
             "type": "main",
             "index": 0
+          },
+          {
+            "node": "Telegram Response Renderer",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -710,6 +747,17 @@
         [
           {
             "node": "Build Gateway Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Response Renderer": {
+      "main": [
+        [
+          {
+            "node": "Telegram Reply",
             "type": "main",
             "index": 0
           }
