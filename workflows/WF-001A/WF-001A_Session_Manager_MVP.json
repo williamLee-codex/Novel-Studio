@@ -1,18 +1,7 @@
 {
   "id": "wf001a-session-manager-mvp",
-  "name": "WF-001A - Session Manager MVP",
+  "name": "WF-001A - Session Manager MVP v2",
   "nodes": [
-    {
-      "parameters": {},
-      "id": "8a850974-a0ca-4f37-b0eb-58eb60144cbc",
-      "name": "Execute Workflow Trigger",
-      "type": "n8n-nodes-base.executeWorkflowTrigger",
-      "typeVersion": 2,
-      "position": [
-        0,
-        0
-      ]
-    },
     {
       "parameters": {
         "jsCode": "const input = ($json && typeof $json === 'object' && !Array.isArray($json)) ? $json : {};\nconst operation = typeof input.operation === 'string' ? input.operation.trim() : '';\nconst telegram_chat_id = input.telegram_chat_id;\nconst errors = [];\n\nif (!['save_session', 'read_session'].includes(operation)) {\n  errors.push('operation must be save_session or read_session.');\n}\nif (typeof telegram_chat_id !== 'number' || !Number.isFinite(telegram_chat_id)) {\n  errors.push('telegram_chat_id must be a finite number.');\n}\n\nlet session = input.session;\nif (operation === 'save_session') {\n  if (!session || typeof session !== 'object' || Array.isArray(session)) {\n    errors.push('session must be an object for save_session.');\n  } else {\n    if (typeof session.state !== 'string') errors.push('session.state must be a string.');\n    if (typeof session.novel_uuid !== 'string') errors.push('session.novel_uuid must be a string.');\n    if (typeof session.chapter_uuid !== 'string') errors.push('session.chapter_uuid must be a string.');\n    if (!session.data || typeof session.data !== 'object' || Array.isArray(session.data)) {\n      errors.push('session.data must be an object.');\n    }\n  }\n}\n\nif (errors.length) {\n  return [{ json: { ok: false, operation, session: null, error: errors.join(' ') } }];\n}\n\nreturn [{ json: { operation, telegram_chat_id, session: operation === 'save_session' ? {\n  state: session.state,\n  novel_uuid: session.novel_uuid,\n  chapter_uuid: session.chapter_uuid,\n  data: session.data,\n} : null } }];"
@@ -207,7 +196,7 @@
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "5e188bc4-a8bf-421f-bfab-21a3d6029e9f",
+  "versionId": "c030aa5f-f755-476d-a9d2-2109470a5088",
   "meta": {
     "templateCredsSetupCompleted": true
   },
