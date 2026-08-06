@@ -292,12 +292,7 @@
     },
     {
       "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "WF-002 - Novel Manager v2",
-          "mode": "list",
-          "cachedResultName": "WF-002 - Novel Manager v2"
-        },
+        "workflowId": "WF-002 - Novel Manager v2",
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {},
@@ -384,12 +379,7 @@
     },
     {
       "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "WF-005 - Storage Engine V2",
-          "mode": "list",
-          "cachedResultName": "WF-005 - Storage Engine V2"
-        },
+        "workflowId": "WF-005 - Storage Engine V2",
         "workflowInputs": {
           "mappingMode": "passThrough",
           "value": {},
@@ -463,12 +453,7 @@
     },
     {
       "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "WF-004 - Chapter Manager v2",
-          "mode": "list",
-          "cachedResultName": "WF-004 - Chapter Manager v2"
-        },
+        "workflowId": "WF-004 - Chapter Manager v2",
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {},
@@ -555,12 +540,7 @@
     },
     {
       "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "WF-005 - Storage Engine V2",
-          "mode": "list",
-          "cachedResultName": "WF-005 - Storage Engine V2"
-        },
+        "workflowId": "WF-005 - Storage Engine V2",
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {},
@@ -647,12 +627,7 @@
     },
     {
       "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "WF-006 - Canon Knowledge Manager v2",
-          "mode": "list",
-          "cachedResultName": "WF-006 - Canon Knowledge Manager v2"
-        },
+        "workflowId": "WF-006 - Canon Knowledge Manager v2",
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {},
@@ -726,12 +701,7 @@
     },
     {
       "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "WF-007 - Character Knowledge Manager v2",
-          "mode": "list",
-          "cachedResultName": "WF-007 - Character Knowledge Manager v2"
-        },
+        "workflowId": "WF-007 - Character Knowledge Manager v2",
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {},
@@ -805,12 +775,7 @@
     },
     {
       "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "WF-008 - World Knowledge Manager v2",
-          "mode": "list",
-          "cachedResultName": "WF-008 - World Knowledge Manager v2"
-        },
+        "workflowId": "WF-008 - World Knowledge Manager v2",
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {},
@@ -884,12 +849,7 @@
     },
     {
       "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "WF-009 - Timeline Knowledge Manager v2",
-          "mode": "list",
-          "cachedResultName": "WF-009 - Timeline Knowledge Manager v2"
-        },
+        "workflowId": "WF-009 - Timeline Knowledge Manager v2",
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {},
@@ -963,12 +923,7 @@
     },
     {
       "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "WF-010 - Story Bible Manager v2",
-          "mode": "list",
-          "cachedResultName": "WF-010 - Story Bible Manager v2"
-        },
+        "workflowId": "WF-010 - Story Bible Manager v2",
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {},
@@ -1089,12 +1044,7 @@
     },
     {
       "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "WF-011 - Knowledge Persistence Manager v2",
-          "mode": "list",
-          "cachedResultName": "WF-011 - Knowledge Persistence Manager v2"
-        },
+        "workflowId": "WF-011 - Knowledge Persistence Manager v2",
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {},
@@ -1181,12 +1131,7 @@
     },
     {
       "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "WF-012 - Knowledge Integrity Manager v2",
-          "mode": "list",
-          "cachedResultName": "WF-012 - Knowledge Integrity Manager v2"
-        },
+        "workflowId": "WF-012 - Knowledge Integrity Manager v2",
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {},
@@ -1361,12 +1306,7 @@
     },
     {
       "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "WF-001A - Session Manager v1.0",
-          "mode": "list",
-          "cachedResultName": "WF-001A - Session Manager v1.0"
-        },
+        "workflowId": "WF-001A - Session Manager v1.0",
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {},
@@ -1449,12 +1389,7 @@
     },
     {
       "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "WF-001A - Session Manager v1.0",
-          "mode": "list",
-          "cachedResultName": "WF-001A - Session Manager v1.0"
-        },
+        "workflowId": "WF-001A - Session Manager v1.0",
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {},
@@ -1582,12 +1517,7 @@
     },
     {
       "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "WF-001A - Session Manager v1.0",
-          "mode": "list",
-          "cachedResultName": "WF-001A - Session Manager v1.0"
-        },
+        "workflowId": "WF-001A - Session Manager v1.0",
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {},
