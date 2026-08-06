@@ -530,7 +530,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "{\n  \"chat_id\": {{$json.telegram.chat_id}},\n  \"text\": {{$json.result.response.text}},\n  \"reply_markup\": {\n    \"inline_keyboard\": {{$json.result.response.inline_keyboard}}\n  }\n}",
+        "jsonBody": "={{ {\n  \"chat_id\": $('Telegram Trigger').first().json.message?.chat?.id ?? $('Telegram Trigger').first().json.callback_query?.message?.chat?.id,\n  \"text\": $json.result.response.text,\n  \"reply_markup\": {\n    \"inline_keyboard\": $json.result.response.inline_keyboard\n  }\n} }}",
         "options": {}
       },
       "id": "0e767452-d1ec-42c7-bbf0-14c986d0b86d",
