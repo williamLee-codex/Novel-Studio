@@ -1,0 +1,215 @@
+{
+  "id": "wf001a-session-manager-mvp",
+  "name": "WF-001A - Session Manager MVP",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "8a850974-a0ca-4f37-b0eb-58eb60144cbc",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = ($json && typeof $json === 'object' && !Array.isArray($json)) ? $json : {};\nconst operation = typeof input.operation === 'string' ? input.operation.trim() : '';\nconst telegram_chat_id = input.telegram_chat_id;\nconst errors = [];\n\nif (!['save_session', 'read_session'].includes(operation)) {\n  errors.push('operation must be save_session or read_session.');\n}\nif (typeof telegram_chat_id !== 'number' || !Number.isFinite(telegram_chat_id)) {\n  errors.push('telegram_chat_id must be a finite number.');\n}\n\nlet session = input.session;\nif (operation === 'save_session') {\n  if (!session || typeof session !== 'object' || Array.isArray(session)) {\n    errors.push('session must be an object for save_session.');\n  } else {\n    if (typeof session.state !== 'string') errors.push('session.state must be a string.');\n    if (typeof session.novel_uuid !== 'string') errors.push('session.novel_uuid must be a string.');\n    if (typeof session.chapter_uuid !== 'string') errors.push('session.chapter_uuid must be a string.');\n    if (!session.data || typeof session.data !== 'object' || Array.isArray(session.data)) {\n      errors.push('session.data must be an object.');\n    }\n  }\n}\n\nif (errors.length) {\n  return [{ json: { ok: false, operation, session: null, error: errors.join(' ') } }];\n}\n\nreturn [{ json: { operation, telegram_chat_id, session: operation === 'save_session' ? {\n  state: session.state,\n  novel_uuid: session.novel_uuid,\n  chapter_uuid: session.chapter_uuid,\n  data: session.data,\n} : null } }];"
+      },
+      "id": "4036896c-b108-4288-bd66-552deea508f0",
+      "name": "Validate Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "0d75060f-e9ef-4898-afbb-2d107c873819",
+                    "leftValue": "={{ $json.operation }}",
+                    "rightValue": "read_session",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "read_session"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "10197b02-0df7-450d-8309-edcbd5d2e352",
+                    "leftValue": "={{ $json.operation }}",
+                    "rightValue": "save_session",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "save_session"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "72ad61da-c290-4112-aef2-2b762540d3e4",
+      "name": "Switch",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 2,
+      "position": [
+        500,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const sessions = globalThis.__NOVEL_SESSION__ ??= new Map();\nconst session = sessions.get($json.telegram_chat_id) ?? null;\nreturn [{ json: { ok: true, operation: 'read_session', session } }];"
+      },
+      "id": "78bf0e2c-b046-48f7-b05d-d5a43cb42f15",
+      "name": "Read Session",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        760,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const sessions = globalThis.__NOVEL_SESSION__ ??= new Map();\nconst session = {\n  state: $json.session.state,\n  novel_uuid: $json.session.novel_uuid,\n  chapter_uuid: $json.session.chapter_uuid,\n  data: $json.session.data,\n};\nsessions.set($json.telegram_chat_id, session);\nreturn [{ json: { ok: true, operation: 'save_session', session } }];"
+      },
+      "id": "c1a572e5-777a-45ab-9c61-50a953361875",
+      "name": "Save Session",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        760,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const result = ($json && typeof $json === 'object' && !Array.isArray($json)) ? $json : {};\nreturn [{ json: result.ok === true\n  ? { ok: true, operation: result.operation, session: result.session ?? null }\n  : { ok: false, operation: result.operation ?? '', session: null, error: result.error ?? 'Invalid input.' }\n}];"
+      },
+      "id": "be4b3cac-c1b7-4c85-8b08-b9eb454453c3",
+      "name": "Return Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1020,
+        0
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Validate Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Input": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Read Session",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Save Session",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Return Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Session": {
+      "main": [
+        [
+          {
+            "node": "Return Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Session": {
+      "main": [
+        [
+          {
+            "node": "Return Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "5e188bc4-a8bf-421f-bfab-21a3d6029e9f",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}
