@@ -1306,12 +1306,44 @@
     },
     {
       "parameters": {
-        "workflowId": "wf001a-session-manager-v2",
+        "workflowId": "wf001a-session-manager-mvp",
         "workflowInputs": {
           "mappingMode": "defineBelow",
-          "value": {},
+          "value": {
+            "operation": "save_session",
+            "telegram_chat_id": "={{ $json.telegram_chat_id }}",
+            "session": "={{ { state: \"awaiting_novel_name\", novel_uuid: $json.novel_uuid, chapter_uuid: $json.chapter_uuid, data: $json.session_data } }}"
+          },
           "matchingColumns": [],
-          "schema": [],
+          "schema": [
+            {
+              "id": "operation",
+              "displayName": "operation",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "telegram_chat_id",
+              "displayName": "telegram_chat_id",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number"
+            },
+            {
+              "id": "session",
+              "displayName": "session",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object"
+            }
+          ],
           "attemptToConvertTypes": false,
           "convertFieldsToString": true
         },
@@ -1320,8 +1352,8 @@
         },
         "source": "database"
       },
-      "id": "call-wf-001a-upsert-session",
-      "name": "Call WF-001A Upsert Session",
+      "id": "call-wf-001a-save-session",
+      "name": "Call WF-001A Save Session",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1,
       "position": [
@@ -2258,18 +2290,7 @@
       "main": [
         [
           {
-            "node": "Call WF-001A Upsert Session",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Call WF-001A Upsert Session": {
-      "main": [
-        [
-          {
-            "node": "Validate Session Upsert Result",
+            "node": "Call WF-001A Save Session",
             "type": "main",
             "index": 0
           }
@@ -2430,6 +2451,17 @@
         [
           {
             "node": "Build Integration Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call WF-001A Save Session": {
+      "main": [
+        [
+          {
+            "node": "Validate Session Upsert Result",
             "type": "main",
             "index": 0
           }
