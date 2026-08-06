@@ -16,7 +16,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const root=$json&&typeof $json==='object'&&!Array.isArray($json)?$json:{};const isObj=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);const supported=['command.new','command.chapter','command.status','command.help','command.invalid'];const errors=Array.isArray(root.validation_errors)?[...root.validation_errors]:[];if(root.schema_version!=='1.0')errors.push('Invalid schema_version: expected 1.0.');if(root.workflow_version!=='2.0')errors.push('Invalid workflow_version: expected 2.0 from WF-001.');if(!supported.includes(root.route))errors.push('Unsupported command route.');if(root.route!=='command.invalid'&&(root.status!=='ready'||root.is_valid!==true))errors.push('Command contract must be ready and valid.');if(!Array.isArray(root.validation_errors))errors.push('validation_errors must be an array.');if(!isObj(root.context))errors.push('context must be an object.');return[{json:{...root,orchestrator_input_valid:errors.length===0,validation_errors:errors}}];"
+        "jsCode": "const root=$json&&typeof $json==='object'&&!Array.isArray($json)?$json:{};const isObj=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);const callbackMap={'novel:create':'command.new','novel:select':'command.select','novel:chapter:create':'command.chapter.create','novel:chapter:write':'command.chapter.write','novel:status':'command.status'};const gatewayTelegram=isObj(root.gateway_context?.telegram)?root.gateway_context.telegram:{};const detectedCallback=isObj(root.detection?.callback)?root.detection.callback:{};const callbackData=[root.callback_data,gatewayTelegram.callback_data,detectedCallback.raw_data].find(v=>typeof v==='string'&&v.trim())||'';const mappedRoute=callbackMap[callbackData.trim()];const route=mappedRoute||root.route;const supported=['command.new','command.select','command.chapter.create','command.chapter.write','command.chapter','command.status','command.help','command.invalid'];const errors=Array.isArray(root.validation_errors)?[...root.validation_errors]:[];if(root.schema_version!=='1.0')errors.push('Invalid schema_version: expected 1.0.');if(root.workflow_version!=='2.0')errors.push('Invalid workflow_version: expected 2.0 from WF-001.');if(!supported.includes(route))errors.push('Unsupported command route.');if(route!=='command.invalid'&&(root.status!=='ready'||root.is_valid!==true))errors.push('Command contract must be ready and valid.');if(!Array.isArray(root.validation_errors))errors.push('validation_errors must be an array.');if(!isObj(root.context))errors.push('context must be an object.');return[{json:{...root,route,callback_data:callbackData,callback_route:mappedRoute||'',orchestrator_input_valid:errors.length===0,validation_errors:errors}}];"
       },
       "id": "ff1bfe20-f179-4bca-b0ef-862cdf80807a",
       "name": "Validate Orchestrator Input",
@@ -42,7 +42,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const root=$json&&typeof $json==='object'?$json:{};let route=root.orchestrator_input_valid===true?String(root.route??''):'command.invalid';if(!['command.new','command.chapter','command.status','command.help','command.invalid'].includes(route))route='command.invalid';let seed=Date.now();const id='xxxxxxxx'.replace(/x/g,()=>{const r=(seed+Math.random()*16)%16|0;seed=Math.floor(seed/16);return r.toString(16)});const type=route==='command.new'?'novel_creation':route==='command.chapter'?'chapter_processing':route.slice(8);const expected=route==='command.new'?['WF-002','WF-005']:route==='command.chapter'?['WF-004','WF-005','WF-006','WF-007','WF-008','WF-009','WF-010','WF-011','WF-012']:[];const now=new Date().toISOString();const state={integration_uuid:`INTG-${id}`,pipeline_type:type,command_route:route,started_at:now,next_started_at:now,expected_stages:expected,execution_journal:[],context:root.preserved_context&&typeof root.preserved_context==='object'?{...root.preserved_context}:{},artifacts:{},pipeline_active:route==='command.new'||route==='command.chapter',integration_status:route==='command.help'?'help':route==='command.status'?'status':route==='command.invalid'?'invalid_command':'completed',failed_stage:'',validation_errors:Array.isArray(root.validation_errors)?[...root.validation_errors]:[]};return[{json:{...root,route_key:route,_orchestration:state,pipeline_active:state.pipeline_active}}];"
+        "jsCode": "const root=$json&&typeof $json==='object'?$json:{};let route=root.orchestrator_input_valid===true?String(root.route??''):'command.invalid';const supported=['command.new','command.select','command.chapter.create','command.chapter.write','command.chapter','command.status','command.help','command.invalid'];if(!supported.includes(route))route='command.invalid';const callbackPrompt=root.callback_route==='command.new';const routeKey=callbackPrompt?'command.new.prompt':route;let seed=Date.now();const id='xxxxxxxx'.replace(/x/g,()=>{const r=(seed+Math.random()*16)%16|0;seed=Math.floor(seed/16);return r.toString(16)});const type=route==='command.new'?'novel_creation':route.startsWith('command.chapter')?'chapter_processing':route.slice(8);const expected=route==='command.new'&&!callbackPrompt?['WF-002','WF-005']:route==='command.chapter'?['WF-004','WF-005','WF-006','WF-007','WF-008','WF-009','WF-010','WF-011','WF-012']:[];const now=new Date().toISOString();const pipelineActive=(route==='command.new'&&!callbackPrompt)||route==='command.chapter';const state={integration_uuid:`INTG-${id}`,pipeline_type:type,command_route:route,started_at:now,next_started_at:now,expected_stages:expected,execution_journal:[],context:root.preserved_context&&typeof root.preserved_context==='object'?{...root.preserved_context}:{},artifacts:{},pipeline_active:pipelineActive,integration_status:route==='command.help'?'help':route==='command.status'?'status':route==='command.invalid'?'invalid_command':'completed',failed_stage:'',validation_errors:Array.isArray(root.validation_errors)?[...root.validation_errors]:[]};return[{json:{...root,route_key:routeKey,_orchestration:state,pipeline_active:state.pipeline_active}}];"
       },
       "id": "fc8be4ed-34f0-403c-8685-dcb040e9957a",
       "name": "Route Command Type",
@@ -57,6 +57,29 @@
       "parameters": {
         "rules": {
           "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route_key }}",
+                    "rightValue": "command.new.prompt",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "new_prompt"
+            },
             {
               "conditions": {
                 "options": {
@@ -102,6 +125,75 @@
               },
               "renameOutput": true,
               "outputKey": "chapter"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route_key }}",
+                    "rightValue": "command.select",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "select"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route_key }}",
+                    "rightValue": "command.chapter.create",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "chapter_create"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route_key }}",
+                    "rightValue": "command.chapter.write",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "chapter_write"
             },
             {
               "conditions": {
@@ -1562,6 +1654,19 @@
         2860,
         120
       ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const root=$json&&typeof $json==='object'?$json:{};const c=root.preserved_context&&typeof root.preserved_context==='object'?root.preserved_context:{};return[{json:{schema_version:'1.0',workflow_version:'1.0',route:'command.new',target:'telegram.reply',status:'ready',is_valid:true,validation_errors:[],response:{type:'telegram_message',text:'請輸入小說名稱：'},context:{telegram_update_id:Number(c.telegram_update_id??0),telegram_chat_id:Number(c.telegram_chat_id??0),telegram_user_id:Number(c.telegram_user_id??0)}}}];"
+      },
+      "id": "ce0ce12d-1c10-45c3-9057-d2ef933144f8",
+      "name": "Build Novel Create Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        -180
+      ]
     }
   ],
   "pinData": {},
@@ -1614,6 +1719,13 @@
       "main": [
         [
           {
+            "node": "Build Novel Create Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
             "node": "Prepare WF-002 Input",
             "type": "main",
             "index": 0
@@ -1622,6 +1734,27 @@
         [
           {
             "node": "Prepare Session Read Input",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Integration Summary",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Integration Summary",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Integration Summary",
             "type": "main",
             "index": 0
           }
