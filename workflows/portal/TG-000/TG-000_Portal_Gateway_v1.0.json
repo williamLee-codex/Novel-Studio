@@ -504,7 +504,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const data = $input.first()?.json ?? {};\nconst result = (data.result && typeof data.result === 'object') ? data.result : {};\nconst response = (result.response && typeof result.response === 'object') ? result.response : null;\nif (!response) return [];\nconst type = typeof response.type === 'string' ? response.type : '';\nif (!['telegram_menu', 'telegram_message', 'telegram_edit'].includes(type)) return [];\nconst telegram = (data.telegram && typeof data.telegram === 'object') ? data.telegram : {};\nconst inlineKeyboard = type === 'telegram_menu' && Array.isArray(response.inline_keyboard) ? response.inline_keyboard : [];\nreturn [{ json: { ...data, telegram_response: { operation: type === 'telegram_edit' ? 'editMessageText' : 'sendMessage', chat_id: telegram.chat_id, message_id: response.message_id ?? telegram.message_id, text: typeof response.text === 'string' ? response.text : '', inline_keyboard: inlineKeyboard } } }];"
+        "jsCode": "const data = $input.first()?.json ?? {};\nconst result = (data.result && typeof data.result === 'object') ? data.result : {};\nconst response = (result.response && typeof result.response === 'object') ? result.response : null;\nif (!response) return [];\nconst type = typeof response.type === 'string' ? response.type : '';\nif (!['telegram_menu', 'telegram_message'].includes(type)) return [];\nconst telegram = (data.telegram && typeof data.telegram === 'object') ? data.telegram : {};\nconst inlineKeyboard = type === 'telegram_menu' && Array.isArray(response.inline_keyboard) ? response.inline_keyboard : [];\nreturn [{ json: { ...data, telegram_response: { chat_id: telegram.chat_id, text: typeof response.text === 'string' ? response.text : '', inline_keyboard: inlineKeyboard } } }];"
       },
       "id": "7b6dbd38-0db2-4e8d-84bd-11a2f010a121",
       "name": "Telegram Response Renderer",
@@ -518,10 +518,9 @@
     {
       "parameters": {
         "resource": "message",
-        "operation": "={{ $json.telegram_response.operation }}",
+        "operation": "sendMessage",
         "chatId": "={{ $json.telegram_response.chat_id }}",
         "text": "={{ $json.telegram_response.text }}",
-        "messageId": "={{ $json.telegram_response.message_id }}",
         "replyMarkup": "={{ $json.telegram_response.inline_keyboard.length ? \"inlineKeyboard\" : \"none\" }}",
         "inlineKeyboard": "={{ { rows: $json.telegram_response.inline_keyboard.map(row => ({ row: { buttons: row.map(button => ({ text: button.text, additionalFields: { callback_data: button.callback_data } })) } })) } }}",
         "additionalFields": {}
