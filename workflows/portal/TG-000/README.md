@@ -272,7 +272,13 @@ Execute Sub-workflow nodes use `continueRegularOutput` so binding/execution erro
 
 ## Credential setup
 
-The export has no `credentials` property and no Bot Token. In the Telegram Trigger, select an n8n-managed Telegram credential manually. The HTTP Request response node reads the complete Telegram `sendMessage` endpoint from the secure runtime configuration `TELEGRAM_SEND_MESSAGE_URL`; that value contains sensitive Bot configuration and must be configured only in the n8n runtime, never pasted into or exported with the workflow. Do not export or commit populated credentials or the resolved URL. The two Execute Sub-workflow nodes need workflow selection, not Telegram credentials.
+The export has no `credentials` property and no Bot Token. It uses two n8n-native secret mechanisms that must be configured manually after import:
+
+1. In **Telegram Trigger**, select an n8n-managed **Telegram API** credential containing this Bot's access token.
+2. In **External Secrets**, connect a supported provider, create/select the vault named `telegram`, and expose a secret named `telegramSendMessageUrl`. Its value must be the complete endpoint `https://api.telegram.org/bot<YOUR_BOT_TOKEN>/sendMessage` for the same Bot used by the Trigger.
+3. Confirm that **HTTP Request → URL** remains `{{ $secrets.telegram.telegramSendMessageUrl }}`. Do not replace it with `$env`, paste the resolved URL into the node, or put the Bot Token anywhere in the workflow JSON.
+
+The HTTP Request node resolves the endpoint from n8n External Secrets at execution time while preserving its existing `chat_id`, `text`, and `reply_markup` JSON body. The two Execute Sub-workflow nodes need workflow selection, not Telegram credentials. The n8n instance and project must have External Secrets access enabled, and the project running TG-000 must be allowed to use the configured vault.
 
 ## Publish/unpublish migration order
 
@@ -280,14 +286,15 @@ Perform these steps in order:
 
 1. Import TG-000.
 2. Bind the TG-100 adapter and WF-000 sub-workflows.
-3. Select the n8n-managed Telegram credential.
-4. Test TG-000 in manual mode.
-5. **Unpublish the IC-TG-001 Telegram Trigger owner.**
-6. Publish TG-000.
-7. Verify that only TG-000 receives updates.
-8. Run the Social Center regression tests.
-9. Test Novel Studio `/new` end to end.
-10. Keep the rollback procedure ready throughout the change window.
+3. Select the n8n-managed Telegram credential on **Telegram Trigger**.
+4. Configure the `telegram` External Secrets vault and its `telegramSendMessageUrl` secret as described above.
+5. Test TG-000 in manual mode.
+6. **Unpublish the IC-TG-001 Telegram Trigger owner.**
+7. Publish TG-000.
+8. Verify that only TG-000 receives updates.
+9. Run the Social Center regression tests.
+10. Test Novel Studio `/new` end to end.
+11. Keep the rollback procedure ready throughout the change window.
 
 Never publish both Telegram Trigger workflows with the same Bot at the same time.
 

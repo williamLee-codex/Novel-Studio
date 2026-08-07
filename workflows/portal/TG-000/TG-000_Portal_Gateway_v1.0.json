@@ -518,7 +518,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.TELEGRAM_SEND_MESSAGE_URL }}",
+        "url": "={{ $secrets.telegram.telegramSendMessageUrl }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
