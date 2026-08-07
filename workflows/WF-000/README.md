@@ -1,19 +1,18 @@
-# WF-000 — Integration Orchestrator
+# WF-000 — Integration Orchestrator v3.0
 
-WF-000 preserves the existing command routing and replaces the fragmented novel
-storage chain with one execution of the WF-005 Storage Engine.
-
-## Routes
+Wave 1 provides the publishable n8n 2.29.10 workflow skeleton only:
 
 ```text
-/new     → WF-002 Novel Manager → WF-005 Storage Engine → Done
-/chapter → WF-004 Chapter Manager → WF-005 Storage Engine → WF-006 → … → WF-012
+Execute Workflow Trigger
+  → Validate Request
+  → Switch (Command Route)
+  → Return Result
 ```
 
-The novel creation pipeline contains one `Execute Workflow` node for
-`WF-005 - Storage Engine V2`. No WF-003, WF-005A, or WF-005B execution remains.
+`Validate Request` normalizes `command` (or the legacy `route` input alias) and
+accepts `new`, `chapter`, `status`, and `help`. Invalid input is routed through
+the same result boundary with validation details.
 
-WF-000 passes WF-002's novel metadata directly to WF-005. The
-`Validate WF-005 Result` node requires the `storage.completed` route and the
-`{ storage_engine_version, storage }` result contract, then records both fields
-in orchestration context for downstream storage references.
+No Session, Storage, or Character layer is included in Wave 1. The workflow
+contains no workflow-execution action node; its only workflow trigger is the
+current `Execute Workflow Trigger` node.
