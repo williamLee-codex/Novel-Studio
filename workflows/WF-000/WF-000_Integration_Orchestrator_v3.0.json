@@ -1,5 +1,5 @@
 {
-  "name": "WF-000 - Integration Orchestrator v3.0 (Wave 1)",
+  "name": "WF-000 - Integration Orchestrator v3.0 (Wave 2)",
   "nodes": [
     {
       "parameters": {
@@ -9,239 +9,197 @@
       "name": "Execute Workflow Trigger",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
-      "position": [
-        0,
-        0
-      ]
+      "position": [0, 0]
     },
     {
       "parameters": {
-        "jsCode": "const input = $json && typeof $json === 'object' && !Array.isArray($json) ? $json : {};\nconst rawCommand = typeof input.command === 'string' ? input.command : (typeof input.route === 'string' ? input.route : '');\nconst command = rawCommand.trim().toLowerCase();\nconst supportedCommands = ['new', 'chapter', 'status', 'help'];\nconst isValid = command.length > 0 && supportedCommands.includes(command);\n\nreturn [{\n  json: {\n    ...input,\n    command,\n    command_route: isValid ? command : 'invalid',\n    validation: {\n      valid: isValid,\n      errors: isValid ? [] : [command.length === 0 ? 'command is required' : `unsupported command: ${command}`],\n    },\n  },\n}];"
+        "jsCode": "const input = ($json && typeof $json === 'object' && !Array.isArray($json)) ? $json : {};\nconst rawCommand = typeof input.command === 'string' ? input.command : (typeof input.route === 'string' ? input.route : '');\nconst command = rawCommand.trim().replace(/^\\//, '').toLowerCase();\nconst telegram_chat_id = Number(input.telegram_chat_id ?? input.telegram?.chat_id);\n\nif (command !== 'new') {\n  throw new Error('Wave 2 supports only the new command.');\n}\nif (!Number.isFinite(telegram_chat_id)) {\n  throw new Error('telegram_chat_id must be a finite number.');\n}\n\nreturn [{ json: { ...input, command: 'new', telegram_chat_id } }];"
       },
       "id": "3aa00225-f16d-46e1-92ce-f43351d47483",
-      "name": "Validate Request",
+      "name": "Validate New Command",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        240,
-        0
-      ]
+      "position": [240, 0]
     },
     {
       "parameters": {
-        "rules": {
-          "values": [
+        "workflowId": "wf001a-session-manager-mvp",
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "operation": "read_session",
+            "telegram_chat_id": "={{ $json.telegram_chat_id }}"
+          },
+          "matchingColumns": [],
+          "schema": [
             {
-              "conditions": {
-                "options": {
-                  "caseSensitive": true,
-                  "leftValue": "",
-                  "typeValidation": "strict",
-                  "version": 2
-                },
-                "conditions": [
-                  {
-                    "leftValue": "={{ $json.command_route }}",
-                    "rightValue": "new",
-                    "operator": {
-                      "type": "string",
-                      "operation": "equals"
-                    }
-                  }
-                ],
-                "combinator": "and"
-              },
-              "renameOutput": true,
-              "outputKey": "new"
+              "id": "operation",
+              "displayName": "operation",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
             },
             {
-              "conditions": {
-                "options": {
-                  "caseSensitive": true,
-                  "leftValue": "",
-                  "typeValidation": "strict",
-                  "version": 2
-                },
-                "conditions": [
-                  {
-                    "leftValue": "={{ $json.command_route }}",
-                    "rightValue": "chapter",
-                    "operator": {
-                      "type": "string",
-                      "operation": "equals"
-                    }
-                  }
-                ],
-                "combinator": "and"
-              },
-              "renameOutput": true,
-              "outputKey": "chapter"
-            },
-            {
-              "conditions": {
-                "options": {
-                  "caseSensitive": true,
-                  "leftValue": "",
-                  "typeValidation": "strict",
-                  "version": 2
-                },
-                "conditions": [
-                  {
-                    "leftValue": "={{ $json.command_route }}",
-                    "rightValue": "status",
-                    "operator": {
-                      "type": "string",
-                      "operation": "equals"
-                    }
-                  }
-                ],
-                "combinator": "and"
-              },
-              "renameOutput": true,
-              "outputKey": "status"
-            },
-            {
-              "conditions": {
-                "options": {
-                  "caseSensitive": true,
-                  "leftValue": "",
-                  "typeValidation": "strict",
-                  "version": 2
-                },
-                "conditions": [
-                  {
-                    "leftValue": "={{ $json.command_route }}",
-                    "rightValue": "help",
-                    "operator": {
-                      "type": "string",
-                      "operation": "equals"
-                    }
-                  }
-                ],
-                "combinator": "and"
-              },
-              "renameOutput": true,
-              "outputKey": "help"
-            },
-            {
-              "conditions": {
-                "options": {
-                  "caseSensitive": true,
-                  "leftValue": "",
-                  "typeValidation": "strict",
-                  "version": 2
-                },
-                "conditions": [
-                  {
-                    "leftValue": "={{ $json.command_route }}",
-                    "rightValue": "invalid",
-                    "operator": {
-                      "type": "string",
-                      "operation": "equals"
-                    }
-                  }
-                ],
-                "combinator": "and"
-              },
-              "renameOutput": true,
-              "outputKey": "invalid"
+              "id": "telegram_chat_id",
+              "displayName": "telegram_chat_id",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number"
             }
-          ]
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        },
+        "source": "database"
+      },
+      "id": "19ebf409-9b92-4917-a204-a84d98ea68a4",
+      "name": "Read Session",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [500, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "469577a8-3a51-49d6-9862-08d5211af752",
+              "leftValue": "={{ $json.session === null || $json.session === undefined }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
         },
         "options": {}
       },
-      "id": "c8724231-b07d-4ec8-a8cd-b46541235f1c",
-      "name": "Switch (Command Route)",
-      "type": "n8n-nodes-base.switch",
-      "typeVersion": 3.2,
-      "position": [
-        480,
-        0
-      ]
+      "id": "fbbdd98e-b3e7-4b81-a5db-f78728989f82",
+      "name": "Session Not Found?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [760, 0]
     },
     {
       "parameters": {
-        "jsCode": "return $input.all().map((item) => ({\n  json: {\n    ...item.json,\n    result: {\n      ok: item.json.validation?.valid === true,\n      command: item.json.command_route,\n      wave: 1,\n      orchestrator_version: '3.0',\n    },\n  },\n}));"
+        "jsCode": "const request = $('Validate New Command').item.json;\nreturn [{\n  json: {\n    operation: 'save_session',\n    telegram_chat_id: request.telegram_chat_id,\n    session: {\n      state: 'awaiting_novel_name',\n      novel_uuid: '',\n      chapter_uuid: '',\n      data: {},\n    },\n  },\n}];"
       },
-      "id": "1b7d8dc8-f547-4c59-8397-73da0e72ab23",
-      "name": "Return Result",
+      "id": "e156549e-010b-4d21-b98e-5e622aec2910",
+      "name": "Create Session",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        760,
-        0
-      ]
+      "position": [1020, -120]
+    },
+    {
+      "parameters": {
+        "workflowId": "wf001a-session-manager-mvp",
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "operation": "save_session",
+            "telegram_chat_id": "={{ $json.telegram_chat_id }}",
+            "session": "={{ $json.session }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "operation",
+              "displayName": "operation",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "telegram_chat_id",
+              "displayName": "telegram_chat_id",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number"
+            },
+            {
+              "id": "session",
+              "displayName": "session",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        },
+        "source": "database"
+      },
+      "id": "20a97001-fe09-4411-a74b-3b5604c877a7",
+      "name": "Save Session",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [1260, -120]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { telegram_message: '請輸入小說名稱：' } }];"
+      },
+      "id": "1b7d8dc8-f547-4c59-8397-73da0e72ab23",
+      "name": "Return",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1500, 0]
     }
   ],
   "pinData": {},
   "connections": {
     "Execute Workflow Trigger": {
+      "main": [[{"node": "Validate New Command", "type": "main", "index": 0}]]
+    },
+    "Validate New Command": {
+      "main": [[{"node": "Read Session", "type": "main", "index": 0}]]
+    },
+    "Read Session": {
+      "main": [[{"node": "Session Not Found?", "type": "main", "index": 0}]]
+    },
+    "Session Not Found?": {
       "main": [
-        [
-          {
-            "node": "Validate Request",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{"node": "Create Session", "type": "main", "index": 0}],
+        [{"node": "Return", "type": "main", "index": 0}]
       ]
     },
-    "Validate Request": {
-      "main": [
-        [
-          {
-            "node": "Switch (Command Route)",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+    "Create Session": {
+      "main": [[{"node": "Save Session", "type": "main", "index": 0}]]
     },
-    "Switch (Command Route)": {
-      "main": [
-        [
-          {
-            "node": "Return Result",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Return Result",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Return Result",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Return Result",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Return Result",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+    "Save Session": {
+      "main": [[{"node": "Return", "type": "main", "index": 0}]]
     }
   },
   "active": false,
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "ad3ea296-913a-430d-9b8d-70aceb7630f5",
+  "versionId": "8f88cd76-8c32-4484-83a8-d48202af47b4",
   "meta": {
     "templateCredsSetupCompleted": true
   },
