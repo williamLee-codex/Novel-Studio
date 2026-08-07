@@ -78,8 +78,8 @@ Telegram suffix syntax is supported, including `/new@BotUsername`. The parser se
 |---|---|---|
 | `portal:` | `portal:home`, `portal:back`, `portal:planned:metaphysics` | Portal response |
 | `social:` | `social:publish`, `social:results`, `social:status` | `TG-100` |
-| `novel:` | `novel:new`, `novel:chapter` | `WF-000` |
-| `novel:` | `novel:home`, `novel:list`, `novel:storybible` | Supported-not-implemented response |
+| `novel:` | `novel:create` (adapted to the existing `new` command) | `WF-000` |
+| `novel:` | `novel:select`, `novel:chapter_create`, `novel:chapter_write`, `novel:status`, `novel:home`, `novel:list`, `novel:storybible` | Recognized; supported-not-implemented response |
 | `admin:` | `admin:system`, `admin:health`, `admin:home` | Deterministic admin route |
 
 Unknown prefixes and empty `callback_data` use the Portal fallback. Prefixes prevent action collisions across subsystems.
@@ -140,14 +140,14 @@ The menu is a response definition. TG-000 does not add a Telegram Send Message n
 - Title/body text: `📚 Novel Studio
 
 請選擇功能：`
-- ➕ 新增小說 → `novel_create`
-- 📖 選擇小說 → `novel_select`
-- 📝 建立章節 → `chapter_create`
-- ✍️ 寫作章節 → `chapter_write`
-- 📊 小說狀態 → `novel_status`
-- ⬅ 返回社群中心 → `social_home`
+- ➕ 新增小說 → `novel:create`
+- 📖 選擇小說 → `novel:select`
+- 📝 建立章節 → `novel:chapter_create`
+- ✍️ 寫作章節 → `novel:chapter_write`
+- 📊 小說狀態 → `novel:status`
+- ⬅ 返回社群中心 → `social:home`
 
-Callback handling for these button payloads is intentionally not implemented in TG-000 Milestone 1.
+All six payloads follow the canonical `<domain>:<action>` gateway contract. `novel:create` resolves to `domain = novel`, `action = create`, `target_workflow = WF-000`, and `route_branch = novel`; the adapter sends the existing `new` command to WF-000. The other Novel Studio actions are recognized but remain unimplemented, and `social:home` follows the existing Social Center boundary.
 
 ## Social Center integration
 
@@ -182,7 +182,7 @@ TG-000 passes the original Telegram update, normalized context, detection data, 
 }
 ```
 
-For `/chapter`, the route is `command.chapter` and `command.name` is `chapter`. `/NOVEL` returns the Novel Studio menu without calling WF-000. `/storybible`, `novel:home`, `novel:list`, and `novel:storybible` return a truthful supported-not-implemented result without calling WF-000. WF-000 remains the orchestration owner; TG-000 performs only input adaptation.
+For `/chapter`, the existing command route remains available. `/NOVEL` returns the Novel Studio menu without calling WF-000. For `novel:create`, TG-000 preserves the canonical gateway action as `create` while adapting the WF-000 input to its existing `new` compatibility command and top-level `telegram_chat_id`. WF-000 remains the orchestration owner, reads/saves sessions through WF-001A, and TG-000 converts its `telegram_message` result into the required Telegram response contract: `{"type":"telegram_message","text":"📚 建立新小說\n\n請輸入小說名稱："}`. The remaining unimplemented Novel Studio callbacks return a truthful supported-not-implemented result.
 
 ## Command parsing
 
@@ -272,7 +272,7 @@ Execute Sub-workflow nodes use `continueRegularOutput` so binding/execution erro
 
 ## Credential setup
 
-The export has no `credentials` property and no Bot Token. In the Telegram Trigger, select an n8n-managed Telegram credential manually. Do not export or commit populated credentials. The two Execute Sub-workflow nodes need workflow selection, not Telegram credentials.
+The export has no `credentials` property and no Bot Token. In the Telegram Trigger, select an n8n-managed Telegram credential manually. The HTTP Request response node reads the complete Telegram `sendMessage` endpoint from the secure runtime configuration `TELEGRAM_SEND_MESSAGE_URL`; that value contains sensitive Bot configuration and must be configured only in the n8n runtime, never pasted into or exported with the workflow. Do not export or commit populated credentials or the resolved URL. The two Execute Sub-workflow nodes need workflow selection, not Telegram credentials.
 
 ## Publish/unpublish migration order
 
@@ -300,12 +300,17 @@ Never publish both Telegram Trigger workflows with the same Bot at the same time
 | 3 | `/chapter 1` | Novel route; WF-000 called with `command.arguments: ["1"]`. |
 | 4 | `/publish` | Social route; TG-100 called. |
 | 5 | `social:publish` callback | Social route; TG-100 called. |
-| 6 | `novel:new` callback | Novel route; WF-000 path only; no Social execution. |
-| 7 | `hello` | Portal fallback menu; no subsystem called. |
-| 8 | Missing `message.text` | No crash; valid callback routes or fallback. |
-| 9 | Unsupported update type | No crash; fallback output. |
-| 10 | Both old and new Trigger published | Invalid configuration; fail the migration check. |
-| 11 | Import into n8n v2.29+ | Core nodes load; credentials and sub-workflows remain manually selectable; no embedded secret/expression-security error. |
+| 6 | `novel:create` callback | `domain=novel`, `action=create`, `target_workflow=WF-000`, `route_branch=novel`; WF-000 receives its compatible `new` command and returns the novel-title prompt. |
+| 7 | `novel:select` callback | Canonical Novel callback recognized; supported-not-implemented; no recent-novel behavior. |
+| 8 | `novel:chapter_create` callback | Canonical Novel callback recognized; supported-not-implemented. |
+| 9 | `novel:chapter_write` callback | Canonical Novel callback recognized; supported-not-implemented. |
+| 10 | `novel:status` callback | Canonical Novel callback recognized; supported-not-implemented. |
+| 11 | `social:home` callback | Social route; TG-100 boundary called. |
+| 12 | `hello` | Portal fallback menu; no subsystem called. |
+| 13 | Missing `message.text` | No crash; valid callback routes or fallback. |
+| 14 | Unsupported update type | No crash; fallback output. |
+| 15 | Both old and new Trigger published | Invalid configuration; fail the migration check. |
+| 16 | Import into n8n v2.29+ | Core nodes load; credentials and sub-workflows remain manually selectable; no embedded secret/expression-security error. |
 
 Also test `/novel`, `/storybible`, planned callbacks, empty callback data, unknown callback prefix, and a deliberately unbound sub-workflow. Inspect the Telegram webhook after publishing and confirm a single owner.
 
@@ -337,4 +342,5 @@ Do not enable the old owner before disabling TG-000.
 
 | Version | Date | Changes |
 |---|---|---|
+| 1.0 | 2026-08-07 | Canonicalized all Novel Studio callbacks, added the `novel:create` WF-000 adapter/response path, and removed Bot-token URL construction from the export. |
 | 1.0 | 2026-08-02 | Initial routing-only gateway for Portal, Social Center, Novel Studio, Administration, planned modules, and fallback. |
