@@ -153,7 +153,7 @@ Do not commit real folder IDs into the workflow export or README.
 | Yes | `03_Canon/Knowledge/KnowledgePersistenceManifest.json` | `application/json` |
 | No | `09_Backup/StoryBible.backup.json` | `application/json` |
 
-The manifest always contains exactly nine required operations and one optional backup operation. Every operation uses `create_or_update_file`, `replace_existing`, a positive stable sequence, and `pending` initial status.
+The manifest always contains exactly nine required operations and one optional backup operation. Every operation uses `create_or_update_file`, `upsert_exact_path`, a relative-path upsert key, a positive stable sequence, and `pending` initial status.
 
 ## JSON content rules
 
@@ -190,7 +190,7 @@ It does not call AI, rewrite prose, resolve conflicts, or invent placeholder fac
   "content_type": "application/json",
   "content": "{}",
   "required": true,
-  "overwrite_strategy": "replace_existing",
+  "overwrite_strategy": "upsert_exact_path",
   "sequence": 1,
   "status": "pending"
 }
@@ -309,3 +309,7 @@ Connect the successful WF-010 output to WF-011, augment it with runtime folder c
 ## Validation report
 
 The export is JSON-parseable and designed for n8n 2.29+. Static validation covers functional node count, one passthrough trigger, official Google Drive node usage, connection targets, unique manifests/queues, plain-JavaScript syntax, prohibited integrations, absence of credentials and hardcoded folder IDs, and repository scope. Live create/update behavior, credential errors, and permission errors remain deployment-environment tests because this repository container has no n8n runtime or Google Drive OAuth credential.
+
+## Idempotent exact-path upsert
+
+WF-011 retains its existing exact-parent-and-filename search/update behavior. The manifest exposes each relative path as `upsert_key`, reports `upsert_exact_path`, and derives `persistence_id` from the caller's bootstrap idempotency key (or the novel/chapter fallback). An exact file match is updated by Drive file ID; only a missing exact path is uploaded, preventing duplicate same-folder Knowledge files on retry.

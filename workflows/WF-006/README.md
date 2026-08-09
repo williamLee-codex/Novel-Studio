@@ -98,8 +98,7 @@ occurs.
 
 ## UUID and Audit Rules
 
-`canon_uuid` uses the existing local Math.random-based UUID fallback and the
-format `CANON-xxxxxxxx`. It does not use a cryptographic UUID API. Canon version
+`canon_uuid` uses a deterministic hash of `novel_uuid`, `chapter_number`, and `chapter_uuid` in the format `CANON-xxxxxxxx`, so retries retain the same identity. Canon version
 is `1.0`; `created_at` and `updated_at` share one UTC ISO 8601 creation instant;
 `created_by` is `Novel Studio WF-006`.
 
@@ -180,3 +179,7 @@ live n8n 2.29+ import remains a release-environment check.
 | Version | Date | Changes |
 | --- | --- | --- |
 | 2.0 | 2026-08-01 | Initial consolidated Canon Knowledge Manager. |
+
+## Deterministic chapter identity
+
+Canon identity is now an upsert identity derived from `novel_uuid`, `chapter_number`, and `chapter_uuid`. Reprocessing the same persisted chapter produces the same `canon_uuid` and preserves an incoming bootstrap `idempotency_key`; it no longer allocates a random Canon identity for a retry.

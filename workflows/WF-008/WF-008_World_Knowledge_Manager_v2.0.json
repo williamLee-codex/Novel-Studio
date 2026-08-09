@@ -29,7 +29,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const c=$json.context&&typeof $json.context==='object'&&!Array.isArray($json.context)?$json.context:{};return[{json:{is_valid:$json.is_valid===true,validation_errors:$json.validation_errors??[],source_contract:$json,canon_context:{canon_uuid:typeof c.canon_uuid==='string'?c.canon_uuid.trim():'',novel_uuid:typeof c.novel_uuid==='string'?c.novel_uuid.trim():'',workspace_uuid:typeof c.workspace_uuid==='string'?c.workspace_uuid.trim():'',chapter_uuid:typeof c.chapter_uuid==='string'?c.chapter_uuid.trim():'',chapter_number:c.chapter_number??0,chapter_title:typeof c.chapter_title==='string'?c.chapter_title.trim().replace(/\\s+/gu,' '):'',created_at:typeof c.created_at==='string'?c.created_at:'',updated_at:typeof c.updated_at==='string'?c.updated_at:'',created_by:typeof c.created_by==='string'?c.created_by:''}}}];"
+        "jsCode": "const c=$json.context&&typeof $json.context==='object'&&!Array.isArray($json.context)?$json.context:{};return[{json:{is_valid:$json.is_valid===true,validation_errors:$json.validation_errors??[],_bootstrap_context:$json._bootstrap_context??{},source_contract:$json,canon_context:{canon_uuid:typeof c.canon_uuid==='string'?c.canon_uuid.trim():'',novel_uuid:typeof c.novel_uuid==='string'?c.novel_uuid.trim():'',workspace_uuid:typeof c.workspace_uuid==='string'?c.workspace_uuid.trim():'',chapter_uuid:typeof c.chapter_uuid==='string'?c.chapter_uuid.trim():'',chapter_number:c.chapter_number??0,chapter_title:typeof c.chapter_title==='string'?c.chapter_title.trim().replace(/\\s+/gu,' '):'',created_at:typeof c.created_at==='string'?c.created_at:'',updated_at:typeof c.updated_at==='string'?c.updated_at:'',created_by:typeof c.created_by==='string'?c.created_by:''}}}];"
       },
       "id": "47db9f74-e70c-4913-a324-796e57d6f670",
       "name": "Extract Canon Context",
@@ -81,7 +81,7 @@
     },
     {
       "parameters": {
-        "jsCode": "function uuidHelper(){let t=Date.now();return'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=(t+Math.random()*16)%16|0;t=Math.floor(t/16);return(c==='x'?r:(r&3)|8).toString(16)})}return[{json:{...$json,identified_world_records:$json.valid_world_records.map(record=>({...record,world_uuid:`WLD-${uuidHelper().replace(/-/g,'').slice(0,8)}`}))}}];"
+        "jsCode": "const stableId=value=>{let h=2166136261;for(const ch of String(value).normalize('NFKC').toLocaleLowerCase()){h^=ch.codePointAt(0);h=Math.imul(h,16777619)}return(h>>>0).toString(16).padStart(8,'0')};const c=$json.canon_context;return[{json:{...$json,identified_world_records:$json.valid_world_records.map(record=>({...record,world_uuid:`WLD-${stableId(`${c.novel_uuid}|world|${record.world_type}|${record.name}`)}`,knowledge_key:`${c.novel_uuid}|world|${record.world_type}|${record.name.toLocaleLowerCase()}`}))}}];"
       },
       "id": "b28139eb-56a7-443f-9c40-6ceee220f4a3",
       "name": "Generate World IDs",
@@ -133,7 +133,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const valid=$json.is_valid===true;const emptySummary={source_records:0,valid_records:0,invalid_records:0,world_objects_created:0,duplicates_merged:0,conflicts_detected:0,type_counts:{}};const c=$json.canon_context??{};return[{json:{schema_version:'1.0',workflow_version:'2.0',route:'world.created',target:'WF-009',status:valid?'ready':'error',is_valid:valid,validation_errors:$json.validation_errors??[],worlds:valid?($json.worlds??[]):[],invalid_world_records:valid?($json.invalid_world_records??[]):[],world_conflicts:valid?($json.world_conflicts??[]):[],summary:valid?($json.summary??emptySummary):emptySummary,context:valid?{canon_uuid:c.canon_uuid,novel_uuid:c.novel_uuid,workspace_uuid:c.workspace_uuid,chapter_uuid:c.chapter_uuid,chapter_number:c.chapter_number,chapter_title:c.chapter_title}:{}}}];"
+        "jsCode": "const valid=$json.is_valid===true;const emptySummary={source_records:0,valid_records:0,invalid_records:0,world_objects_created:0,duplicates_merged:0,conflicts_detected:0,type_counts:{}};const c=$json.canon_context??{};return[{json:{schema_version:'1.0',workflow_version:'2.0',route:'world.created',target:'WF-009',status:valid?'ready':'error',is_valid:valid,validation_errors:$json.validation_errors??[],worlds:valid?($json.worlds??[]):[],invalid_world_records:valid?($json.invalid_world_records??[]):[],world_conflicts:valid?($json.world_conflicts??[]):[],summary:valid?($json.summary??emptySummary):emptySummary,_bootstrap_context:$json._bootstrap_context??{},context:valid?{canon_uuid:c.canon_uuid,novel_uuid:c.novel_uuid,workspace_uuid:c.workspace_uuid,chapter_uuid:c.chapter_uuid,chapter_number:c.chapter_number,chapter_title:c.chapter_title}:{}}}];"
       },
       "id": "f629a168-ebef-4d7f-a53e-64e20b663796",
       "name": "Build Final Output",

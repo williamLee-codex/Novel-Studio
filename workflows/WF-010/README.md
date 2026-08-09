@@ -170,7 +170,7 @@ Individual invalid records do not make the envelope invalid. A malformed section
 }
 ```
 
-`story_bible_uuid` uses the non-sequential `BIB-xxxxxxxx` Math.random fallback. It is generated only for a valid route-level contract. Creation and update timestamps are the same ISO 8601 value.
+`story_bible_uuid` uses the deterministic `BIB-xxxxxxxx` novel identity. It is generated only for a valid route-level contract. Creation and update timestamps are the same ISO 8601 value.
 
 ## Story Bible index schema
 
@@ -285,3 +285,7 @@ Minimum contract tests:
 ## Validation report
 
 The export is designed for n8n 2.29+ and contains one passthrough Execute Workflow Trigger, 13 plain-JavaScript Code nodes, and four Sticky Notes. Repository validation covers JSON parsing, connection integrity, Code-node execution for the documented cases, prohibited-node/reference scans, scope checks, and `git diff --check`. Live n8n UI import remains a deployment-environment verification step.
+
+## Story Bible upsert identity
+
+The Story Bible UUID is deterministic from `novel_uuid`, matching the existing one-Story-Bible-per-novel persistence model. Reprocessing a chapter does not allocate another Story Bible identity.

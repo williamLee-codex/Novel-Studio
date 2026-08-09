@@ -29,7 +29,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const chapter = $json.chapter && typeof $json.chapter === 'object' && !Array.isArray($json.chapter) ? $json.chapter : {};\nreturn [{ json: {\n  is_valid: $json.is_valid === true,\n  validation_errors: $json.validation_errors ?? [],\n  chapter_metadata: {\n    chapter_uuid: chapter.chapter_uuid ?? '', novel_uuid: chapter.novel_uuid ?? '',\n    workspace_uuid: chapter.workspace_uuid ?? '', chapter_number: chapter.chapter_number ?? 0,\n    chapter_title: chapter.chapter_title ?? '',\n  },\n  source_content: typeof $json.chapter_content === 'string' ? $json.chapter_content : '',\n} }];"
+        "jsCode": "const chapter=$json.chapter&&typeof $json.chapter==='object'&&!Array.isArray($json.chapter)?$json.chapter:{};return[{json:{is_valid:$json.is_valid===true,validation_errors:$json.validation_errors??[],_bootstrap_context:$json._bootstrap_context??{},chapter_metadata:{chapter_uuid:chapter.chapter_uuid??'',novel_uuid:chapter.novel_uuid??'',workspace_uuid:chapter.workspace_uuid??'',chapter_number:chapter.chapter_number??0,chapter_title:chapter.chapter_title??''},source_content:typeof $json.chapter_content==='string'?$json.chapter_content:''}}];"
       },
       "id": "de0279b7-9ae9-4cdf-9223-e356f393cdc3",
       "name": "Extract Chapter Metadata",
@@ -68,7 +68,7 @@
     },
     {
       "parameters": {
-        "jsCode": "function uuidHelper() {\n  let timestamp = Date.now();\n  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (token) => {\n    const randomValue = (timestamp + Math.random() * 16) % 16 | 0;\n    timestamp = Math.floor(timestamp / 16);\n    return (token === 'x' ? randomValue : (randomValue & 0x3) | 0x8).toString(16);\n  });\n}\nif ($json.is_valid !== true) return [{ json: { ...$json, canon_draft: null } }];\nconst input = $json.normalized_canon_input;\nconst timestamp = new Date().toISOString();\nreturn [{ json: { ...$json, canon_draft: {\n  canon_uuid: `CANON-${uuidHelper().replace(/-/g, '').slice(0, 8)}`,\n  canon_type: input.canon_type, novel_uuid: input.novel_uuid, workspace_uuid: input.workspace_uuid,\n  chapter_uuid: input.chapter_uuid, chapter_number: input.chapter_number, chapter_title: input.chapter_title,\n  canon_version: '1.0', created_at: timestamp, updated_at: timestamp, created_by: 'Novel Studio WF-006',\n} } }];"
+        "jsCode": "const stableId=value=>{let h=2166136261;for(const ch of String(value).normalize('NFKC').toLocaleLowerCase()){h^=ch.codePointAt(0);h=Math.imul(h,16777619)}return(h>>>0).toString(16).padStart(8,'0')};if($json.is_valid!==true)return[{json:{...$json,canon_draft:null}}];const input=$json.normalized_canon_input;const timestamp=new Date().toISOString();const knowledgeKey=`${input.novel_uuid}|chapter|${input.chapter_number}|${input.chapter_uuid}`;return[{json:{...$json,canon_draft:{canon_uuid:`CANON-${stableId(knowledgeKey)}`,knowledge_key:knowledgeKey,idempotency_key:$json._bootstrap_context?.idempotency_key??knowledgeKey,canon_type:input.canon_type,novel_uuid:input.novel_uuid,workspace_uuid:input.workspace_uuid,chapter_uuid:input.chapter_uuid,chapter_number:input.chapter_number,chapter_title:input.chapter_title,canon_version:'1.0',created_at:timestamp,updated_at:timestamp,created_by:'Novel Studio WF-006'}}}];"
       },
       "id": "5926befc-9648-4429-ab92-a5899d03e9cc",
       "name": "Generate Canon Object",
@@ -94,7 +94,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const isValid = $json.is_valid === true;\nreturn [{ json: {\n  schema_version: '1.0', workflow_version: '2.0', route: 'canon.created', target: 'WF-007',\n  status: isValid ? 'ready' : 'error', is_valid: isValid,\n  validation_errors: $json.validation_errors ?? [], canon: isValid ? $json.canon_draft : null,\n} }];"
+        "jsCode": "const isValid=$json.is_valid===true;return[{json:{schema_version:'1.0',workflow_version:'2.0',route:'canon.created',target:'WF-007',status:isValid?'ready':'error',is_valid:isValid,validation_errors:$json.validation_errors??[],canon:isValid?$json.canon_draft:null,_bootstrap_context:$json._bootstrap_context??{}}}];"
       },
       "id": "4bb39d2d-01f5-412a-8d11-73cade88c0bb",
       "name": "Build Canon Output",

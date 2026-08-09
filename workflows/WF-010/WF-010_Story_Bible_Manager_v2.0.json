@@ -29,7 +29,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const c=$json.context&&typeof $json.context==='object'&&!Array.isArray($json.context)?$json.context:{};return[{json:{is_valid:$json.is_valid===true,validation_errors:$json.validation_errors??[],source_contract:$json,story_context:{canon_uuid:typeof c.canon_uuid==='string'?c.canon_uuid.trim():'',novel_uuid:typeof c.novel_uuid==='string'?c.novel_uuid.trim():'',workspace_uuid:typeof c.workspace_uuid==='string'?c.workspace_uuid.trim():'',chapter_uuid:typeof c.chapter_uuid==='string'?c.chapter_uuid.trim():'',chapter_number:c.chapter_number??0,chapter_title:typeof c.chapter_title==='string'?c.chapter_title.trim().replace(/\\s+/gu,' '):'',created_at:typeof c.created_at==='string'?c.created_at:'',updated_at:typeof c.updated_at==='string'?c.updated_at:'',created_by:typeof c.created_by==='string'?c.created_by:''}}}];"
+        "jsCode": "const c=$json.context&&typeof $json.context==='object'&&!Array.isArray($json.context)?$json.context:{};return[{json:{is_valid:$json.is_valid===true,validation_errors:$json.validation_errors??[],_bootstrap_context:$json._bootstrap_context??{},source_contract:$json,story_context:{canon_uuid:typeof c.canon_uuid==='string'?c.canon_uuid.trim():'',novel_uuid:typeof c.novel_uuid==='string'?c.novel_uuid.trim():'',workspace_uuid:typeof c.workspace_uuid==='string'?c.workspace_uuid.trim():'',chapter_uuid:typeof c.chapter_uuid==='string'?c.chapter_uuid.trim():'',chapter_number:c.chapter_number??0,chapter_title:typeof c.chapter_title==='string'?c.chapter_title.trim().replace(/\\s+/gu,' '):'',created_at:typeof c.created_at==='string'?c.created_at:'',updated_at:typeof c.updated_at==='string'?c.updated_at:'',created_by:typeof c.created_by==='string'?c.created_by:''}}}];"
       },
       "id": "582cd4fa-9435-4afe-a048-6db713433746",
       "name": "Extract Story Context",
@@ -120,7 +120,7 @@
     },
     {
       "parameters": {
-        "jsCode": "function uuidHelper(){let t=Date.now();return'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=(t+Math.random()*16)%16|0;t=Math.floor(t/16);return(c==='x'?r:(r&3)|8).toString(16)})}const timestamp=new Date().toISOString();return[{json:{...$json,story_bible_uuid:$json.is_valid?`BIB-${uuidHelper().replace(/-/g,'').slice(0,8)}`:'',story_bible_created_at:timestamp}}];"
+        "jsCode": "const stableId=value=>{let h=2166136261;for(const ch of String(value).normalize('NFKC').toLocaleLowerCase()){h^=ch.codePointAt(0);h=Math.imul(h,16777619)}return(h>>>0).toString(16).padStart(8,'0')};const c=$json.story_context??{};const timestamp=new Date().toISOString();return[{json:{...$json,story_bible_uuid:$json.is_valid?`BIB-${stableId(`${c.novel_uuid}|story-bible`)}`:'',story_bible_created_at:timestamp,story_bible_knowledge_key:`${c.novel_uuid}|story-bible`}}];"
       },
       "id": "6eb61681-6995-4792-849d-95b92982eeba",
       "name": "Generate Story Bible UUID",
@@ -172,7 +172,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const valid=$json.is_valid===true;const c=$json.story_context??{};const story=valid?{story_bible_uuid:$json.story_bible_uuid,novel_uuid:c.novel_uuid,workspace_uuid:c.workspace_uuid,story_bible_version:'1.0',sections:$json.story_bible_sections,index:$json.story_bible_index,summary:$json.story_bible_summary,created_at:$json.story_bible_created_at,updated_at:$json.story_bible_created_at,created_by:'Novel Studio WF-010'}:null;return[{json:{schema_version:'1.0',workflow_version:'2.0',route:'story_bible.created',target:'WF-011',status:valid?'ready':'error',is_valid:valid,validation_errors:$json.validation_errors??[],story_bible:story,invalid_knowledge_records:valid?($json.invalid_knowledge_records??[]):[],context:valid?{canon_uuid:c.canon_uuid,novel_uuid:c.novel_uuid,workspace_uuid:c.workspace_uuid,chapter_uuid:c.chapter_uuid,chapter_number:c.chapter_number,chapter_title:c.chapter_title}:{}}}];"
+        "jsCode": "const valid=$json.is_valid===true;const c=$json.story_context??{};const story=valid?{story_bible_uuid:$json.story_bible_uuid,novel_uuid:c.novel_uuid,workspace_uuid:c.workspace_uuid,knowledge_key:$json.story_bible_knowledge_key,story_bible_version:'1.0',sections:$json.story_bible_sections,index:$json.story_bible_index,summary:$json.story_bible_summary,created_at:$json.story_bible_created_at,updated_at:$json.story_bible_created_at,created_by:'Novel Studio WF-010'}:null;return[{json:{schema_version:'1.0',workflow_version:'2.0',route:'story_bible.created',target:'WF-011',status:valid?'ready':'error',is_valid:valid,validation_errors:$json.validation_errors??[],story_bible:story,invalid_knowledge_records:valid?($json.invalid_knowledge_records??[]):[],_bootstrap_context:$json._bootstrap_context??{},context:valid?{canon_uuid:c.canon_uuid,novel_uuid:c.novel_uuid,workspace_uuid:c.workspace_uuid,chapter_uuid:c.chapter_uuid,chapter_number:c.chapter_number,chapter_title:c.chapter_title}:{}}}];"
       },
       "id": "877f1f43-6f83-4d47-bc22-113187b164b8",
       "name": "Build Final Output",

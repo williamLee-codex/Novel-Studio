@@ -157,7 +157,7 @@ character contract is valid.
 ## World ID Rules
 
 Only valid records receive `WLD-xxxxxxxx`. The helper uses the established local
-Math.random UUID fallback, never a cryptographic UUID API, sequential database
+deterministic `novel_uuid + world_type + normalized name` hash, sequential database
 ID, package, or external service.
 
 ## World Knowledge Object
@@ -348,3 +348,7 @@ import remains a release-environment check.
 | Version | Date | Changes |
 | --- | --- | --- |
 | 2.0 | 2026-08-01 | Initial consolidated World Knowledge Manager. |
+
+## Cross-run identity key
+
+World UUIDs are deterministic from `novel_uuid`, `world_type`, and normalized world name. Existing type-and-name duplicate merging is unchanged, while a retry now addresses the same World identities.
