@@ -1,0 +1,2107 @@
+{
+  "name": "KB-001 - Historical Knowledge Bootstrap Adapter v1",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "87abc291-0afc-481c-bfa4-831a166c345c",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const start=Number($env.KB001_START_CHAPTER||1),end=Number($env.KB001_END_CHAPTER||1),allowMulti=String($env.KB001_ALLOW_MULTI_CHAPTER_TEST||'').toLowerCase()==='true';if(!Number.isInteger(start)||!Number.isInteger(end)||start<1||end>182||end<start)throw new Error('KB-001 chapter range must be within 1..182; safe default is chapter 1 only.');if(end>start&&!allowMulti)throw new Error('KB001_ALLOW_MULTI_CHAPTER_TEST=true is required for more than one chapter.');const now=new Date().toISOString(),token=Date.now().toString(36);return [{json:{novel_uuid:'NOVEL001',workspace_uuid:String($env.KB001_WORKSPACE_UUID||''),existing_root_folder_id:String($env.KB001_ROOT_FOLDER_ID||''),workspace_folder_map:{},start_chapter:start,end_chapter:end,expected_chapter:start,bootstrap_mode:true,bootstrap_source:'historical_1_182',source_priority:'chapter_content',master_role:'validation',force_historical_mode:true,allow_canon_overwrite:false,stop_on_error:true,sequence_mode:'SEQUENTIAL',bootstrap_batch_id:String($env.KB001_BATCH_ID||`KB001-${token}`),run_id:`KB001-RUN-${token}`,run_started_at:now}}];"
+      },
+      "id": "0381c5d3-8553-4316-99b9-b65c6d4e585a",
+      "name": "Load Bootstrap Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Master Story Database v1"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Historical Knowledge Bootstrap Log"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "novel_uuid",
+              "lookupValue": "={{ $('Load Bootstrap Config').first().json.novel_uuid }}"
+            }
+          ]
+        },
+        "options": {
+          "returnFirstMatch": false
+        }
+      },
+      "id": "0c601385-aad6-4c63-9a13-f9c15a2c506f",
+      "name": "Read Bootstrap Log",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        480,
+        0
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "={{ $env.GOOGLE_SHEETS_CREDENTIAL_ID }}",
+          "name": "Google Sheets account"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const cfg=$('Load Bootstrap Config').first().json;const rows=$input.all().map(i=>i.json).filter(r=>r&&Object.keys(r).length);const completed=new Set(rows.filter(r=>String(r.status)==='COMPLETED').map(r=>Number(r.chapter_number)));let expected=cfg.start_chapter;while(expected<=cfg.end_chapter&&completed.has(expected))expected++;const prior=rows.filter(r=>Number(r.chapter_number)===expected);const retry_count=prior.length?Math.max(...prior.map(r=>Number(r.retry_count)||0))+1:0;return [{json:{...cfg,expected_chapter:expected,retry_count,completed_chapters:[...completed].sort((a,b)=>a-b)}}];"
+      },
+      "id": "bb660095-13b6-432d-9ade-f0ff9857d44b",
+      "name": "Resolve Resume Cursor",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.expected_chapter }}",
+              "rightValue": "={{ $json.end_chapter }}",
+              "operator": {
+                "type": "number",
+                "operation": "lte"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "ed9884a1-99be-47be-8dc4-9c0341ce4639",
+      "name": "Chapter In Range?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        960,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "1qJi6XSSKxliFyUbDiYFR5vLuyG0ejKJxzn8mHNRpivY"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "01_Master Chapters"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "novel_uuid",
+              "lookupValue": "={{ $json.novel_uuid }}"
+            },
+            {
+              "lookupColumn": "chapter_number",
+              "lookupValue": "={{ $json.expected_chapter }}"
+            },
+            {
+              "lookupColumn": "source_status",
+              "lookupValue": "LEGACY_MASTER"
+            }
+          ]
+        },
+        "options": {
+          "returnFirstMatch": false
+        }
+      },
+      "id": "f7885d48-3d4e-40cd-bb72-f8271b5e1438",
+      "name": "Load Historical Chapter Source",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        1200,
+        -100
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "={{ $env.GOOGLE_SHEETS_CREDENTIAL_ID }}",
+          "name": "Google Sheets account"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const state=$('Chapter In Range?').item.json;const rows=$input.all().map(i=>i.json).filter(r=>r&&Object.keys(r).length);if(rows.length!==1)throw new Error(`Expected exactly one LEGACY_MASTER row for chapter ${state.expected_chapter}; got ${rows.length}.`);const r=rows[0],content=String(r.chapter_content??''),title=String(r.chapter_title??'').trim(),actual=[...content].length,declared=String(r.content_length??'').trim()===''?null:Number(r.content_length);const errors=[];if(!String(r.novel_uuid??'').trim()||String(r.novel_uuid)!==state.novel_uuid)errors.push('novel_uuid missing or mismatched');if(Number(r.chapter_number)!==state.expected_chapter)errors.push('chapter_number mismatch');if(!title)errors.push('chapter_title missing');if(!content.trim())errors.push('chapter_content empty');if(String(r.source_status)!=='LEGACY_MASTER')errors.push('source_status is not LEGACY_MASTER');if(content.trim().length<200)errors.push('chapter_content is too short and may be a summary');if(declared!==null&&(!Number.isFinite(declared)||Math.abs(declared-actual)>Math.max(20,Math.ceil(actual*.05))))errors.push(`content_length mismatch declared=${declared} actual=${actual}`);if(errors.length)throw new Error(`Historical source validation failed: ${errors.join('; ')}`);return [{json:{...state,historical_source:{...r},chapter_title:title,chapter_content:content,actual_content_length:actual,started_at:new Date().toISOString()}}];"
+      },
+      "id": "cb0f141e-dd92-44d1-b08b-76396aa7b7b2",
+      "name": "Validate Historical Source",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Master Story Database v1"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "01_章節主表"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "章號",
+              "lookupValue": "={{ $json.expected_chapter }}"
+            }
+          ]
+        },
+        "options": {
+          "returnFirstMatch": false
+        }
+      },
+      "id": "1f387f39-f6b6-43dd-a009-ebf8e31465de",
+      "name": "Load Master Chapter Row",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        1680,
+        -100
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "={{ $env.GOOGLE_SHEETS_CREDENTIAL_ID }}",
+          "name": "Google Sheets account"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const s=$('Validate Historical Source').first().json;const rows=$input.all().map(i=>i.json).filter(r=>r&&Object.keys(r).length);if(rows.length!==1)throw new Error(`Expected exactly one Master validation row for chapter ${s.expected_chapter}; got ${rows.length}.`);const r=rows[0];if(Number(r['章號'])!==s.expected_chapter)throw new Error('Master validation row chapter mismatch.');const ids=String(r['矛盾ID']??'').match(/C\\d{3}/g)||[];const context={chapter_summary:String(r['章節摘要']??''),major_events:String(r['主要事件']??''),characters:String(r['登場人物']??''),character_state_changes:String(r['人物狀態變化']??''),realm_changes:String(r['境界變化']??''),factions:String(r['宗門／勢力']??''),locations:String(r['地點']??''),items_and_techniques:String(r['物品／功法']??''),foreshadowing_added:String(r['伏筆新增']??''),foreshadowing_progress:String(r['伏筆推進／回收']??''),ending_hook:String(r['章尾鉤子']??''),version_status:String(r['版本狀態']??''),completeness:String(r['完整性']??''),has_conflict:/^(是|true|yes|1)$/i.test(String(r['是否有矛盾']??'')),conflict_ids:[...new Set(ids)]};return [{json:{...s,historical_master_context:context,historical_conflict_ids:context.conflict_ids,known_historical_conflict:context.conflict_ids.length>0}}];"
+      },
+      "id": "41700ccb-d5b8-42b5-ab55-764ef5414997",
+      "name": "Build Historical Master Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const s=$json;if(!s.workspace_uuid||!s.existing_root_folder_id)throw new Error('KB001_WORKSPACE_UUID and KB001_ROOT_FOLDER_ID are required for the real WF-006..012 chain.');const key=`${s.novel_uuid}:chapter:${s.expected_chapter}:historical-bootstrap`;const bc={bootstrap_mode:true,bootstrap_source:s.bootstrap_source,historical_master_context:s.historical_master_context,historical_conflict_ids:s.historical_conflict_ids,known_historical_conflict:s.known_historical_conflict,source_priority:'chapter_content',master_role:'validation',sequence_number:s.expected_chapter,previous_chapter_number:s.expected_chapter-1,bootstrap_batch_id:s.bootstrap_batch_id,run_id:s.run_id,force_historical_mode:true,allow_canon_overwrite:false,stop_on_error:true,sequence_mode:'SEQUENTIAL',idempotency_key:key};return [{json:{schema_version:'1.0',workflow_version:'2.0',route:'chapter.persistence.created',status:'ready',is_valid:true,validation_errors:[],chapter:{chapter_uuid:`${s.novel_uuid}-CH-${String(s.expected_chapter).padStart(3,'0')}`,novel_uuid:s.novel_uuid,workspace_uuid:s.workspace_uuid,chapter_number:s.expected_chapter,chapter_title:s.chapter_title},chapter_content:s.chapter_content,_bootstrap_context:bc}}];"
+      },
+      "id": "5206cb55-ef61-4d04-be3d-6c7c43f06f98",
+      "name": "Build WF-006 Input Contract",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2160,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const s=$('Build Historical Master Context').first().json,b=$('Build WF-006 Input Contract').first().json._bootstrap_context;return [{json:{idempotency_key:b.idempotency_key,batch_id:b.bootstrap_batch_id,run_id:b.run_id,novel_uuid:s.novel_uuid,chapter_number:s.expected_chapter,status:'RUNNING',started_at:s.started_at,completed_at:'',wf006_status:'PENDING',wf007_status:'PENDING',wf008_status:'PENDING',wf009_status:'PENDING',wf010_status:'PENDING',wf011_status:'PENDING',wf012_status:'PENDING',error_workflow:'',error_node:'',error_message:'',retry_count:s.retry_count}}];"
+      },
+      "id": "33e24da2-a0e8-496c-a91a-1a645fd1d764",
+      "name": "Build RUNNING Log",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2400,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Master Story Database v1"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Historical Knowledge Bootstrap Log"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "idempotency_key": "={{ $json.idempotency_key }}",
+            "batch_id": "={{ $json.batch_id }}",
+            "run_id": "={{ $json.run_id }}",
+            "novel_uuid": "={{ $json.novel_uuid }}",
+            "chapter_number": "={{ $json.chapter_number }}",
+            "status": "={{ $json.status }}",
+            "started_at": "={{ $json.started_at }}",
+            "completed_at": "={{ $json.completed_at }}",
+            "wf006_status": "={{ $json.wf006_status }}",
+            "wf007_status": "={{ $json.wf007_status }}",
+            "wf008_status": "={{ $json.wf008_status }}",
+            "wf009_status": "={{ $json.wf009_status }}",
+            "wf010_status": "={{ $json.wf010_status }}",
+            "wf011_status": "={{ $json.wf011_status }}",
+            "wf012_status": "={{ $json.wf012_status }}",
+            "error_workflow": "={{ $json.error_workflow }}",
+            "error_node": "={{ $json.error_node }}",
+            "error_message": "={{ $json.error_message }}",
+            "retry_count": "={{ $json.retry_count }}"
+          },
+          "matchingColumns": [
+            "idempotency_key"
+          ],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "72d7835c-fc43-4157-8427-bf2037cf7606",
+      "name": "Upsert RUNNING Log",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        2640,
+        -100
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "={{ $env.GOOGLE_SHEETS_CREDENTIAL_ID }}",
+          "name": "Google Sheets account"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:$('Build WF-006 Input Contract').first().json}];"
+      },
+      "id": "8b886235-c9ea-4cdb-b353-ec326d0a6a57",
+      "name": "Restore WF-006 Contract",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2880,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": "WF-006 - Canon Knowledge Manager v2",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "4ffbb035-7610-44b9-9fc7-4fb1353d43e1",
+      "name": "Execute WF-006",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        3120,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const r=$json||{},ok=r.route==='canon.created'&&r.is_valid===true&&['ready','review_required'].includes(r.status);return [{json:{...r,_kb_stage:'WF-006',_kb_stage_ok:ok,_kb_error:ok?'':String(r.error?.message||r.error||r.validation_errors?.join('; ')||`Unexpected contract route=${r.route} status=${r.status}`)}}];"
+      },
+      "id": "41691c68-3d3c-4e86-9fb9-7357a7532c3f",
+      "name": "Validate WF-006 Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3360,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json._kb_stage_ok }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "1efa8e20-9860-4729-8cf4-1dba7657815e",
+      "name": "WF-006 Succeeded?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3600,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const base=$('Build RUNNING Log').first().json;const statuses={};for(let n=6;n<=12;n++)statuses[`wf${String(n).padStart(3,'0')}_status`]=n<6?'COMPLETED':n===6?'FAILED':'PENDING';return [{json:{...base,...statuses,status:'FAILED',completed_at:new Date().toISOString(),error_workflow:'WF-006',error_node:`Execute WF-006`,error_message:$json._kb_error}}];"
+      },
+      "id": "f6133071-1f99-4617-bd98-da0b0261f6d9",
+      "name": "Build WF-006 FAILED Log",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3600,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Master Story Database v1"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Historical Knowledge Bootstrap Log"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "idempotency_key": "={{ $json.idempotency_key }}",
+            "batch_id": "={{ $json.batch_id }}",
+            "run_id": "={{ $json.run_id }}",
+            "novel_uuid": "={{ $json.novel_uuid }}",
+            "chapter_number": "={{ $json.chapter_number }}",
+            "status": "={{ $json.status }}",
+            "started_at": "={{ $json.started_at }}",
+            "completed_at": "={{ $json.completed_at }}",
+            "wf006_status": "={{ $json.wf006_status }}",
+            "wf007_status": "={{ $json.wf007_status }}",
+            "wf008_status": "={{ $json.wf008_status }}",
+            "wf009_status": "={{ $json.wf009_status }}",
+            "wf010_status": "={{ $json.wf010_status }}",
+            "wf011_status": "={{ $json.wf011_status }}",
+            "wf012_status": "={{ $json.wf012_status }}",
+            "error_workflow": "={{ $json.error_workflow }}",
+            "error_node": "={{ $json.error_node }}",
+            "error_message": "={{ $json.error_message }}",
+            "retry_count": "={{ $json.retry_count }}"
+          },
+          "matchingColumns": [
+            "idempotency_key"
+          ],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "b2849a9b-d1d4-4725-bd43-366418777c0c",
+      "name": "Upsert WF-006 FAILED Log",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        3840,
+        180
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "={{ $env.GOOGLE_SHEETS_CREDENTIAL_ID }}",
+          "name": "Google Sheets account"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "errorMessage": "=KB-001 STOP_ON_ERROR: WF-006 failed for chapter {{ $(\"Build Historical Master Context\").first().json.expected_chapter }}"
+      },
+      "id": "4206f35c-e155-4f93-b6a2-2f2e43ec8d97",
+      "name": "Stop After WF-006 Failure",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        4080,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": "WF-007 - Character Knowledge Manager v2",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "cb166b57-a305-4469-877e-4eb07855583b",
+      "name": "Execute WF-007",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        3840,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const r=$json||{},ok=r.route==='characters.created'&&r.is_valid===true&&['ready','review_required'].includes(r.status);return [{json:{...r,_kb_stage:'WF-007',_kb_stage_ok:ok,_kb_error:ok?'':String(r.error?.message||r.error||r.validation_errors?.join('; ')||`Unexpected contract route=${r.route} status=${r.status}`)}}];"
+      },
+      "id": "b745aa3a-85f3-43d6-b618-ce75feafa963",
+      "name": "Validate WF-007 Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4080,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json._kb_stage_ok }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "853db2af-47a4-4041-9a33-ad7bbb48b820",
+      "name": "WF-007 Succeeded?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        4320,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const base=$('Build RUNNING Log').first().json;const statuses={};for(let n=6;n<=12;n++)statuses[`wf${String(n).padStart(3,'0')}_status`]=n<7?'COMPLETED':n===7?'FAILED':'PENDING';return [{json:{...base,...statuses,status:'FAILED',completed_at:new Date().toISOString(),error_workflow:'WF-007',error_node:`Execute WF-007`,error_message:$json._kb_error}}];"
+      },
+      "id": "1615cea4-fcbc-4530-b9f2-ea41ffef9c4d",
+      "name": "Build WF-007 FAILED Log",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4320,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Master Story Database v1"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Historical Knowledge Bootstrap Log"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "idempotency_key": "={{ $json.idempotency_key }}",
+            "batch_id": "={{ $json.batch_id }}",
+            "run_id": "={{ $json.run_id }}",
+            "novel_uuid": "={{ $json.novel_uuid }}",
+            "chapter_number": "={{ $json.chapter_number }}",
+            "status": "={{ $json.status }}",
+            "started_at": "={{ $json.started_at }}",
+            "completed_at": "={{ $json.completed_at }}",
+            "wf006_status": "={{ $json.wf006_status }}",
+            "wf007_status": "={{ $json.wf007_status }}",
+            "wf008_status": "={{ $json.wf008_status }}",
+            "wf009_status": "={{ $json.wf009_status }}",
+            "wf010_status": "={{ $json.wf010_status }}",
+            "wf011_status": "={{ $json.wf011_status }}",
+            "wf012_status": "={{ $json.wf012_status }}",
+            "error_workflow": "={{ $json.error_workflow }}",
+            "error_node": "={{ $json.error_node }}",
+            "error_message": "={{ $json.error_message }}",
+            "retry_count": "={{ $json.retry_count }}"
+          },
+          "matchingColumns": [
+            "idempotency_key"
+          ],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "fd83c4ff-63e1-4c92-ac50-b0b98890ee9b",
+      "name": "Upsert WF-007 FAILED Log",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        4560,
+        180
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "={{ $env.GOOGLE_SHEETS_CREDENTIAL_ID }}",
+          "name": "Google Sheets account"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "errorMessage": "=KB-001 STOP_ON_ERROR: WF-007 failed for chapter {{ $(\"Build Historical Master Context\").first().json.expected_chapter }}"
+      },
+      "id": "bc0f2127-a846-4387-8ed5-2be4da668b78",
+      "name": "Stop After WF-007 Failure",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        4800,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": "WF-008 - World Knowledge Manager v2",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "cf621dba-a927-4711-95d7-079bd0c5d3c7",
+      "name": "Execute WF-008",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        4560,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const r=$json||{},ok=r.route==='world.created'&&r.is_valid===true&&['ready','review_required'].includes(r.status);return [{json:{...r,_kb_stage:'WF-008',_kb_stage_ok:ok,_kb_error:ok?'':String(r.error?.message||r.error||r.validation_errors?.join('; ')||`Unexpected contract route=${r.route} status=${r.status}`)}}];"
+      },
+      "id": "31ddfd57-b845-4d93-a03a-5f4b484f50f3",
+      "name": "Validate WF-008 Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4800,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json._kb_stage_ok }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "1d6a6960-9630-4c8f-b69d-029f46cef4c5",
+      "name": "WF-008 Succeeded?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        5040,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const base=$('Build RUNNING Log').first().json;const statuses={};for(let n=6;n<=12;n++)statuses[`wf${String(n).padStart(3,'0')}_status`]=n<8?'COMPLETED':n===8?'FAILED':'PENDING';return [{json:{...base,...statuses,status:'FAILED',completed_at:new Date().toISOString(),error_workflow:'WF-008',error_node:`Execute WF-008`,error_message:$json._kb_error}}];"
+      },
+      "id": "a4c0cdbe-8573-4987-bd36-a81738314f49",
+      "name": "Build WF-008 FAILED Log",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5040,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Master Story Database v1"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Historical Knowledge Bootstrap Log"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "idempotency_key": "={{ $json.idempotency_key }}",
+            "batch_id": "={{ $json.batch_id }}",
+            "run_id": "={{ $json.run_id }}",
+            "novel_uuid": "={{ $json.novel_uuid }}",
+            "chapter_number": "={{ $json.chapter_number }}",
+            "status": "={{ $json.status }}",
+            "started_at": "={{ $json.started_at }}",
+            "completed_at": "={{ $json.completed_at }}",
+            "wf006_status": "={{ $json.wf006_status }}",
+            "wf007_status": "={{ $json.wf007_status }}",
+            "wf008_status": "={{ $json.wf008_status }}",
+            "wf009_status": "={{ $json.wf009_status }}",
+            "wf010_status": "={{ $json.wf010_status }}",
+            "wf011_status": "={{ $json.wf011_status }}",
+            "wf012_status": "={{ $json.wf012_status }}",
+            "error_workflow": "={{ $json.error_workflow }}",
+            "error_node": "={{ $json.error_node }}",
+            "error_message": "={{ $json.error_message }}",
+            "retry_count": "={{ $json.retry_count }}"
+          },
+          "matchingColumns": [
+            "idempotency_key"
+          ],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "43e1a5d0-08ec-46a0-b3f0-7f53b75706be",
+      "name": "Upsert WF-008 FAILED Log",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        5280,
+        180
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "={{ $env.GOOGLE_SHEETS_CREDENTIAL_ID }}",
+          "name": "Google Sheets account"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "errorMessage": "=KB-001 STOP_ON_ERROR: WF-008 failed for chapter {{ $(\"Build Historical Master Context\").first().json.expected_chapter }}"
+      },
+      "id": "2a2aa839-f799-4f49-be9e-598b125da359",
+      "name": "Stop After WF-008 Failure",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        5520,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": "WF-009 - Timeline Knowledge Manager v2",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "232fee1b-3889-469c-a3c8-611cc333d38d",
+      "name": "Execute WF-009",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        5280,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const r=$json||{},ok=r.route==='timeline.created'&&r.is_valid===true&&['ready','review_required'].includes(r.status);return [{json:{...r,_kb_stage:'WF-009',_kb_stage_ok:ok,_kb_error:ok?'':String(r.error?.message||r.error||r.validation_errors?.join('; ')||`Unexpected contract route=${r.route} status=${r.status}`)}}];"
+      },
+      "id": "465ba268-5615-4198-82f9-73ce620dfd7e",
+      "name": "Validate WF-009 Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5520,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json._kb_stage_ok }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "be6196ea-e055-49ef-8531-4c85c563b634",
+      "name": "WF-009 Succeeded?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        5760,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const base=$('Build RUNNING Log').first().json;const statuses={};for(let n=6;n<=12;n++)statuses[`wf${String(n).padStart(3,'0')}_status`]=n<9?'COMPLETED':n===9?'FAILED':'PENDING';return [{json:{...base,...statuses,status:'FAILED',completed_at:new Date().toISOString(),error_workflow:'WF-009',error_node:`Execute WF-009`,error_message:$json._kb_error}}];"
+      },
+      "id": "4a8bed87-d165-4307-a4a2-b9c96671a002",
+      "name": "Build WF-009 FAILED Log",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5760,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Master Story Database v1"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Historical Knowledge Bootstrap Log"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "idempotency_key": "={{ $json.idempotency_key }}",
+            "batch_id": "={{ $json.batch_id }}",
+            "run_id": "={{ $json.run_id }}",
+            "novel_uuid": "={{ $json.novel_uuid }}",
+            "chapter_number": "={{ $json.chapter_number }}",
+            "status": "={{ $json.status }}",
+            "started_at": "={{ $json.started_at }}",
+            "completed_at": "={{ $json.completed_at }}",
+            "wf006_status": "={{ $json.wf006_status }}",
+            "wf007_status": "={{ $json.wf007_status }}",
+            "wf008_status": "={{ $json.wf008_status }}",
+            "wf009_status": "={{ $json.wf009_status }}",
+            "wf010_status": "={{ $json.wf010_status }}",
+            "wf011_status": "={{ $json.wf011_status }}",
+            "wf012_status": "={{ $json.wf012_status }}",
+            "error_workflow": "={{ $json.error_workflow }}",
+            "error_node": "={{ $json.error_node }}",
+            "error_message": "={{ $json.error_message }}",
+            "retry_count": "={{ $json.retry_count }}"
+          },
+          "matchingColumns": [
+            "idempotency_key"
+          ],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "510dd626-73f8-412b-99ac-162a3dab5071",
+      "name": "Upsert WF-009 FAILED Log",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        6000,
+        180
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "={{ $env.GOOGLE_SHEETS_CREDENTIAL_ID }}",
+          "name": "Google Sheets account"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "errorMessage": "=KB-001 STOP_ON_ERROR: WF-009 failed for chapter {{ $(\"Build Historical Master Context\").first().json.expected_chapter }}"
+      },
+      "id": "da9d7837-acdf-4855-a1b2-f5b890cf9f45",
+      "name": "Stop After WF-009 Failure",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        6240,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": "WF-010 - Story Bible Manager v2",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "fcc3b175-7ebc-43e3-a25d-3266a2128633",
+      "name": "Execute WF-010",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        6000,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const r=$json||{},ok=r.route==='story_bible.created'&&r.is_valid===true&&['ready','review_required'].includes(r.status);return [{json:{...r,_kb_stage:'WF-010',_kb_stage_ok:ok,_kb_error:ok?'':String(r.error?.message||r.error||r.validation_errors?.join('; ')||`Unexpected contract route=${r.route} status=${r.status}`)}}];"
+      },
+      "id": "9ed70e9f-11fa-4178-974d-8e7735fe2740",
+      "name": "Validate WF-010 Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6240,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json._kb_stage_ok }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "96c9ec3f-8ae6-4e5c-9b83-0a4f7192309e",
+      "name": "WF-010 Succeeded?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        6480,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const base=$('Build RUNNING Log').first().json;const statuses={};for(let n=6;n<=12;n++)statuses[`wf${String(n).padStart(3,'0')}_status`]=n<10?'COMPLETED':n===10?'FAILED':'PENDING';return [{json:{...base,...statuses,status:'FAILED',completed_at:new Date().toISOString(),error_workflow:'WF-010',error_node:`Execute WF-010`,error_message:$json._kb_error}}];"
+      },
+      "id": "f8ac8821-5a5f-448f-9c04-b210fa9d4cea",
+      "name": "Build WF-010 FAILED Log",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6480,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Master Story Database v1"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Historical Knowledge Bootstrap Log"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "idempotency_key": "={{ $json.idempotency_key }}",
+            "batch_id": "={{ $json.batch_id }}",
+            "run_id": "={{ $json.run_id }}",
+            "novel_uuid": "={{ $json.novel_uuid }}",
+            "chapter_number": "={{ $json.chapter_number }}",
+            "status": "={{ $json.status }}",
+            "started_at": "={{ $json.started_at }}",
+            "completed_at": "={{ $json.completed_at }}",
+            "wf006_status": "={{ $json.wf006_status }}",
+            "wf007_status": "={{ $json.wf007_status }}",
+            "wf008_status": "={{ $json.wf008_status }}",
+            "wf009_status": "={{ $json.wf009_status }}",
+            "wf010_status": "={{ $json.wf010_status }}",
+            "wf011_status": "={{ $json.wf011_status }}",
+            "wf012_status": "={{ $json.wf012_status }}",
+            "error_workflow": "={{ $json.error_workflow }}",
+            "error_node": "={{ $json.error_node }}",
+            "error_message": "={{ $json.error_message }}",
+            "retry_count": "={{ $json.retry_count }}"
+          },
+          "matchingColumns": [
+            "idempotency_key"
+          ],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "a2eeef59-2fce-4a35-91b1-2389b832ac92",
+      "name": "Upsert WF-010 FAILED Log",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        6720,
+        180
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "={{ $env.GOOGLE_SHEETS_CREDENTIAL_ID }}",
+          "name": "Google Sheets account"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "errorMessage": "=KB-001 STOP_ON_ERROR: WF-010 failed for chapter {{ $(\"Build Historical Master Context\").first().json.expected_chapter }}"
+      },
+      "id": "35dac027-2c74-4182-b18d-4d0b2f0807e3",
+      "name": "Stop After WF-010 Failure",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        6960,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const s=$('Build Historical Master Context').first().json;const b=$('Build WF-006 Input Contract').first().json._bootstrap_context;return [{json:{...$json,existing_root_folder_id:s.existing_root_folder_id,workspace_folder_map:s.workspace_folder_map||{},_bootstrap_context:b}}];"
+      },
+      "id": "ebcc08a3-8075-475d-bd54-6959f9f6a0ff",
+      "name": "Prepare WF-011 Runtime Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6480,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": "WF-011 - Knowledge Persistence Manager v2",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "8724a003-aee6-4cf3-9a84-e6a02dd675f0",
+      "name": "Execute WF-011",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        6720,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const r=$json||{},ok=r.route==='knowledge.persistence.completed'&&r.is_valid===true&&['ready','review_required'].includes(r.status);return [{json:{...r,_kb_stage:'WF-011',_kb_stage_ok:ok,_kb_error:ok?'':String(r.error?.message||r.error||r.validation_errors?.join('; ')||`Unexpected contract route=${r.route} status=${r.status}`)}}];"
+      },
+      "id": "427cf404-3888-42a9-9f26-eeaefaa958b3",
+      "name": "Validate WF-011 Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6960,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json._kb_stage_ok }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "3e72396f-0818-4eb4-9896-ea78c0d2a420",
+      "name": "WF-011 Succeeded?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        7200,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const base=$('Build RUNNING Log').first().json;const statuses={};for(let n=6;n<=12;n++)statuses[`wf${String(n).padStart(3,'0')}_status`]=n<11?'COMPLETED':n===11?'FAILED':'PENDING';return [{json:{...base,...statuses,status:'FAILED',completed_at:new Date().toISOString(),error_workflow:'WF-011',error_node:`Execute WF-011`,error_message:$json._kb_error}}];"
+      },
+      "id": "8e0cf29a-4ffc-4640-831d-f50e36dc228e",
+      "name": "Build WF-011 FAILED Log",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        7200,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Master Story Database v1"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Historical Knowledge Bootstrap Log"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "idempotency_key": "={{ $json.idempotency_key }}",
+            "batch_id": "={{ $json.batch_id }}",
+            "run_id": "={{ $json.run_id }}",
+            "novel_uuid": "={{ $json.novel_uuid }}",
+            "chapter_number": "={{ $json.chapter_number }}",
+            "status": "={{ $json.status }}",
+            "started_at": "={{ $json.started_at }}",
+            "completed_at": "={{ $json.completed_at }}",
+            "wf006_status": "={{ $json.wf006_status }}",
+            "wf007_status": "={{ $json.wf007_status }}",
+            "wf008_status": "={{ $json.wf008_status }}",
+            "wf009_status": "={{ $json.wf009_status }}",
+            "wf010_status": "={{ $json.wf010_status }}",
+            "wf011_status": "={{ $json.wf011_status }}",
+            "wf012_status": "={{ $json.wf012_status }}",
+            "error_workflow": "={{ $json.error_workflow }}",
+            "error_node": "={{ $json.error_node }}",
+            "error_message": "={{ $json.error_message }}",
+            "retry_count": "={{ $json.retry_count }}"
+          },
+          "matchingColumns": [
+            "idempotency_key"
+          ],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "45f9b9f0-8b08-47d2-bfe7-bd9e5d9b8fa8",
+      "name": "Upsert WF-011 FAILED Log",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        7440,
+        180
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "={{ $env.GOOGLE_SHEETS_CREDENTIAL_ID }}",
+          "name": "Google Sheets account"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "errorMessage": "=KB-001 STOP_ON_ERROR: WF-011 failed for chapter {{ $(\"Build Historical Master Context\").first().json.expected_chapter }}"
+      },
+      "id": "f84712e4-7671-4ca8-91ea-59119f292f30",
+      "name": "Stop After WF-011 Failure",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        7680,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": "WF-012 - Knowledge Integrity Manager v2",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "2a352fa5-b668-4790-b1d7-d9e58fbbd12c",
+      "name": "Execute WF-012",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        7440,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const r=$json||{},ok=r.route==='knowledge.integrity.completed'&&r.is_valid===true&&['ready','review_required'].includes(r.status);return [{json:{...r,_kb_stage:'WF-012',_kb_stage_ok:ok,_kb_error:ok?'':String(r.error?.message||r.error||r.validation_errors?.join('; ')||`Unexpected contract route=${r.route} status=${r.status}`)}}];"
+      },
+      "id": "f5991b52-9bb9-41da-8ceb-2d0879f5f9e9",
+      "name": "Validate WF-012 Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        7680,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json._kb_stage_ok }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "0723f9bb-c0cd-4b36-87de-55bf07f043b1",
+      "name": "WF-012 Succeeded?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        7920,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const base=$('Build RUNNING Log').first().json;const statuses={};for(let n=6;n<=12;n++)statuses[`wf${String(n).padStart(3,'0')}_status`]=n<12?'COMPLETED':n===12?'FAILED':'PENDING';return [{json:{...base,...statuses,status:'FAILED',completed_at:new Date().toISOString(),error_workflow:'WF-012',error_node:`Execute WF-012`,error_message:$json._kb_error}}];"
+      },
+      "id": "52e02213-7870-40a3-b377-16ee6d667d42",
+      "name": "Build WF-012 FAILED Log",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        7920,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Master Story Database v1"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Historical Knowledge Bootstrap Log"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "idempotency_key": "={{ $json.idempotency_key }}",
+            "batch_id": "={{ $json.batch_id }}",
+            "run_id": "={{ $json.run_id }}",
+            "novel_uuid": "={{ $json.novel_uuid }}",
+            "chapter_number": "={{ $json.chapter_number }}",
+            "status": "={{ $json.status }}",
+            "started_at": "={{ $json.started_at }}",
+            "completed_at": "={{ $json.completed_at }}",
+            "wf006_status": "={{ $json.wf006_status }}",
+            "wf007_status": "={{ $json.wf007_status }}",
+            "wf008_status": "={{ $json.wf008_status }}",
+            "wf009_status": "={{ $json.wf009_status }}",
+            "wf010_status": "={{ $json.wf010_status }}",
+            "wf011_status": "={{ $json.wf011_status }}",
+            "wf012_status": "={{ $json.wf012_status }}",
+            "error_workflow": "={{ $json.error_workflow }}",
+            "error_node": "={{ $json.error_node }}",
+            "error_message": "={{ $json.error_message }}",
+            "retry_count": "={{ $json.retry_count }}"
+          },
+          "matchingColumns": [
+            "idempotency_key"
+          ],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "89b1d9b5-08a8-4cd0-bbc6-4e947b3b1c62",
+      "name": "Upsert WF-012 FAILED Log",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        8160,
+        180
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "={{ $env.GOOGLE_SHEETS_CREDENTIAL_ID }}",
+          "name": "Google Sheets account"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "errorMessage": "=KB-001 STOP_ON_ERROR: WF-012 failed for chapter {{ $(\"Build Historical Master Context\").first().json.expected_chapter }}"
+      },
+      "id": "0fe8c2e4-7017-4309-88b4-4824d107ff14",
+      "name": "Stop After WF-012 Failure",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        8400,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const base=$('Build RUNNING Log').first().json;return [{json:{...base,status:'COMPLETED',completed_at:new Date().toISOString(),wf006_status:'COMPLETED',wf007_status:'COMPLETED',wf008_status:'COMPLETED',wf009_status:'COMPLETED',wf010_status:'COMPLETED',wf011_status:'COMPLETED',wf012_status:'COMPLETED'}}];"
+      },
+      "id": "9f5f2e28-c1bc-4266-83c7-ded4b19f08c9",
+      "name": "Build COMPLETED Log",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        8160,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Master Story Database v1"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Historical Knowledge Bootstrap Log"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "idempotency_key": "={{ $json.idempotency_key }}",
+            "batch_id": "={{ $json.batch_id }}",
+            "run_id": "={{ $json.run_id }}",
+            "novel_uuid": "={{ $json.novel_uuid }}",
+            "chapter_number": "={{ $json.chapter_number }}",
+            "status": "={{ $json.status }}",
+            "started_at": "={{ $json.started_at }}",
+            "completed_at": "={{ $json.completed_at }}",
+            "wf006_status": "={{ $json.wf006_status }}",
+            "wf007_status": "={{ $json.wf007_status }}",
+            "wf008_status": "={{ $json.wf008_status }}",
+            "wf009_status": "={{ $json.wf009_status }}",
+            "wf010_status": "={{ $json.wf010_status }}",
+            "wf011_status": "={{ $json.wf011_status }}",
+            "wf012_status": "={{ $json.wf012_status }}",
+            "error_workflow": "={{ $json.error_workflow }}",
+            "error_node": "={{ $json.error_node }}",
+            "error_message": "={{ $json.error_message }}",
+            "retry_count": "={{ $json.retry_count }}"
+          },
+          "matchingColumns": [
+            "idempotency_key"
+          ],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "b61992bf-90b7-44dd-81e5-896a45d46429",
+      "name": "Upsert COMPLETED Log",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        8400,
+        -100
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "={{ $env.GOOGLE_SHEETS_CREDENTIAL_ID }}",
+          "name": "Google Sheets account"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const s=$('Build Historical Master Context').first().json;return [{json:{...s,expected_chapter:s.expected_chapter+1,retry_count:0}}];"
+      },
+      "id": "2b1978b0-2ffb-4b40-8472-575dd280a0ca",
+      "name": "Advance Sequential Cursor",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        8640,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const cfg=$('Load Bootstrap Config').first().json;return [{json:{workflow:'KB-001 - Historical Knowledge Bootstrap Adapter v1',status:'COMPLETED',run_id:cfg.run_id,bootstrap_batch_id:cfg.bootstrap_batch_id,sequence_mode:'SEQUENTIAL',stop_on_error:true,completed_at:new Date().toISOString()}}];"
+      },
+      "id": "6bcefd71-1d4e-44c4-b3f9-99c32d98cfb2",
+      "name": "Finish Bootstrap Run",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        100
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Upsert RUNNING Log": {
+      "main": [
+        [
+          {
+            "node": "Restore WF-006 Contract",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Restore WF-006 Contract": {
+      "main": [
+        [
+          {
+            "node": "Execute WF-006",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute WF-006": {
+      "main": [
+        [
+          {
+            "node": "Validate WF-006 Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate WF-006 Result": {
+      "main": [
+        [
+          {
+            "node": "WF-006 Succeeded?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WF-006 Succeeded?": {
+      "main": [
+        [
+          {
+            "node": "Execute WF-007",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build WF-006 FAILED Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build WF-006 FAILED Log": {
+      "main": [
+        [
+          {
+            "node": "Upsert WF-006 FAILED Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upsert WF-006 FAILED Log": {
+      "main": [
+        [
+          {
+            "node": "Stop After WF-006 Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute WF-007": {
+      "main": [
+        [
+          {
+            "node": "Validate WF-007 Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate WF-007 Result": {
+      "main": [
+        [
+          {
+            "node": "WF-007 Succeeded?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WF-007 Succeeded?": {
+      "main": [
+        [
+          {
+            "node": "Execute WF-008",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build WF-007 FAILED Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build WF-007 FAILED Log": {
+      "main": [
+        [
+          {
+            "node": "Upsert WF-007 FAILED Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upsert WF-007 FAILED Log": {
+      "main": [
+        [
+          {
+            "node": "Stop After WF-007 Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute WF-008": {
+      "main": [
+        [
+          {
+            "node": "Validate WF-008 Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate WF-008 Result": {
+      "main": [
+        [
+          {
+            "node": "WF-008 Succeeded?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WF-008 Succeeded?": {
+      "main": [
+        [
+          {
+            "node": "Execute WF-009",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build WF-008 FAILED Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build WF-008 FAILED Log": {
+      "main": [
+        [
+          {
+            "node": "Upsert WF-008 FAILED Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upsert WF-008 FAILED Log": {
+      "main": [
+        [
+          {
+            "node": "Stop After WF-008 Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute WF-009": {
+      "main": [
+        [
+          {
+            "node": "Validate WF-009 Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate WF-009 Result": {
+      "main": [
+        [
+          {
+            "node": "WF-009 Succeeded?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WF-009 Succeeded?": {
+      "main": [
+        [
+          {
+            "node": "Execute WF-010",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build WF-009 FAILED Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build WF-009 FAILED Log": {
+      "main": [
+        [
+          {
+            "node": "Upsert WF-009 FAILED Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upsert WF-009 FAILED Log": {
+      "main": [
+        [
+          {
+            "node": "Stop After WF-009 Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute WF-010": {
+      "main": [
+        [
+          {
+            "node": "Validate WF-010 Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate WF-010 Result": {
+      "main": [
+        [
+          {
+            "node": "WF-010 Succeeded?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WF-010 Succeeded?": {
+      "main": [
+        [
+          {
+            "node": "Prepare WF-011 Runtime Input",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build WF-010 FAILED Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build WF-010 FAILED Log": {
+      "main": [
+        [
+          {
+            "node": "Upsert WF-010 FAILED Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upsert WF-010 FAILED Log": {
+      "main": [
+        [
+          {
+            "node": "Stop After WF-010 Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare WF-011 Runtime Input": {
+      "main": [
+        [
+          {
+            "node": "Execute WF-011",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute WF-011": {
+      "main": [
+        [
+          {
+            "node": "Validate WF-011 Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate WF-011 Result": {
+      "main": [
+        [
+          {
+            "node": "WF-011 Succeeded?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WF-011 Succeeded?": {
+      "main": [
+        [
+          {
+            "node": "Execute WF-012",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build WF-011 FAILED Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build WF-011 FAILED Log": {
+      "main": [
+        [
+          {
+            "node": "Upsert WF-011 FAILED Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upsert WF-011 FAILED Log": {
+      "main": [
+        [
+          {
+            "node": "Stop After WF-011 Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute WF-012": {
+      "main": [
+        [
+          {
+            "node": "Validate WF-012 Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate WF-012 Result": {
+      "main": [
+        [
+          {
+            "node": "WF-012 Succeeded?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WF-012 Succeeded?": {
+      "main": [
+        [
+          {
+            "node": "Build COMPLETED Log",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build WF-012 FAILED Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build WF-012 FAILED Log": {
+      "main": [
+        [
+          {
+            "node": "Upsert WF-012 FAILED Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upsert WF-012 FAILED Log": {
+      "main": [
+        [
+          {
+            "node": "Stop After WF-012 Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build COMPLETED Log": {
+      "main": [
+        [
+          {
+            "node": "Upsert COMPLETED Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upsert COMPLETED Log": {
+      "main": [
+        [
+          {
+            "node": "Advance Sequential Cursor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Advance Sequential Cursor": {
+      "main": [
+        [
+          {
+            "node": "Chapter In Range?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chapter In Range?": {
+      "main": [
+        [
+          {
+            "node": "Load Historical Chapter Source",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Finish Bootstrap Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Load Bootstrap Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Bootstrap Config": {
+      "main": [
+        [
+          {
+            "node": "Read Bootstrap Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Bootstrap Log": {
+      "main": [
+        [
+          {
+            "node": "Resolve Resume Cursor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve Resume Cursor": {
+      "main": [
+        [
+          {
+            "node": "Chapter In Range?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Historical Chapter Source": {
+      "main": [
+        [
+          {
+            "node": "Validate Historical Source",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Historical Source": {
+      "main": [
+        [
+          {
+            "node": "Load Master Chapter Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Master Chapter Row": {
+      "main": [
+        [
+          {
+            "node": "Build Historical Master Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Historical Master Context": {
+      "main": [
+        [
+          {
+            "node": "Build WF-006 Input Contract",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build WF-006 Input Contract": {
+      "main": [
+        [
+          {
+            "node": "Build RUNNING Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build RUNNING Log": {
+      "main": [
+        [
+          {
+            "node": "Upsert RUNNING Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "40c8df33-c896-4e6b-925f-071546ec7d72",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

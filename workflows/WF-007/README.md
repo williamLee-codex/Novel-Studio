@@ -139,7 +139,7 @@ the workflow's ready status when the Canon envelope is valid.
 ## Character ID Rules
 
 Only valid records receive an ID. `uuidHelper()` uses the established local
-Math.random fallback; its first eight hexadecimal characters receive the
+deterministic hash of `novel_uuid` plus normalized character name; its eight hexadecimal characters receive the
 `CHR-` prefix. No cryptographic UUID API, sequential database ID, package, or
 external service is used.
 
@@ -309,3 +309,7 @@ import remains a release-environment check.
 | Version | Date | Changes |
 | --- | --- | --- |
 | 2.0 | 2026-08-01 | Initial consolidated Character Knowledge Manager. |
+
+## Cross-run identity key
+
+Character UUIDs are deterministic from `novel_uuid` plus normalized character name. Existing in-run duplicate merging is unchanged, while a retry of the same chapter now addresses the same Character identities.

@@ -146,7 +146,7 @@ invalid.
 ## Timeline ID Rules
 
 Only valid records receive `TML-xxxxxxxx`. The helper uses the established local
-Math.random UUID fallback, never a cryptographic UUID API, sequential database
+deterministic `novel_uuid + chapter + event order + normalized event name` hash, sequential database
 ID, package, or external service. Version is `1.0`; created/updated timestamps
 share one ISO 8601 instant per object; creator is `Novel Studio WF-009`.
 
@@ -274,3 +274,7 @@ release-environment check.
 | Version | Date | Changes |
 | --- | --- | --- |
 | 2.0 | 2026-08-01 | Initial consolidated Timeline Knowledge Manager. |
+
+## Cross-run identity key
+
+Timeline UUIDs are deterministic from `novel_uuid`, chapter number, event order, and normalized event name. A retry of the same chapter/event therefore addresses the same Timeline identity.
