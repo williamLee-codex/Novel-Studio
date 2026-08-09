@@ -1,0 +1,1309 @@
+{
+  "name": "WF-013 - Chapter Context Assembly v1.0",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "6be7afa5-5c9c-52a3-a8a3-089fe65443eb",
+      "name": "When Executed by Another Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first()?.json ?? {};\nconst fail = (message) => { throw new Error(`INVALID_CONTEXT_INPUT: ${message}`); };\nif (String(input.schema_version ?? '') !== '1.0') fail('schema_version must equal 1.0');\nif (input.operation !== 'build_chapter_context') fail('operation must equal build_chapter_context');\nconst novelId = String(input.novel?.novel_id ?? '').trim();\nif (!novelId) fail('novel.novel_id is required');\nif (!/^NOVEL\\d+$/.test(novelId)) fail('novel.novel_id must match NOVEL+digits');\nconst novelName = String(input.novel?.novel_name ?? '').trim();\nif (!novelName) fail('novel.novel_name is required');\nconst chapterNo = input.chapter?.next_chapter_no;\nif (!Number.isInteger(chapterNo) || chapterNo <= 0) fail('chapter.next_chapter_no must be a positive integer');\nconst chapterId = String(input.chapter?.next_chapter_id ?? '').trim();\nif (!chapterId) fail('chapter.next_chapter_id is required');\nconst expectedChapterId = `${novelId}-${String(chapterNo).padStart(4, '0')}`;\nif (chapterId !== expectedChapterId) fail(`chapter.next_chapter_id must equal ${expectedChapterId}`);\nconst workspaceFolderId = String(input.storage?.workspace_folder_id ?? '').trim();\nif (!workspaceFolderId) fail('storage.workspace_folder_id is required');\nconst workspaceVersion = String(input.storage?.workspace_version ?? '').trim();\nif (!workspaceVersion) fail('storage.workspace_version is required');\nreturn [{json:{schema_version:'1.0',operation:'build_chapter_context',novel:{novel_id:novelId,novel_name:novelName},chapter:{next_chapter_no:chapterNo,next_chapter_id:chapterId},storage:{workspace_folder_id:workspaceFolderId,workspace_version:workspaceVersion},knowledge:{},sheets:{}}}];"
+      },
+      "id": "3cbbaca9-ed30-569d-aea9-7749fa1e6fb7",
+      "name": "Validate Context Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "operation": "search",
+        "searchMethod": "query",
+        "queryString": "={{ \"'\" + $('Validate Context Input').first().json.storage.workspace_folder_id + \"' in parents and mimeType = 'application/vnd.google-apps.folder' and (name = '03_Canon' or name = '04_Characters' or name = '05_World') and trashed = false\" }}",
+        "returnAll": true,
+        "filter": {},
+        "options": {
+          "fields": [
+            "id",
+            "name",
+            "mimeType",
+            "parents"
+          ]
+        }
+      },
+      "id": "36565d1b-1e65-5381-bbd1-d8f447807eff",
+      "name": "Resolve Knowledge Folders",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        440,
+        0
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "m8Ze5QDWBQQ0zNjj",
+          "name": "Google Drive account"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const state = structuredClone($('Validate Context Input').first().json);\nconst rows = $input.all().map(i => i.json).filter(r => r && r.id);\nconst byName = Object.fromEntries(rows.map(r => [r.name, r.id]));\nstate.folder_ids = {canon: byName['03_Canon'] || '', characters: byName['04_Characters'] || '', world: byName['05_World'] || ''};\nreturn [{json:state}];"
+      },
+      "id": "f27a444d-cf32-5a63-b2be-8186994f3141",
+      "name": "Index Knowledge Folders",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "operation": "search",
+        "searchMethod": "query",
+        "queryString": "={ \"name = 'StoryBible.json' and '\" + $('Index Knowledge Folders').first().json.folder_ids.canon + \"' in parents and mimeType != 'application/vnd.google-apps.folder' and trashed = false\" }",
+        "returnAll": false,
+        "limit": 1,
+        "filter": {},
+        "options": {
+          "fields": [
+            "id",
+            "name",
+            "mimeType",
+            "parents"
+          ]
+        }
+      },
+      "id": "1710259f-648b-5cbd-af19-f370662b4379",
+      "name": "Find StoryBible JSON",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        880,
+        0
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "m8Ze5QDWBQQ0zNjj",
+          "name": "Google Drive account"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={ $('Find StoryBible JSON').first().json.id || '__WF013_MISSING__' }"
+        },
+        "options": {}
+      },
+      "id": "247c40b8-7018-52b0-bb1d-c5e6f6f1e490",
+      "name": "Read StoryBible JSON",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1080,
+        0
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "m8Ze5QDWBQQ0zNjj",
+          "name": "Google Drive account"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const state = structuredClone($('Index Knowledge Folders').first().json);\nconst found = $('Find StoryBible JSON').first()?.json?.id;\nlet value = {};\nif (!found) { state.knowledge['StoryBible.json'] = {found:false, valid:false, value}; return [{json:state}]; }\ntry { const buffer = await this.helpers.getBinaryDataBuffer(0, 'data'); value = JSON.parse(buffer.toString('utf8')); state.knowledge['StoryBible.json']={found:true,valid:true,value}; } catch (error) { state.knowledge['StoryBible.json']={found:true,valid:false,value,error:String(error.message||error)}; }\nreturn [{json:state}];"
+      },
+      "id": "4416ed54-697a-545c-bd32-53bb538e0481",
+      "name": "Parse StoryBible JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1280,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "operation": "search",
+        "searchMethod": "query",
+        "queryString": "={ \"name = 'Canon.json' and '\" + $('Index Knowledge Folders').first().json.folder_ids.canon + \"' in parents and mimeType != 'application/vnd.google-apps.folder' and trashed = false\" }",
+        "returnAll": false,
+        "limit": 1,
+        "filter": {},
+        "options": {
+          "fields": [
+            "id",
+            "name",
+            "mimeType",
+            "parents"
+          ]
+        }
+      },
+      "id": "7bac20d2-d6e1-50d6-acb7-370f601b93ed",
+      "name": "Find Canon JSON",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1480,
+        0
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "m8Ze5QDWBQQ0zNjj",
+          "name": "Google Drive account"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={ $('Find Canon JSON').first().json.id || '__WF013_MISSING__' }"
+        },
+        "options": {}
+      },
+      "id": "29cc40fa-9311-503b-810e-4b8ff0c5158f",
+      "name": "Read Canon JSON",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1680,
+        0
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "m8Ze5QDWBQQ0zNjj",
+          "name": "Google Drive account"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const state = structuredClone($('Parse StoryBible JSON').first().json);\nconst found = $('Find Canon JSON').first()?.json?.id;\nlet value = {};\nif (!found) { state.knowledge['Canon.json'] = {found:false, valid:false, value}; return [{json:state}]; }\ntry { const buffer = await this.helpers.getBinaryDataBuffer(0, 'data'); value = JSON.parse(buffer.toString('utf8')); state.knowledge['Canon.json']={found:true,valid:true,value}; } catch (error) { state.knowledge['Canon.json']={found:true,valid:false,value,error:String(error.message||error)}; }\nreturn [{json:state}];"
+      },
+      "id": "b97e543f-3efb-52d9-b926-8eacd6f5206a",
+      "name": "Parse Canon JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1880,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "operation": "search",
+        "searchMethod": "query",
+        "queryString": "={ \"name = 'Characters.json' and '\" + $('Index Knowledge Folders').first().json.folder_ids.characters + \"' in parents and mimeType != 'application/vnd.google-apps.folder' and trashed = false\" }",
+        "returnAll": false,
+        "limit": 1,
+        "filter": {},
+        "options": {
+          "fields": [
+            "id",
+            "name",
+            "mimeType",
+            "parents"
+          ]
+        }
+      },
+      "id": "8bc9c6df-e06d-5305-a67f-720bb8a81641",
+      "name": "Find Characters JSON",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        2080,
+        0
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "m8Ze5QDWBQQ0zNjj",
+          "name": "Google Drive account"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={ $('Find Characters JSON').first().json.id || '__WF013_MISSING__' }"
+        },
+        "options": {}
+      },
+      "id": "d5ba631f-21d5-5783-bea4-4e5e0ebe0c21",
+      "name": "Read Characters JSON",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        2280,
+        0
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "m8Ze5QDWBQQ0zNjj",
+          "name": "Google Drive account"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const state = structuredClone($('Parse Canon JSON').first().json);\nconst found = $('Find Characters JSON').first()?.json?.id;\nlet value = [];\nif (!found) { state.knowledge['Characters.json'] = {found:false, valid:false, value}; return [{json:state}]; }\ntry { const buffer = await this.helpers.getBinaryDataBuffer(0, 'data'); value = JSON.parse(buffer.toString('utf8')); state.knowledge['Characters.json']={found:true,valid:true,value}; } catch (error) { state.knowledge['Characters.json']={found:true,valid:false,value,error:String(error.message||error)}; }\nreturn [{json:state}];"
+      },
+      "id": "1f40a89d-fb31-597b-ba30-3397d4501ec7",
+      "name": "Parse Characters JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "operation": "search",
+        "searchMethod": "query",
+        "queryString": "={ \"name = 'World.json' and '\" + $('Index Knowledge Folders').first().json.folder_ids.world + \"' in parents and mimeType != 'application/vnd.google-apps.folder' and trashed = false\" }",
+        "returnAll": false,
+        "limit": 1,
+        "filter": {},
+        "options": {
+          "fields": [
+            "id",
+            "name",
+            "mimeType",
+            "parents"
+          ]
+        }
+      },
+      "id": "41b75151-edaf-5bc4-9a46-da441403c9af",
+      "name": "Find World JSON",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        2680,
+        0
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "m8Ze5QDWBQQ0zNjj",
+          "name": "Google Drive account"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={ $('Find World JSON').first().json.id || '__WF013_MISSING__' }"
+        },
+        "options": {}
+      },
+      "id": "79594829-0a0e-50b4-a1ee-00a4f352deaa",
+      "name": "Read World JSON",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        2880,
+        0
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "m8Ze5QDWBQQ0zNjj",
+          "name": "Google Drive account"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const state = structuredClone($('Parse Characters JSON').first().json);\nconst found = $('Find World JSON').first()?.json?.id;\nlet value = [];\nif (!found) { state.knowledge['World.json'] = {found:false, valid:false, value}; return [{json:state}]; }\ntry { const buffer = await this.helpers.getBinaryDataBuffer(0, 'data'); value = JSON.parse(buffer.toString('utf8')); state.knowledge['World.json']={found:true,valid:true,value}; } catch (error) { state.knowledge['World.json']={found:true,valid:false,value,error:String(error.message||error)}; }\nreturn [{json:state}];"
+      },
+      "id": "bc74e826-a211-58f3-9ee4-fff7a8d1f90c",
+      "name": "Parse World JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3080,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "operation": "search",
+        "searchMethod": "query",
+        "queryString": "={ \"name = 'Timeline.json' and '\" + $('Index Knowledge Folders').first().json.folder_ids.canon + \"' in parents and mimeType != 'application/vnd.google-apps.folder' and trashed = false\" }",
+        "returnAll": false,
+        "limit": 1,
+        "filter": {},
+        "options": {
+          "fields": [
+            "id",
+            "name",
+            "mimeType",
+            "parents"
+          ]
+        }
+      },
+      "id": "855fecc0-3650-55ef-9352-858eab7d891e",
+      "name": "Find Timeline JSON",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        3280,
+        0
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "m8Ze5QDWBQQ0zNjj",
+          "name": "Google Drive account"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={ $('Find Timeline JSON').first().json.id || '__WF013_MISSING__' }"
+        },
+        "options": {}
+      },
+      "id": "faac4103-01fb-542d-9402-6c45e40c9b99",
+      "name": "Read Timeline JSON",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        3480,
+        0
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "m8Ze5QDWBQQ0zNjj",
+          "name": "Google Drive account"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const state = structuredClone($('Parse World JSON').first().json);\nconst found = $('Find Timeline JSON').first()?.json?.id;\nlet value = [];\nif (!found) { state.knowledge['Timeline.json'] = {found:false, valid:false, value}; return [{json:state}]; }\ntry { const buffer = await this.helpers.getBinaryDataBuffer(0, 'data'); value = JSON.parse(buffer.toString('utf8')); state.knowledge['Timeline.json']={found:true,valid:true,value}; } catch (error) { state.knowledge['Timeline.json']={found:true,valid:false,value,error:String(error.message||error)}; }\nreturn [{json:state}];"
+      },
+      "id": "b7e55d0e-8ed0-5093-a13b-3983da63d794",
+      "name": "Parse Timeline JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3680,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "operation": "search",
+        "searchMethod": "query",
+        "queryString": "={ \"name = 'Conflicts.json' and '\" + $('Index Knowledge Folders').first().json.folder_ids.canon + \"' in parents and mimeType != 'application/vnd.google-apps.folder' and trashed = false\" }",
+        "returnAll": false,
+        "limit": 1,
+        "filter": {},
+        "options": {
+          "fields": [
+            "id",
+            "name",
+            "mimeType",
+            "parents"
+          ]
+        }
+      },
+      "id": "ed55055f-2268-5e59-bbdc-3ad66c086401",
+      "name": "Find Conflicts JSON",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        3880,
+        0
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "m8Ze5QDWBQQ0zNjj",
+          "name": "Google Drive account"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={ $('Find Conflicts JSON').first().json.id || '__WF013_MISSING__' }"
+        },
+        "options": {}
+      },
+      "id": "768a3d7c-facb-5110-980a-031be3328614",
+      "name": "Read Conflicts JSON",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        4080,
+        0
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "m8Ze5QDWBQQ0zNjj",
+          "name": "Google Drive account"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const state = structuredClone($('Parse Timeline JSON').first().json);\nconst found = $('Find Conflicts JSON').first()?.json?.id;\nlet value = [];\nif (!found) { state.knowledge['Conflicts.json'] = {found:false, valid:false, value}; return [{json:state}]; }\ntry { const buffer = await this.helpers.getBinaryDataBuffer(0, 'data'); value = JSON.parse(buffer.toString('utf8')); state.knowledge['Conflicts.json']={found:true,valid:true,value}; } catch (error) { state.knowledge['Conflicts.json']={found:true,valid:false,value,error:String(error.message||error)}; }\nreturn [{json:state}];"
+      },
+      "id": "6a7aaed8-3c9a-5d4e-b38f-03e83d6fa3a5",
+      "name": "Parse Conflicts JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4280,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "operation": "search",
+        "searchMethod": "query",
+        "queryString": "={ \"name = 'KnowledgeIndex.json' and '\" + $('Index Knowledge Folders').first().json.folder_ids.canon + \"' in parents and mimeType != 'application/vnd.google-apps.folder' and trashed = false\" }",
+        "returnAll": false,
+        "limit": 1,
+        "filter": {},
+        "options": {
+          "fields": [
+            "id",
+            "name",
+            "mimeType",
+            "parents"
+          ]
+        }
+      },
+      "id": "1acb8a0c-2e36-56ee-a564-8b3f9da52da5",
+      "name": "Find KnowledgeIndex JSON",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        4480,
+        0
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "m8Ze5QDWBQQ0zNjj",
+          "name": "Google Drive account"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={ $('Find KnowledgeIndex JSON').first().json.id || '__WF013_MISSING__' }"
+        },
+        "options": {}
+      },
+      "id": "6c920dc9-5a9d-5784-93e1-4dec9fa8c86a",
+      "name": "Read KnowledgeIndex JSON",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        4680,
+        0
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "m8Ze5QDWBQQ0zNjj",
+          "name": "Google Drive account"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const state = structuredClone($('Parse Conflicts JSON').first().json);\nconst found = $('Find KnowledgeIndex JSON').first()?.json?.id;\nlet value = {};\nif (!found) { state.knowledge['KnowledgeIndex.json'] = {found:false, valid:false, value}; return [{json:state}]; }\ntry { const buffer = await this.helpers.getBinaryDataBuffer(0, 'data'); value = JSON.parse(buffer.toString('utf8')); state.knowledge['KnowledgeIndex.json']={found:true,valid:true,value}; } catch (error) { state.knowledge['KnowledgeIndex.json']={found:true,valid:false,value,error:String(error.message||error)}; }\nreturn [{json:state}];"
+      },
+      "id": "f6619573-2867-58c2-8f72-be4e55df1963",
+      "name": "Parse KnowledgeIndex JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4880,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "御策小說發布中心 v1.0"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Chapter Database"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "novel_id",
+              "lookupValue": "={{ $('Validate Context Input').first().json.novel.novel_id }}"
+            }
+          ]
+        },
+        "options": {
+          "returnFirstMatch": false
+        }
+      },
+      "id": "05165009-5a51-50d8-b006-5c6241f1a926",
+      "name": "Read Chapter Database",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        5100,
+        0
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "={{ $env.GOOGLE_SHEETS_CREDENTIAL_ID }}",
+          "name": "Google Sheets account"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const state=structuredClone($('Parse KnowledgeIndex JSON').first().json); const rows=$input.all().map(i=>i.json).filter(r=>r&&Object.keys(r).length&&!r.error); state.sheets['Chapter Database']=rows; return [{json:state}];"
+      },
+      "id": "e23e403a-56ef-5617-ac8d-6b6413cb308a",
+      "name": "Collect Chapter Database",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5300,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "御策小說發布中心 v1.0"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Story Progress"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "novel_id",
+              "lookupValue": "={{ $('Validate Context Input').first().json.novel.novel_id }}"
+            }
+          ]
+        },
+        "options": {
+          "returnFirstMatch": false
+        }
+      },
+      "id": "a34a019b-7ff2-5eb4-9e3a-f8386c7f9442",
+      "name": "Read Story Progress",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        5550,
+        0
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "={{ $env.GOOGLE_SHEETS_CREDENTIAL_ID }}",
+          "name": "Google Sheets account"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const state=structuredClone($('Collect Chapter Database').first().json); const rows=$input.all().map(i=>i.json).filter(r=>r&&Object.keys(r).length&&!r.error); state.sheets['Story Progress']=rows; return [{json:state}];"
+      },
+      "id": "3972577f-5342-5465-8708-78a7a191819e",
+      "name": "Collect Story Progress",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5750,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "御策小說發布中心 v1.0"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Foreshadowing Database"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "novel_id",
+              "lookupValue": "={{ $('Validate Context Input').first().json.novel.novel_id }}"
+            }
+          ]
+        },
+        "options": {
+          "returnFirstMatch": false
+        }
+      },
+      "id": "9b1ea909-af6d-5eee-bee8-2d7b77abcc3f",
+      "name": "Read Foreshadowing Database",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        6000,
+        0
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "={{ $env.GOOGLE_SHEETS_CREDENTIAL_ID }}",
+          "name": "Google Sheets account"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const state=structuredClone($('Collect Story Progress').first().json); const rows=$input.all().map(i=>i.json).filter(r=>r&&Object.keys(r).length&&!r.error); state.sheets['Foreshadowing Database']=rows; return [{json:state}];"
+      },
+      "id": "6570a6c6-62be-5084-bfad-09949fc6e793",
+      "name": "Collect Foreshadowing Database",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "御策小說發布中心 v1.0"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Foreshadowing History"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "novel_id",
+              "lookupValue": "={{ $('Validate Context Input').first().json.novel.novel_id }}"
+            }
+          ]
+        },
+        "options": {
+          "returnFirstMatch": false
+        }
+      },
+      "id": "e1ad9c05-68c1-5635-95a6-a73d3e8acafe",
+      "name": "Read Foreshadowing History",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        6450,
+        0
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "={{ $env.GOOGLE_SHEETS_CREDENTIAL_ID }}",
+          "name": "Google Sheets account"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const state=structuredClone($('Collect Foreshadowing Database').first().json); const rows=$input.all().map(i=>i.json).filter(r=>r&&Object.keys(r).length&&!r.error); state.sheets['Foreshadowing History']=rows; return [{json:state}];"
+      },
+      "id": "4e764527-9dfe-5b18-9220-f18bc737e014",
+      "name": "Collect Foreshadowing History",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6650,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "御策小說發布中心 v1.0"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Chapter Plan"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "novel_id",
+              "lookupValue": "={{ $('Validate Context Input').first().json.novel.novel_id }}"
+            }
+          ]
+        },
+        "options": {
+          "returnFirstMatch": false
+        }
+      },
+      "id": "5560c06d-a358-55b9-aa01-63d9bdf01397",
+      "name": "Read Chapter Plan",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        6900,
+        0
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "={{ $env.GOOGLE_SHEETS_CREDENTIAL_ID }}",
+          "name": "Google Sheets account"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const state=structuredClone($('Collect Foreshadowing History').first().json); const rows=$input.all().map(i=>i.json).filter(r=>r&&Object.keys(r).length&&!r.error); state.sheets['Chapter Plan']=rows; return [{json:state}];"
+      },
+      "id": "64231b31-ada1-5dba-a9d7-db8b9758b3f3",
+      "name": "Collect Chapter Plan",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        7100,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const state = $input.first()?.json ?? {};\nconst warnings = [], missing = [];\nconst asArray = v => Array.isArray(v) ? v : (v && typeof v === 'object' && Array.isArray(v.items) ? v.items : []);\nconst text = v => typeof v === 'string' ? v : JSON.stringify(v ?? '');\nconst tokens = v => text(v).toLowerCase();\nconst int = v => { const n=Number(v); return Number.isInteger(n)&&n>0?n:null; };\nconst safeArray = (value, field) => { if (Array.isArray(value)) return value; if (value==null || value==='') return []; if (typeof value==='string') { try { const x=JSON.parse(value); if(Array.isArray(x)) return x; } catch {} } warnings.push({code:'INVALID_SHEET_JSON',severity:'warning',field}); return []; };\nconst expected = {'StoryBible.json':'high','Canon.json':'high','Characters.json':'warning','World.json':'warning','Timeline.json':'warning','Conflicts.json':'warning','KnowledgeIndex.json':'warning'};\nfor (const [file,severity] of Object.entries(expected)) { const s=state.knowledge?.[file]; if(!s?.found){ missing.push(file); warnings.push({code:'MISSING_KNOWLEDGE_SOURCE',severity,file_name:file}); } else if(!s.valid) warnings.push({code:'INVALID_KNOWLEDGE_JSON',severity,file_name:file}); }\nconst sheet = name => Array.isArray(state.sheets?.[name]) ? state.sheets[name] : [];\nfor (const name of ['Story Progress','Foreshadowing Database','Foreshadowing History','Chapter Plan']) if (!sheet(name).length) missing.push(name);\nconst next=state.chapter.next_chapter_no, novelId=state.novel.novel_id;\nconst chapters=sheet('Chapter Database').filter(r=>String(r.novel_id??'').trim()===novelId && int(r.chapter_no) && Number(r.chapter_no)<next).sort((a,b)=>Number(a.chapter_no)-Number(b.chapter_no));\nconst detailed=chapters.slice(-3), eventIndex=chapters.slice(-10).map(r=>({chapter_id:r.chapter_id??null,chapter_no:Number(r.chapter_no),title:r.title??'',summary:r.summary??r.chapter_summary??'',events:safeArray(r.events_json,'Chapter Database.events_json')}));\nconst progressRows=sheet('Story Progress').filter(r=>String(r.novel_id??'').trim()===novelId && int(r.chapter_no) && Number(r.chapter_no)<next).sort((a,b)=>Number(b.chapter_no)-Number(a.chapter_no));\nconst p=progressRows[0]??null;\nconst storyProgress=p?{main_story:{progress_id:p.progress_id??null,chapter_no:Number(p.chapter_no),arc_name:p.arc_name??'',summary:p.summary??'',current_goal:p.current_goal??'',source_chapter_id:p.source_chapter_id??null},active_threads:safeArray(p.unresolved_threads_json,'Story Progress.unresolved_threads_json'),active_characters:safeArray(p.active_characters_json,'Story Progress.active_characters_json'),active_factions:safeArray(p.faction_states_json,'Story Progress.faction_states_json'),key_items:safeArray(p.key_items_json,'Story Progress.key_items_json'),constraints:safeArray(p.next_constraints,'Story Progress.next_constraints')}:{main_story:{},active_threads:[],active_characters:[],active_factions:[],key_items:[],constraints:[]};\nconst foreshadows=sheet('Foreshadowing Database').filter(r=>String(r.novel_id??'').trim()===novelId && !['resolved','abandoned'].includes(String(r.lifecycle_status??'').toLowerCase()));\nconst dormant=foreshadows.filter(r=>String(r.lifecycle_status).toLowerCase()==='dormant');\nconst active=foreshadows.filter(r=>String(r.lifecycle_status).toLowerCase()==='active');\nconst signalText=tokens([detailed,storyProgress]);\nconst enriched=active.map(f=>{ const deps=safeArray(f.dependencies_json,`Foreshadowing Database.${f.foreshadow_id}.dependencies_json`); const start=Number(f.resolution_window_start),end=Number(f.resolution_window_end),last=Number(f.last_touched_chapter||f.planted_chapter||0),cool=Number(f.min_touch_interval||0),priority=String(f.priority??'').toLowerCase(); const related=[f.title,f.description,deps].some(x=>x&&signalText.includes(tokens(x))); const inWindow=Number.isFinite(start)&&next>=start, overdue=Number.isFinite(end)&&next>end, cooled=next-last>=cool; return {...f,dependencies:deps,context_classification:{in_resolution_window:inWindow,overdue,cooled,related}};});\nconst must=enriched.filter(f=>f.context_classification.overdue||f.context_classification.in_resolution_window||['high','critical','urgent','p0','p1'].includes(String(f.priority).toLowerCase()));\nconst mustIds=new Set(must.map(f=>String(f.foreshadow_id))); const relevant=enriched.filter(f=>!mustIds.has(String(f.foreshadow_id))&&f.context_classification.related&&f.context_classification.cooled); const relevantIds=new Set(relevant.map(f=>String(f.foreshadow_id))); const background=enriched.filter(f=>!mustIds.has(String(f.foreshadow_id))&&!relevantIds.has(String(f.foreshadow_id)));\nconst historyIds=new Set([...must,...relevant,...dormant].map(f=>String(f.foreshadow_id)));\nconst grouped={}; for(const h of sheet('Foreshadowing History').filter(h=>String(h.novel_id??'').trim()===novelId&&historyIds.has(String(h.foreshadow_id)))) (grouped[h.foreshadow_id]??=[]).push(h);\nconst history=Object.values(grouped).flatMap(a=>a.sort((x,y)=>(Number(y.chapter_no)||0)-(Number(x.chapter_no)||0)||String(y.created_at??'').localeCompare(String(x.created_at??''))).slice(0,5));\nconst entitySignals=tokens([detailed,storyProgress,must,relevant]);\nconst kval=file=>state.knowledge?.[file]?.valid?state.knowledge[file].value:null;\nconst characters=asArray(kval('Characters.json')).filter(c=>[c.character_name,c.aliases,c.relationship_to_protagonist].some(v=>v&&entitySignals.includes(tokens(v))));\nconst worlds=asArray(kval('World.json')).filter(w=>[w.world_name,w.aliases,w.region,w.leader,w.members,w.related_factions,w.related_locations,w.rules,w.status].some(v=>v&&entitySignals.includes(tokens(v))));\nconst activeSignals=tokens([characters,worlds,storyProgress,must,relevant]);\nconst timeline=asArray(kval('Timeline.json')).filter(t=>Number(t.chapter_number)>=next-10||[t.participants,t.locations,t.factions,t.aliases,t.event_type].some(v=>v&&activeSignals.includes(tokens(v)))).sort((a,b)=>(Number(b.chapter_number)||0)-(Number(a.chapter_number)||0)||(Number(b.event_order)||0)-(Number(a.event_order)||0));\nconst plans=sheet('Chapter Plan').filter(r=>String(r.novel_id??'').trim()===novelId);\nconst previousPlan=plans.find(r=>Number(r.chapter_no)===next-1)??null;\nconst previousActual=chapters.find(r=>Number(r.chapter_no)===next-1)??(p&&Number(p.chapter_no)===next-1?p:null);\nlet delta=null; if(previousPlan&&previousActual) delta={planned:{chapter_no:next-1,summary:previousPlan.summary??previousPlan.plan_summary??'',goal:previousPlan.goal??previousPlan.chapter_goal??''},actual:{chapter_no:next-1,summary:previousActual.summary??previousActual.chapter_summary??'',goal:previousActual.current_goal??''},is_canonical:false};\nlet preview=[]; if(previousPlan){ const raw=previousPlan.short_horizon_preview_json??previousPlan.future_chapters_json??previousPlan.preview_json; preview=safeArray(raw,'Chapter Plan.short_horizon_preview').slice(0,5).map(x=>({...((x&&typeof x==='object')?x:{direction:x}),is_canon:false})); }\nconst core={}; if(kval('StoryBible.json')!==null) core.story_bible=kval('StoryBible.json'); if(kval('Canon.json')!==null) core.canon=kval('Canon.json');\nconst output={ok:true,schema_version:'1.0',operation:'build_chapter_context',chapter_context:{novel_id:novelId,novel_name:state.novel.novel_name,next_chapter_no:next,next_chapter_id:state.chapter.next_chapter_id,workspace_folder_id:state.storage.workspace_folder_id,workspace_version:state.storage.workspace_version},recent_story:{detailed_chapters:detailed,recent_event_index:eventIndex},canon_context:{core_canon:core,relevant_characters:characters,relevant_world:worlds,relevant_timeline:timeline,conflict_warnings:asArray(kval('Conflicts.json')),knowledge_health:(kval('KnowledgeIndex.json')&&typeof kval('KnowledgeIndex.json')==='object'&&!Array.isArray(kval('KnowledgeIndex.json')))?kval('KnowledgeIndex.json'):{}},story_progress:storyProgress,foreshadowing_context:{must_consider:must,relevant,background,dormant,history},planning_memory:{previous_plan:previousPlan,previous_actual:previousActual,continuity_delta:delta,short_horizon_preview:preview},context_meta:{missing_sources:[...new Set(missing)],warnings,recent_chapter_count:detailed.length,relevant_character_count:characters.length,relevant_world_count:worlds.length,relevant_timeline_count:timeline.length,must_consider_foreshadow_count:must.length,relevant_foreshadow_count:relevant.length}};\nreturn [{json:output}];\n"
+      },
+      "id": "f4bfa663-22da-5039-97df-7eefb3ca6fdf",
+      "name": "Build Chapter Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        7500,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: $input.first().json }];"
+      },
+      "id": "fd55055c-ac8d-5052-b06e-0374c1f1f605",
+      "name": "Return Chapter Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        7740,
+        0
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Validate Context Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Context Input": {
+      "main": [
+        [
+          {
+            "node": "Resolve Knowledge Folders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve Knowledge Folders": {
+      "main": [
+        [
+          {
+            "node": "Index Knowledge Folders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Index Knowledge Folders": {
+      "main": [
+        [
+          {
+            "node": "Find StoryBible JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find StoryBible JSON": {
+      "main": [
+        [
+          {
+            "node": "Read StoryBible JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read StoryBible JSON": {
+      "main": [
+        [
+          {
+            "node": "Parse StoryBible JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse StoryBible JSON": {
+      "main": [
+        [
+          {
+            "node": "Find Canon JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Canon JSON": {
+      "main": [
+        [
+          {
+            "node": "Read Canon JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Canon JSON": {
+      "main": [
+        [
+          {
+            "node": "Parse Canon JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Canon JSON": {
+      "main": [
+        [
+          {
+            "node": "Find Characters JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Characters JSON": {
+      "main": [
+        [
+          {
+            "node": "Read Characters JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Characters JSON": {
+      "main": [
+        [
+          {
+            "node": "Parse Characters JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Characters JSON": {
+      "main": [
+        [
+          {
+            "node": "Find World JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find World JSON": {
+      "main": [
+        [
+          {
+            "node": "Read World JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read World JSON": {
+      "main": [
+        [
+          {
+            "node": "Parse World JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse World JSON": {
+      "main": [
+        [
+          {
+            "node": "Find Timeline JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Timeline JSON": {
+      "main": [
+        [
+          {
+            "node": "Read Timeline JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Timeline JSON": {
+      "main": [
+        [
+          {
+            "node": "Parse Timeline JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Timeline JSON": {
+      "main": [
+        [
+          {
+            "node": "Find Conflicts JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Conflicts JSON": {
+      "main": [
+        [
+          {
+            "node": "Read Conflicts JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Conflicts JSON": {
+      "main": [
+        [
+          {
+            "node": "Parse Conflicts JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Conflicts JSON": {
+      "main": [
+        [
+          {
+            "node": "Find KnowledgeIndex JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find KnowledgeIndex JSON": {
+      "main": [
+        [
+          {
+            "node": "Read KnowledgeIndex JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read KnowledgeIndex JSON": {
+      "main": [
+        [
+          {
+            "node": "Parse KnowledgeIndex JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse KnowledgeIndex JSON": {
+      "main": [
+        [
+          {
+            "node": "Read Chapter Database",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Chapter Database": {
+      "main": [
+        [
+          {
+            "node": "Collect Chapter Database",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect Chapter Database": {
+      "main": [
+        [
+          {
+            "node": "Read Story Progress",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Story Progress": {
+      "main": [
+        [
+          {
+            "node": "Collect Story Progress",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect Story Progress": {
+      "main": [
+        [
+          {
+            "node": "Read Foreshadowing Database",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Foreshadowing Database": {
+      "main": [
+        [
+          {
+            "node": "Collect Foreshadowing Database",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect Foreshadowing Database": {
+      "main": [
+        [
+          {
+            "node": "Read Foreshadowing History",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Foreshadowing History": {
+      "main": [
+        [
+          {
+            "node": "Collect Foreshadowing History",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect Foreshadowing History": {
+      "main": [
+        [
+          {
+            "node": "Read Chapter Plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Chapter Plan": {
+      "main": [
+        [
+          {
+            "node": "Collect Chapter Plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect Chapter Plan": {
+      "main": [
+        [
+          {
+            "node": "Build Chapter Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Chapter Context": {
+      "main": [
+        [
+          {
+            "node": "Return Chapter Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "e415096d-022a-5a46-96af-17818bc5f534",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
