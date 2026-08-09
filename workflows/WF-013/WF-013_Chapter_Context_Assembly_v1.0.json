@@ -60,7 +60,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const state = structuredClone($('Validate Context Input').first().json);\nconst rows = $input.all().map(i => i.json).filter(r => r && r.id);\nconst byName = Object.fromEntries(rows.map(r => [r.name, r.id]));\nstate.folder_ids = {canon: byName['03_Canon'] || '', characters: byName['04_Characters'] || '', world: byName['05_World'] || ''};\nreturn [{json:state}];"
+        "jsCode": "const clone = (value) => {\n  if (value === undefined || value === null) return {};\n  return JSON.parse(JSON.stringify(value));\n};\nconst state = clone($('Validate Context Input').first().json);\nconst rows = $input.all().map(i => i.json).filter(r => r && r.id);\nconst byName = Object.fromEntries(rows.map(r => [r.name, r.id]));\nstate.folder_ids = {canon: byName['03_Canon'] || '', characters: byName['04_Characters'] || '', world: byName['05_World'] || ''};\nreturn [{json:state}];"
       },
       "id": "f27a444d-cf32-5a63-b2be-8186994f3141",
       "name": "Index Knowledge Folders",
@@ -76,7 +76,7 @@
         "resource": "fileFolder",
         "operation": "search",
         "searchMethod": "query",
-        "queryString": "={ \"name = 'StoryBible.json' and '\" + $('Index Knowledge Folders').first().json.folder_ids.canon + \"' in parents and mimeType != 'application/vnd.google-apps.folder' and trashed = false\" }",
+        "queryString": "={{ \"name = 'StoryBible.json' and '\" + $('Attach Canon Knowledge Folder').first().json.folder_ids.canon_knowledge + \"' in parents and mimeType != 'application/vnd.google-apps.folder' and trashed = false\" }}",
         "returnAll": false,
         "limit": 1,
         "filter": {},
@@ -112,7 +112,7 @@
         "fileId": {
           "__rl": true,
           "mode": "id",
-          "value": "={ $('Find StoryBible JSON').first().json.id || '__WF013_MISSING__' }"
+          "value": "={{ $('Find StoryBible JSON').first()?.json?.id || '__WF013_MISSING__' }}"
         },
         "options": {}
       },
@@ -135,7 +135,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const state = structuredClone($('Index Knowledge Folders').first().json);\nconst found = $('Find StoryBible JSON').first()?.json?.id;\nlet value = {};\nif (!found) { state.knowledge['StoryBible.json'] = {found:false, valid:false, value}; return [{json:state}]; }\ntry { const buffer = await this.helpers.getBinaryDataBuffer(0, 'data'); value = JSON.parse(buffer.toString('utf8')); state.knowledge['StoryBible.json']={found:true,valid:true,value}; } catch (error) { state.knowledge['StoryBible.json']={found:true,valid:false,value,error:String(error.message||error)}; }\nreturn [{json:state}];"
+        "jsCode": "const clone = (value) => {\n  if (value === undefined || value === null) return {};\n  return JSON.parse(JSON.stringify(value));\n};\nconst state = clone($('Attach Canon Knowledge Folder').first().json);\nconst found = $('Find StoryBible JSON').first()?.json?.id;\nlet value = {};\nif (!found) { state.knowledge['StoryBible.json'] = {found:false, valid:false, value}; return [{json:state}]; }\ntry { const buffer = await this.helpers.getBinaryDataBuffer(0, 'data'); value = JSON.parse(buffer.toString('utf8')); state.knowledge['StoryBible.json']={found:true,valid:true,value}; } catch (error) { state.knowledge['StoryBible.json']={found:true,valid:false,value,error:String(error.message||error)}; }\nreturn [{json:state}];"
       },
       "id": "4416ed54-697a-545c-bd32-53bb538e0481",
       "name": "Parse StoryBible JSON",
@@ -151,7 +151,7 @@
         "resource": "fileFolder",
         "operation": "search",
         "searchMethod": "query",
-        "queryString": "={ \"name = 'Canon.json' and '\" + $('Index Knowledge Folders').first().json.folder_ids.canon + \"' in parents and mimeType != 'application/vnd.google-apps.folder' and trashed = false\" }",
+        "queryString": "={{ \"name = 'Canon.json' and '\" + $('Attach Canon Knowledge Folder').first().json.folder_ids.canon_knowledge + \"' in parents and mimeType != 'application/vnd.google-apps.folder' and trashed = false\" }}",
         "returnAll": false,
         "limit": 1,
         "filter": {},
@@ -187,7 +187,7 @@
         "fileId": {
           "__rl": true,
           "mode": "id",
-          "value": "={ $('Find Canon JSON').first().json.id || '__WF013_MISSING__' }"
+          "value": "={{ $('Find Canon JSON').first()?.json?.id || '__WF013_MISSING__' }}"
         },
         "options": {}
       },
@@ -210,7 +210,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const state = structuredClone($('Parse StoryBible JSON').first().json);\nconst found = $('Find Canon JSON').first()?.json?.id;\nlet value = {};\nif (!found) { state.knowledge['Canon.json'] = {found:false, valid:false, value}; return [{json:state}]; }\ntry { const buffer = await this.helpers.getBinaryDataBuffer(0, 'data'); value = JSON.parse(buffer.toString('utf8')); state.knowledge['Canon.json']={found:true,valid:true,value}; } catch (error) { state.knowledge['Canon.json']={found:true,valid:false,value,error:String(error.message||error)}; }\nreturn [{json:state}];"
+        "jsCode": "const clone = (value) => {\n  if (value === undefined || value === null) return {};\n  return JSON.parse(JSON.stringify(value));\n};\nconst state = clone($('Parse StoryBible JSON').first().json);\nconst found = $('Find Canon JSON').first()?.json?.id;\nlet value = {};\nif (!found) { state.knowledge['Canon.json'] = {found:false, valid:false, value}; return [{json:state}]; }\ntry { const buffer = await this.helpers.getBinaryDataBuffer(0, 'data'); value = JSON.parse(buffer.toString('utf8')); state.knowledge['Canon.json']={found:true,valid:true,value}; } catch (error) { state.knowledge['Canon.json']={found:true,valid:false,value,error:String(error.message||error)}; }\nreturn [{json:state}];"
       },
       "id": "b97e543f-3efb-52d9-b926-8eacd6f5206a",
       "name": "Parse Canon JSON",
@@ -226,7 +226,7 @@
         "resource": "fileFolder",
         "operation": "search",
         "searchMethod": "query",
-        "queryString": "={ \"name = 'Characters.json' and '\" + $('Index Knowledge Folders').first().json.folder_ids.characters + \"' in parents and mimeType != 'application/vnd.google-apps.folder' and trashed = false\" }",
+        "queryString": "={{ \"name = 'Characters.json' and '\" + $('Attach Canon Knowledge Folder').first().json.folder_ids.characters + \"' in parents and mimeType != 'application/vnd.google-apps.folder' and trashed = false\" }}",
         "returnAll": false,
         "limit": 1,
         "filter": {},
@@ -262,7 +262,7 @@
         "fileId": {
           "__rl": true,
           "mode": "id",
-          "value": "={ $('Find Characters JSON').first().json.id || '__WF013_MISSING__' }"
+          "value": "={{ $('Find Characters JSON').first()?.json?.id || '__WF013_MISSING__' }}"
         },
         "options": {}
       },
@@ -285,7 +285,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const state = structuredClone($('Parse Canon JSON').first().json);\nconst found = $('Find Characters JSON').first()?.json?.id;\nlet value = [];\nif (!found) { state.knowledge['Characters.json'] = {found:false, valid:false, value}; return [{json:state}]; }\ntry { const buffer = await this.helpers.getBinaryDataBuffer(0, 'data'); value = JSON.parse(buffer.toString('utf8')); state.knowledge['Characters.json']={found:true,valid:true,value}; } catch (error) { state.knowledge['Characters.json']={found:true,valid:false,value,error:String(error.message||error)}; }\nreturn [{json:state}];"
+        "jsCode": "const clone = (value) => {\n  if (value === undefined || value === null) return {};\n  return JSON.parse(JSON.stringify(value));\n};\nconst state = clone($('Parse Canon JSON').first().json);\nconst found = $('Find Characters JSON').first()?.json?.id;\nlet value = [];\nif (!found) { state.knowledge['Characters.json'] = {found:false, valid:false, value}; return [{json:state}]; }\ntry { const buffer = await this.helpers.getBinaryDataBuffer(0, 'data'); value = JSON.parse(buffer.toString('utf8')); state.knowledge['Characters.json']={found:true,valid:true,value}; } catch (error) { state.knowledge['Characters.json']={found:true,valid:false,value,error:String(error.message||error)}; }\nreturn [{json:state}];"
       },
       "id": "1f40a89d-fb31-597b-ba30-3397d4501ec7",
       "name": "Parse Characters JSON",
@@ -301,7 +301,7 @@
         "resource": "fileFolder",
         "operation": "search",
         "searchMethod": "query",
-        "queryString": "={ \"name = 'World.json' and '\" + $('Index Knowledge Folders').first().json.folder_ids.world + \"' in parents and mimeType != 'application/vnd.google-apps.folder' and trashed = false\" }",
+        "queryString": "={{ \"name = 'World.json' and '\" + $('Attach Canon Knowledge Folder').first().json.folder_ids.world + \"' in parents and mimeType != 'application/vnd.google-apps.folder' and trashed = false\" }}",
         "returnAll": false,
         "limit": 1,
         "filter": {},
@@ -337,7 +337,7 @@
         "fileId": {
           "__rl": true,
           "mode": "id",
-          "value": "={ $('Find World JSON').first().json.id || '__WF013_MISSING__' }"
+          "value": "={{ $('Find World JSON').first()?.json?.id || '__WF013_MISSING__' }}"
         },
         "options": {}
       },
@@ -360,7 +360,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const state = structuredClone($('Parse Characters JSON').first().json);\nconst found = $('Find World JSON').first()?.json?.id;\nlet value = [];\nif (!found) { state.knowledge['World.json'] = {found:false, valid:false, value}; return [{json:state}]; }\ntry { const buffer = await this.helpers.getBinaryDataBuffer(0, 'data'); value = JSON.parse(buffer.toString('utf8')); state.knowledge['World.json']={found:true,valid:true,value}; } catch (error) { state.knowledge['World.json']={found:true,valid:false,value,error:String(error.message||error)}; }\nreturn [{json:state}];"
+        "jsCode": "const clone = (value) => {\n  if (value === undefined || value === null) return {};\n  return JSON.parse(JSON.stringify(value));\n};\nconst state = clone($('Parse Characters JSON').first().json);\nconst found = $('Find World JSON').first()?.json?.id;\nlet value = [];\nif (!found) { state.knowledge['World.json'] = {found:false, valid:false, value}; return [{json:state}]; }\ntry { const buffer = await this.helpers.getBinaryDataBuffer(0, 'data'); value = JSON.parse(buffer.toString('utf8')); state.knowledge['World.json']={found:true,valid:true,value}; } catch (error) { state.knowledge['World.json']={found:true,valid:false,value,error:String(error.message||error)}; }\nreturn [{json:state}];"
       },
       "id": "bc74e826-a211-58f3-9ee4-fff7a8d1f90c",
       "name": "Parse World JSON",
@@ -376,7 +376,7 @@
         "resource": "fileFolder",
         "operation": "search",
         "searchMethod": "query",
-        "queryString": "={ \"name = 'Timeline.json' and '\" + $('Index Knowledge Folders').first().json.folder_ids.canon + \"' in parents and mimeType != 'application/vnd.google-apps.folder' and trashed = false\" }",
+        "queryString": "={{ \"name = 'Timeline.json' and '\" + $('Attach Canon Knowledge Folder').first().json.folder_ids.canon_knowledge + \"' in parents and mimeType != 'application/vnd.google-apps.folder' and trashed = false\" }}",
         "returnAll": false,
         "limit": 1,
         "filter": {},
@@ -412,7 +412,7 @@
         "fileId": {
           "__rl": true,
           "mode": "id",
-          "value": "={ $('Find Timeline JSON').first().json.id || '__WF013_MISSING__' }"
+          "value": "={{ $('Find Timeline JSON').first()?.json?.id || '__WF013_MISSING__' }}"
         },
         "options": {}
       },
@@ -435,7 +435,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const state = structuredClone($('Parse World JSON').first().json);\nconst found = $('Find Timeline JSON').first()?.json?.id;\nlet value = [];\nif (!found) { state.knowledge['Timeline.json'] = {found:false, valid:false, value}; return [{json:state}]; }\ntry { const buffer = await this.helpers.getBinaryDataBuffer(0, 'data'); value = JSON.parse(buffer.toString('utf8')); state.knowledge['Timeline.json']={found:true,valid:true,value}; } catch (error) { state.knowledge['Timeline.json']={found:true,valid:false,value,error:String(error.message||error)}; }\nreturn [{json:state}];"
+        "jsCode": "const clone = (value) => {\n  if (value === undefined || value === null) return {};\n  return JSON.parse(JSON.stringify(value));\n};\nconst state = clone($('Parse World JSON').first().json);\nconst found = $('Find Timeline JSON').first()?.json?.id;\nlet value = [];\nif (!found) { state.knowledge['Timeline.json'] = {found:false, valid:false, value}; return [{json:state}]; }\ntry { const buffer = await this.helpers.getBinaryDataBuffer(0, 'data'); value = JSON.parse(buffer.toString('utf8')); state.knowledge['Timeline.json']={found:true,valid:true,value}; } catch (error) { state.knowledge['Timeline.json']={found:true,valid:false,value,error:String(error.message||error)}; }\nreturn [{json:state}];"
       },
       "id": "b7e55d0e-8ed0-5093-a13b-3983da63d794",
       "name": "Parse Timeline JSON",
@@ -451,7 +451,7 @@
         "resource": "fileFolder",
         "operation": "search",
         "searchMethod": "query",
-        "queryString": "={ \"name = 'Conflicts.json' and '\" + $('Index Knowledge Folders').first().json.folder_ids.canon + \"' in parents and mimeType != 'application/vnd.google-apps.folder' and trashed = false\" }",
+        "queryString": "={{ \"name = 'Conflicts.json' and '\" + $('Attach Canon Knowledge Folder').first().json.folder_ids.canon_knowledge + \"' in parents and mimeType != 'application/vnd.google-apps.folder' and trashed = false\" }}",
         "returnAll": false,
         "limit": 1,
         "filter": {},
@@ -487,7 +487,7 @@
         "fileId": {
           "__rl": true,
           "mode": "id",
-          "value": "={ $('Find Conflicts JSON').first().json.id || '__WF013_MISSING__' }"
+          "value": "={{ $('Find Conflicts JSON').first()?.json?.id || '__WF013_MISSING__' }}"
         },
         "options": {}
       },
@@ -510,7 +510,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const state = structuredClone($('Parse Timeline JSON').first().json);\nconst found = $('Find Conflicts JSON').first()?.json?.id;\nlet value = [];\nif (!found) { state.knowledge['Conflicts.json'] = {found:false, valid:false, value}; return [{json:state}]; }\ntry { const buffer = await this.helpers.getBinaryDataBuffer(0, 'data'); value = JSON.parse(buffer.toString('utf8')); state.knowledge['Conflicts.json']={found:true,valid:true,value}; } catch (error) { state.knowledge['Conflicts.json']={found:true,valid:false,value,error:String(error.message||error)}; }\nreturn [{json:state}];"
+        "jsCode": "const clone = (value) => {\n  if (value === undefined || value === null) return {};\n  return JSON.parse(JSON.stringify(value));\n};\nconst state = clone($('Parse Timeline JSON').first().json);\nconst found = $('Find Conflicts JSON').first()?.json?.id;\nlet value = [];\nif (!found) { state.knowledge['Conflicts.json'] = {found:false, valid:false, value}; return [{json:state}]; }\ntry { const buffer = await this.helpers.getBinaryDataBuffer(0, 'data'); value = JSON.parse(buffer.toString('utf8')); state.knowledge['Conflicts.json']={found:true,valid:true,value}; } catch (error) { state.knowledge['Conflicts.json']={found:true,valid:false,value,error:String(error.message||error)}; }\nreturn [{json:state}];"
       },
       "id": "6a7aaed8-3c9a-5d4e-b38f-03e83d6fa3a5",
       "name": "Parse Conflicts JSON",
@@ -526,7 +526,7 @@
         "resource": "fileFolder",
         "operation": "search",
         "searchMethod": "query",
-        "queryString": "={ \"name = 'KnowledgeIndex.json' and '\" + $('Index Knowledge Folders').first().json.folder_ids.canon + \"' in parents and mimeType != 'application/vnd.google-apps.folder' and trashed = false\" }",
+        "queryString": "={{ \"name = 'KnowledgeIndex.json' and '\" + $('Attach Canon Knowledge Folder').first().json.folder_ids.canon_knowledge + \"' in parents and mimeType != 'application/vnd.google-apps.folder' and trashed = false\" }}",
         "returnAll": false,
         "limit": 1,
         "filter": {},
@@ -562,7 +562,7 @@
         "fileId": {
           "__rl": true,
           "mode": "id",
-          "value": "={ $('Find KnowledgeIndex JSON').first().json.id || '__WF013_MISSING__' }"
+          "value": "={{ $('Find KnowledgeIndex JSON').first()?.json?.id || '__WF013_MISSING__' }}"
         },
         "options": {}
       },
@@ -585,7 +585,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const state = structuredClone($('Parse Conflicts JSON').first().json);\nconst found = $('Find KnowledgeIndex JSON').first()?.json?.id;\nlet value = {};\nif (!found) { state.knowledge['KnowledgeIndex.json'] = {found:false, valid:false, value}; return [{json:state}]; }\ntry { const buffer = await this.helpers.getBinaryDataBuffer(0, 'data'); value = JSON.parse(buffer.toString('utf8')); state.knowledge['KnowledgeIndex.json']={found:true,valid:true,value}; } catch (error) { state.knowledge['KnowledgeIndex.json']={found:true,valid:false,value,error:String(error.message||error)}; }\nreturn [{json:state}];"
+        "jsCode": "const clone = (value) => {\n  if (value === undefined || value === null) return {};\n  return JSON.parse(JSON.stringify(value));\n};\nconst state = clone($('Parse Conflicts JSON').first().json);\nconst found = $('Find KnowledgeIndex JSON').first()?.json?.id;\nlet value = {};\nif (!found) { state.knowledge['KnowledgeIndex.json'] = {found:false, valid:false, value}; return [{json:state}]; }\ntry { const buffer = await this.helpers.getBinaryDataBuffer(0, 'data'); value = JSON.parse(buffer.toString('utf8')); state.knowledge['KnowledgeIndex.json']={found:true,valid:true,value}; } catch (error) { state.knowledge['KnowledgeIndex.json']={found:true,valid:false,value,error:String(error.message||error)}; }\nreturn [{json:state}];"
       },
       "id": "f6619573-2867-58c2-8f72-be4e55df1963",
       "name": "Parse KnowledgeIndex JSON",
@@ -640,7 +640,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const state=structuredClone($('Parse KnowledgeIndex JSON').first().json); const rows=$input.all().map(i=>i.json).filter(r=>r&&Object.keys(r).length&&!r.error); state.sheets['Chapter Database']=rows; return [{json:state}];"
+        "jsCode": "const clone = (value) => {\n  if (value === undefined || value === null) return {};\n  return JSON.parse(JSON.stringify(value));\n};\nconst nodeJson = (name) => {\n  try { return $(name).first()?.json ?? null; } catch (_) { return null; }\n};\nconst parsedKnowledge = nodeJson('Parse KnowledgeIndex JSON');\nconst attached = nodeJson('Attach Canon Knowledge Folder');\nconst base = parsedKnowledge && typeof parsedKnowledge === 'object' && Object.keys(parsedKnowledge).length ? parsedKnowledge : attached;\nconst state = clone(base);\nstate.sheets = state.sheets && typeof state.sheets === 'object' ? state.sheets : {};\nconst novelId = String(state.novel?.novel_id ?? '').trim();\nconst nextChapterNo = Number(state.chapter?.next_chapter_no);\nconst positiveChapter = value => { const number = Number(value); return Number.isInteger(number) && number > 0 ? number : null; };\nconst rows = $input.all().map(item => item?.json ?? {}).filter(row => row && Object.keys(row).length && !row.error)\n  .filter(row => String(row.novel_id ?? '').trim() === novelId && positiveChapter(row.chapter_no) !== null && Number(row.chapter_no) < nextChapterNo)\n  .sort((a,b) => Number(a.chapter_no) - Number(b.chapter_no));\nstate.sheets['Chapter Database'] = rows;\nstate.recent_story = {detailed_chapters: rows.slice(-3), recent_event_index: rows.slice(-10)};\nreturn [{json:state}];"
       },
       "id": "e23e403a-56ef-5617-ac8d-6b6413cb308a",
       "name": "Collect Chapter Database",
@@ -695,7 +695,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const state=structuredClone($('Collect Chapter Database').first().json); const rows=$input.all().map(i=>i.json).filter(r=>r&&Object.keys(r).length&&!r.error); state.sheets['Story Progress']=rows; return [{json:state}];"
+        "jsCode": "const clone = (value) => {\n  if (value === undefined || value === null) return {};\n  return JSON.parse(JSON.stringify(value));\n};\nconst state = clone($('Collect Chapter Database').first()?.json);\nstate.sheets = state.sheets && typeof state.sheets === 'object' ? state.sheets : {};\nstate.context_meta = state.context_meta && typeof state.context_meta === 'object' ? state.context_meta : {missing_sources:[],warnings:[]};\nstate.context_meta.warnings = Array.isArray(state.context_meta.warnings) ? state.context_meta.warnings : [];\nconst novelId=String(state.novel?.novel_id??'').trim(), next=Number(state.chapter?.next_chapter_no);\nconst validNo=v=>{const n=Number(v);return Number.isInteger(n)&&n>0?n:null;};\nconst rows=$input.all().map(i=>i?.json??{}).filter(r=>r&&Object.keys(r).length&&!r.error&&String(r.novel_id??'').trim()===novelId&&validNo(r.chapter_no)!==null&&Number(r.chapter_no)<next).sort((a,b)=>Number(b.chapter_no)-Number(a.chapter_no));\nstate.sheets['Story Progress']=rows;\nconst safe=(value,fallback,field)=>{if(value===undefined||value===null||value==='')return fallback;if(typeof value!=='string')return value;try{return JSON.parse(value);}catch(_){state.context_meta.warnings.push({code:'INVALID_SHEET_JSON',severity:'warning',field});return fallback;}};\nconst row=rows[0];\nstate.story_progress=row?{main_story:safe(row.main_story_json,row.main_story&&typeof row.main_story==='object'?row.main_story:{},'Story Progress.main_story_json'),active_threads:safe(row.unresolved_threads_json,[],'Story Progress.unresolved_threads_json'),active_characters:safe(row.active_characters_json,[],'Story Progress.active_characters_json'),active_factions:safe(row.faction_states_json,[],'Story Progress.faction_states_json'),key_items:safe(row.key_items_json,[],'Story Progress.key_items_json'),constraints:safe(row.next_constraints,[],'Story Progress.next_constraints')}:{main_story:{},active_threads:[],active_characters:[],active_factions:[],key_items:[],constraints:[]};\nreturn [{json:state}];"
       },
       "id": "3972577f-5342-5465-8708-78a7a191819e",
       "name": "Collect Story Progress",
@@ -750,7 +750,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const state=structuredClone($('Collect Story Progress').first().json); const rows=$input.all().map(i=>i.json).filter(r=>r&&Object.keys(r).length&&!r.error); state.sheets['Foreshadowing Database']=rows; return [{json:state}];"
+        "jsCode": "const clone = (value) => {\n  if (value === undefined || value === null) return {};\n  return JSON.parse(JSON.stringify(value));\n};\nconst state=clone($('Collect Story Progress').first()?.json);\nstate.sheets=state.sheets&&typeof state.sheets==='object'?state.sheets:{};\nconst novelId=String(state.novel?.novel_id??'').trim();\nconst rows=$input.all().map(i=>i?.json??{}).filter(r=>r&&Object.keys(r).length&&!r.error&&String(r.novel_id??'').trim()===novelId&&!['resolved','abandoned'].includes(String(r.lifecycle_status??'').toLowerCase()));\nstate.sheets['Foreshadowing Database']=rows;\nconst dormant=rows.filter(r=>String(r.lifecycle_status??'').toLowerCase()==='dormant');\nconst active=rows.filter(r=>String(r.lifecycle_status??'').toLowerCase()==='active');\nstate.foreshadowing_context={must_consider:active.filter(r=>String(r.context_classification??r.relevance??'').toLowerCase()==='must_consider'),relevant:active.filter(r=>String(r.context_classification??r.relevance??'').toLowerCase()==='relevant'),background:active.filter(r=>!['must_consider','relevant'].includes(String(r.context_classification??r.relevance??'').toLowerCase())),dormant,history:[]};\nreturn [{json:state}];"
       },
       "id": "6570a6c6-62be-5084-bfad-09949fc6e793",
       "name": "Collect Foreshadowing Database",
@@ -805,7 +805,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const state=structuredClone($('Collect Foreshadowing Database').first().json); const rows=$input.all().map(i=>i.json).filter(r=>r&&Object.keys(r).length&&!r.error); state.sheets['Foreshadowing History']=rows; return [{json:state}];"
+        "jsCode": "const clone = (value) => {\n  if (value === undefined || value === null) return {};\n  return JSON.parse(JSON.stringify(value));\n};\nconst state=clone($('Collect Foreshadowing Database').first()?.json);\nstate.sheets=state.sheets&&typeof state.sheets==='object'?state.sheets:{};\nconst novelId=String(state.novel?.novel_id??'').trim();\nconst context=state.foreshadowing_context??{};\nconst ids=new Set([...(context.must_consider??[]),...(context.relevant??[]),...(context.dormant??[])].map(r=>String(r.foreshadow_id??'')).filter(Boolean));\nconst rows=$input.all().map(i=>i?.json??{}).filter(r=>r&&Object.keys(r).length&&!r.error&&String(r.novel_id??'').trim()===novelId&&ids.has(String(r.foreshadow_id??'')));\nstate.sheets['Foreshadowing History']=rows;\nconst grouped={};for(const row of rows)(grouped[row.foreshadow_id]??=[]).push(row);\ncontext.history=Object.values(grouped).flatMap(group=>group.sort((a,b)=>(Number(b.chapter_no)||0)-(Number(a.chapter_no)||0)||String(b.created_at??'').localeCompare(String(a.created_at??''))).slice(0,5));\nstate.foreshadowing_context=context;\nreturn [{json:state}];"
       },
       "id": "4e764527-9dfe-5b18-9220-f18bc737e014",
       "name": "Collect Foreshadowing History",
@@ -860,7 +860,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const state=structuredClone($('Collect Foreshadowing History').first().json); const rows=$input.all().map(i=>i.json).filter(r=>r&&Object.keys(r).length&&!r.error); state.sheets['Chapter Plan']=rows; return [{json:state}];"
+        "jsCode": "const clone = (value) => {\n  if (value === undefined || value === null) return {};\n  return JSON.parse(JSON.stringify(value));\n};\nconst state=clone($('Collect Foreshadowing History').first()?.json);\nstate.sheets=state.sheets&&typeof state.sheets==='object'?state.sheets:{};\nconst novelId=String(state.novel?.novel_id??'').trim(), next=Number(state.chapter?.next_chapter_no);\nconst rows=$input.all().map(i=>i?.json??{}).filter(r=>r&&Object.keys(r).length&&!r.error&&String(r.novel_id??'').trim()===novelId);\nstate.sheets['Chapter Plan']=rows;\nconst previousPlan=rows.find(r=>Number(r.chapter_no)===next-1)??null;\nconst chapters=Array.isArray(state.sheets['Chapter Database'])?state.sheets['Chapter Database']:[];\nconst progress=Array.isArray(state.sheets['Story Progress'])?state.sheets['Story Progress']:[];\nconst previousActual=chapters.find(r=>Number(r.chapter_no)===next-1)??progress.find(r=>Number(r.chapter_no)===next-1)??null;\nconst safePreview=value=>{if(Array.isArray(value))return value;if(typeof value==='string'){try{const parsed=JSON.parse(value);return Array.isArray(parsed)?parsed:[];}catch(_){return [];}}return [];};\nstate.planning_memory={previous_plan:previousPlan,previous_actual:previousActual,continuity_delta:previousPlan&&previousActual?{planned:previousPlan,actual:previousActual,is_canonical:false}:null,short_horizon_preview:previousPlan?safePreview(previousPlan.short_horizon_preview_json??previousPlan.future_chapters_json??previousPlan.preview_json):[]};\nreturn [{json:state}];"
       },
       "id": "64231b31-ada1-5dba-a9d7-db8b9758b3f3",
       "name": "Collect Chapter Plan",
@@ -873,7 +873,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const state = $input.first()?.json ?? {};\nconst warnings = [], missing = [];\nconst asArray = v => Array.isArray(v) ? v : (v && typeof v === 'object' && Array.isArray(v.items) ? v.items : []);\nconst text = v => typeof v === 'string' ? v : JSON.stringify(v ?? '');\nconst tokens = v => text(v).toLowerCase();\nconst int = v => { const n=Number(v); return Number.isInteger(n)&&n>0?n:null; };\nconst safeArray = (value, field) => { if (Array.isArray(value)) return value; if (value==null || value==='') return []; if (typeof value==='string') { try { const x=JSON.parse(value); if(Array.isArray(x)) return x; } catch {} } warnings.push({code:'INVALID_SHEET_JSON',severity:'warning',field}); return []; };\nconst expected = {'StoryBible.json':'high','Canon.json':'high','Characters.json':'warning','World.json':'warning','Timeline.json':'warning','Conflicts.json':'warning','KnowledgeIndex.json':'warning'};\nfor (const [file,severity] of Object.entries(expected)) { const s=state.knowledge?.[file]; if(!s?.found){ missing.push(file); warnings.push({code:'MISSING_KNOWLEDGE_SOURCE',severity,file_name:file}); } else if(!s.valid) warnings.push({code:'INVALID_KNOWLEDGE_JSON',severity,file_name:file}); }\nconst sheet = name => Array.isArray(state.sheets?.[name]) ? state.sheets[name] : [];\nfor (const name of ['Story Progress','Foreshadowing Database','Foreshadowing History','Chapter Plan']) if (!sheet(name).length) missing.push(name);\nconst next=state.chapter.next_chapter_no, novelId=state.novel.novel_id;\nconst chapters=sheet('Chapter Database').filter(r=>String(r.novel_id??'').trim()===novelId && int(r.chapter_no) && Number(r.chapter_no)<next).sort((a,b)=>Number(a.chapter_no)-Number(b.chapter_no));\nconst detailed=chapters.slice(-3), eventIndex=chapters.slice(-10).map(r=>({chapter_id:r.chapter_id??null,chapter_no:Number(r.chapter_no),title:r.title??'',summary:r.summary??r.chapter_summary??'',events:safeArray(r.events_json,'Chapter Database.events_json')}));\nconst progressRows=sheet('Story Progress').filter(r=>String(r.novel_id??'').trim()===novelId && int(r.chapter_no) && Number(r.chapter_no)<next).sort((a,b)=>Number(b.chapter_no)-Number(a.chapter_no));\nconst p=progressRows[0]??null;\nconst storyProgress=p?{main_story:{progress_id:p.progress_id??null,chapter_no:Number(p.chapter_no),arc_name:p.arc_name??'',summary:p.summary??'',current_goal:p.current_goal??'',source_chapter_id:p.source_chapter_id??null},active_threads:safeArray(p.unresolved_threads_json,'Story Progress.unresolved_threads_json'),active_characters:safeArray(p.active_characters_json,'Story Progress.active_characters_json'),active_factions:safeArray(p.faction_states_json,'Story Progress.faction_states_json'),key_items:safeArray(p.key_items_json,'Story Progress.key_items_json'),constraints:safeArray(p.next_constraints,'Story Progress.next_constraints')}:{main_story:{},active_threads:[],active_characters:[],active_factions:[],key_items:[],constraints:[]};\nconst foreshadows=sheet('Foreshadowing Database').filter(r=>String(r.novel_id??'').trim()===novelId && !['resolved','abandoned'].includes(String(r.lifecycle_status??'').toLowerCase()));\nconst dormant=foreshadows.filter(r=>String(r.lifecycle_status).toLowerCase()==='dormant');\nconst active=foreshadows.filter(r=>String(r.lifecycle_status).toLowerCase()==='active');\nconst signalText=tokens([detailed,storyProgress]);\nconst enriched=active.map(f=>{ const deps=safeArray(f.dependencies_json,`Foreshadowing Database.${f.foreshadow_id}.dependencies_json`); const start=Number(f.resolution_window_start),end=Number(f.resolution_window_end),last=Number(f.last_touched_chapter||f.planted_chapter||0),cool=Number(f.min_touch_interval||0),priority=String(f.priority??'').toLowerCase(); const related=[f.title,f.description,deps].some(x=>x&&signalText.includes(tokens(x))); const inWindow=Number.isFinite(start)&&next>=start, overdue=Number.isFinite(end)&&next>end, cooled=next-last>=cool; return {...f,dependencies:deps,context_classification:{in_resolution_window:inWindow,overdue,cooled,related}};});\nconst must=enriched.filter(f=>f.context_classification.overdue||f.context_classification.in_resolution_window||['high','critical','urgent','p0','p1'].includes(String(f.priority).toLowerCase()));\nconst mustIds=new Set(must.map(f=>String(f.foreshadow_id))); const relevant=enriched.filter(f=>!mustIds.has(String(f.foreshadow_id))&&f.context_classification.related&&f.context_classification.cooled); const relevantIds=new Set(relevant.map(f=>String(f.foreshadow_id))); const background=enriched.filter(f=>!mustIds.has(String(f.foreshadow_id))&&!relevantIds.has(String(f.foreshadow_id)));\nconst historyIds=new Set([...must,...relevant,...dormant].map(f=>String(f.foreshadow_id)));\nconst grouped={}; for(const h of sheet('Foreshadowing History').filter(h=>String(h.novel_id??'').trim()===novelId&&historyIds.has(String(h.foreshadow_id)))) (grouped[h.foreshadow_id]??=[]).push(h);\nconst history=Object.values(grouped).flatMap(a=>a.sort((x,y)=>(Number(y.chapter_no)||0)-(Number(x.chapter_no)||0)||String(y.created_at??'').localeCompare(String(x.created_at??''))).slice(0,5));\nconst entitySignals=tokens([detailed,storyProgress,must,relevant]);\nconst kval=file=>state.knowledge?.[file]?.valid?state.knowledge[file].value:null;\nconst characters=asArray(kval('Characters.json')).filter(c=>[c.character_name,c.aliases,c.relationship_to_protagonist].some(v=>v&&entitySignals.includes(tokens(v))));\nconst worlds=asArray(kval('World.json')).filter(w=>[w.world_name,w.aliases,w.region,w.leader,w.members,w.related_factions,w.related_locations,w.rules,w.status].some(v=>v&&entitySignals.includes(tokens(v))));\nconst activeSignals=tokens([characters,worlds,storyProgress,must,relevant]);\nconst timeline=asArray(kval('Timeline.json')).filter(t=>Number(t.chapter_number)>=next-10||[t.participants,t.locations,t.factions,t.aliases,t.event_type].some(v=>v&&activeSignals.includes(tokens(v)))).sort((a,b)=>(Number(b.chapter_number)||0)-(Number(a.chapter_number)||0)||(Number(b.event_order)||0)-(Number(a.event_order)||0));\nconst plans=sheet('Chapter Plan').filter(r=>String(r.novel_id??'').trim()===novelId);\nconst previousPlan=plans.find(r=>Number(r.chapter_no)===next-1)??null;\nconst previousActual=chapters.find(r=>Number(r.chapter_no)===next-1)??(p&&Number(p.chapter_no)===next-1?p:null);\nlet delta=null; if(previousPlan&&previousActual) delta={planned:{chapter_no:next-1,summary:previousPlan.summary??previousPlan.plan_summary??'',goal:previousPlan.goal??previousPlan.chapter_goal??''},actual:{chapter_no:next-1,summary:previousActual.summary??previousActual.chapter_summary??'',goal:previousActual.current_goal??''},is_canonical:false};\nlet preview=[]; if(previousPlan){ const raw=previousPlan.short_horizon_preview_json??previousPlan.future_chapters_json??previousPlan.preview_json; preview=safeArray(raw,'Chapter Plan.short_horizon_preview').slice(0,5).map(x=>({...((x&&typeof x==='object')?x:{direction:x}),is_canon:false})); }\nconst core={}; if(kval('StoryBible.json')!==null) core.story_bible=kval('StoryBible.json'); if(kval('Canon.json')!==null) core.canon=kval('Canon.json');\nconst output={ok:true,schema_version:'1.0',operation:'build_chapter_context',chapter_context:{novel_id:novelId,novel_name:state.novel.novel_name,next_chapter_no:next,next_chapter_id:state.chapter.next_chapter_id,workspace_folder_id:state.storage.workspace_folder_id,workspace_version:state.storage.workspace_version},recent_story:{detailed_chapters:detailed,recent_event_index:eventIndex},canon_context:{core_canon:core,relevant_characters:characters,relevant_world:worlds,relevant_timeline:timeline,conflict_warnings:asArray(kval('Conflicts.json')),knowledge_health:(kval('KnowledgeIndex.json')&&typeof kval('KnowledgeIndex.json')==='object'&&!Array.isArray(kval('KnowledgeIndex.json')))?kval('KnowledgeIndex.json'):{}},story_progress:storyProgress,foreshadowing_context:{must_consider:must,relevant,background,dormant,history},planning_memory:{previous_plan:previousPlan,previous_actual:previousActual,continuity_delta:delta,short_horizon_preview:preview},context_meta:{missing_sources:[...new Set(missing)],warnings,recent_chapter_count:detailed.length,relevant_character_count:characters.length,relevant_world_count:worlds.length,relevant_timeline_count:timeline.length,must_consider_foreshadow_count:must.length,relevant_foreshadow_count:relevant.length}};\nreturn [{json:output}];\n"
+        "jsCode": "const state = $input.first()?.json ?? {};\nconst warnings = Array.isArray(state.context_meta?.warnings) ? JSON.parse(JSON.stringify(state.context_meta.warnings)) : [];\nconst missing = Array.isArray(state.context_meta?.missing_sources) ? [...state.context_meta.missing_sources] : [];\nconst asArray = v => Array.isArray(v) ? v : (v && typeof v === 'object' && Array.isArray(v.items) ? v.items : []);\nconst text = v => typeof v === 'string' ? v : JSON.stringify(v ?? '');\nconst tokens = v => text(v).toLowerCase();\nconst int = v => { const n=Number(v); return Number.isInteger(n)&&n>0?n:null; };\nconst safeArray = (value, field) => { if (Array.isArray(value)) return value; if (value==null || value==='') return []; if (typeof value==='string') { try { const x=JSON.parse(value); if(Array.isArray(x)) return x; } catch {} } warnings.push({code:'INVALID_SHEET_JSON',severity:'warning',field}); return []; };\nconst expected = {'StoryBible.json':'high','Canon.json':'high','Characters.json':'warning','World.json':'warning','Timeline.json':'warning','Conflicts.json':'warning','KnowledgeIndex.json':'warning'};\nif (state.knowledge_initialized !== false) for (const [file,severity] of Object.entries(expected)) { const s=state.knowledge?.[file]; if(!s?.found){ missing.push(file); warnings.push({code:'MISSING_KNOWLEDGE_SOURCE',severity,file_name:file}); } else if(!s.valid) warnings.push({code:'INVALID_KNOWLEDGE_JSON',severity,file_name:file}); }\nconst sheet = name => Array.isArray(state.sheets?.[name]) ? state.sheets[name] : [];\nfor (const name of ['Story Progress','Foreshadowing Database','Foreshadowing History','Chapter Plan']) if (!sheet(name).length) missing.push(name);\nconst next=state.chapter.next_chapter_no, novelId=state.novel.novel_id;\nconst chapters=sheet('Chapter Database').filter(r=>String(r.novel_id??'').trim()===novelId && int(r.chapter_no) && Number(r.chapter_no)<next).sort((a,b)=>Number(a.chapter_no)-Number(b.chapter_no));\nconst detailed=chapters.slice(-3), eventIndex=chapters.slice(-10).map(r=>({chapter_id:r.chapter_id??null,chapter_no:Number(r.chapter_no),title:r.title??'',summary:r.summary??r.chapter_summary??'',events:safeArray(r.events_json,'Chapter Database.events_json')}));\nconst progressRows=sheet('Story Progress').filter(r=>String(r.novel_id??'').trim()===novelId && int(r.chapter_no) && Number(r.chapter_no)<next).sort((a,b)=>Number(b.chapter_no)-Number(a.chapter_no));\nconst p=progressRows[0]??null;\nconst storyProgress=p?{main_story:{progress_id:p.progress_id??null,chapter_no:Number(p.chapter_no),arc_name:p.arc_name??'',summary:p.summary??'',current_goal:p.current_goal??'',source_chapter_id:p.source_chapter_id??null},active_threads:safeArray(p.unresolved_threads_json,'Story Progress.unresolved_threads_json'),active_characters:safeArray(p.active_characters_json,'Story Progress.active_characters_json'),active_factions:safeArray(p.faction_states_json,'Story Progress.faction_states_json'),key_items:safeArray(p.key_items_json,'Story Progress.key_items_json'),constraints:safeArray(p.next_constraints,'Story Progress.next_constraints')}:{main_story:{},active_threads:[],active_characters:[],active_factions:[],key_items:[],constraints:[]};\nconst foreshadows=sheet('Foreshadowing Database').filter(r=>String(r.novel_id??'').trim()===novelId && !['resolved','abandoned'].includes(String(r.lifecycle_status??'').toLowerCase()));\nconst dormant=foreshadows.filter(r=>String(r.lifecycle_status).toLowerCase()==='dormant');\nconst active=foreshadows.filter(r=>String(r.lifecycle_status).toLowerCase()==='active');\nconst signalText=tokens([detailed,storyProgress]);\nconst enriched=active.map(f=>{ const deps=safeArray(f.dependencies_json,`Foreshadowing Database.${f.foreshadow_id}.dependencies_json`); const start=Number(f.resolution_window_start),end=Number(f.resolution_window_end),last=Number(f.last_touched_chapter||f.planted_chapter||0),cool=Number(f.min_touch_interval||0),priority=String(f.priority??'').toLowerCase(); const related=[f.title,f.description,deps].some(x=>x&&signalText.includes(tokens(x))); const inWindow=Number.isFinite(start)&&next>=start, overdue=Number.isFinite(end)&&next>end, cooled=next-last>=cool; return {...f,dependencies:deps,context_classification:{in_resolution_window:inWindow,overdue,cooled,related}};});\nconst must=enriched.filter(f=>f.context_classification.overdue||f.context_classification.in_resolution_window||['high','critical','urgent','p0','p1'].includes(String(f.priority).toLowerCase()));\nconst mustIds=new Set(must.map(f=>String(f.foreshadow_id))); const relevant=enriched.filter(f=>!mustIds.has(String(f.foreshadow_id))&&f.context_classification.related&&f.context_classification.cooled); const relevantIds=new Set(relevant.map(f=>String(f.foreshadow_id))); const background=enriched.filter(f=>!mustIds.has(String(f.foreshadow_id))&&!relevantIds.has(String(f.foreshadow_id)));\nconst historyIds=new Set([...must,...relevant,...dormant].map(f=>String(f.foreshadow_id)));\nconst grouped={}; for(const h of sheet('Foreshadowing History').filter(h=>String(h.novel_id??'').trim()===novelId&&historyIds.has(String(h.foreshadow_id)))) (grouped[h.foreshadow_id]??=[]).push(h);\nconst history=Object.values(grouped).flatMap(a=>a.sort((x,y)=>(Number(y.chapter_no)||0)-(Number(x.chapter_no)||0)||String(y.created_at??'').localeCompare(String(x.created_at??''))).slice(0,5));\nconst entitySignals=tokens([detailed,storyProgress,must,relevant]);\nconst kval=file=>state.knowledge?.[file]?.valid?state.knowledge[file].value:null;\nconst characters=asArray(kval('Characters.json')).filter(c=>[c.character_name,c.aliases,c.relationship_to_protagonist].some(v=>v&&entitySignals.includes(tokens(v))));\nconst worlds=asArray(kval('World.json')).filter(w=>[w.world_name,w.aliases,w.region,w.leader,w.members,w.related_factions,w.related_locations,w.rules,w.status].some(v=>v&&entitySignals.includes(tokens(v))));\nconst activeSignals=tokens([characters,worlds,storyProgress,must,relevant]);\nconst timeline=asArray(kval('Timeline.json')).filter(t=>Number(t.chapter_number)>=next-10||[t.participants,t.locations,t.factions,t.aliases,t.event_type].some(v=>v&&activeSignals.includes(tokens(v)))).sort((a,b)=>(Number(b.chapter_number)||0)-(Number(a.chapter_number)||0)||(Number(b.event_order)||0)-(Number(a.event_order)||0));\nconst plans=sheet('Chapter Plan').filter(r=>String(r.novel_id??'').trim()===novelId);\nconst previousPlan=plans.find(r=>Number(r.chapter_no)===next-1)??null;\nconst previousActual=chapters.find(r=>Number(r.chapter_no)===next-1)??(p&&Number(p.chapter_no)===next-1?p:null);\nlet delta=null; if(previousPlan&&previousActual) delta={planned:{chapter_no:next-1,summary:previousPlan.summary??previousPlan.plan_summary??'',goal:previousPlan.goal??previousPlan.chapter_goal??''},actual:{chapter_no:next-1,summary:previousActual.summary??previousActual.chapter_summary??'',goal:previousActual.current_goal??''},is_canonical:false};\nlet preview=[]; if(previousPlan){ const raw=previousPlan.short_horizon_preview_json??previousPlan.future_chapters_json??previousPlan.preview_json; preview=safeArray(raw,'Chapter Plan.short_horizon_preview').slice(0,5).map(x=>({...((x&&typeof x==='object')?x:{direction:x}),is_canon:false})); }\nconst core={}; if(kval('StoryBible.json')!==null) core.story_bible=kval('StoryBible.json'); if(kval('Canon.json')!==null) core.canon=kval('Canon.json');\nconst output={ok:true,schema_version:'1.0',operation:'build_chapter_context',chapter_context:{novel_id:novelId,novel_name:state.novel.novel_name,next_chapter_no:next,next_chapter_id:state.chapter.next_chapter_id,workspace_folder_id:state.storage.workspace_folder_id,workspace_version:state.storage.workspace_version},recent_story:{detailed_chapters:detailed,recent_event_index:eventIndex},canon_context:{core_canon:core,relevant_characters:characters,relevant_world:worlds,relevant_timeline:timeline,conflict_warnings:asArray(kval('Conflicts.json')),knowledge_health:(kval('KnowledgeIndex.json')&&typeof kval('KnowledgeIndex.json')==='object'&&!Array.isArray(kval('KnowledgeIndex.json')))?kval('KnowledgeIndex.json'):{}},story_progress:storyProgress,foreshadowing_context:{must_consider:must,relevant,background,dormant,history},planning_memory:{previous_plan:previousPlan,previous_actual:previousActual,continuity_delta:delta,short_horizon_preview:preview},context_meta:{missing_sources:[...new Set(missing)],warnings,recent_chapter_count:detailed.length,relevant_character_count:characters.length,relevant_world_count:worlds.length,relevant_timeline_count:timeline.length,must_consider_foreshadow_count:must.length,relevant_foreshadow_count:relevant.length}};\nreturn [{json:output}];\n"
       },
       "id": "f4bfa663-22da-5039-97df-7eefb3ca6fdf",
       "name": "Build Chapter Context",
@@ -894,6 +894,88 @@
       "typeVersion": 2,
       "position": [
         7740,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "operation": "search",
+        "searchMethod": "query",
+        "queryString": "={{ \"name = 'Knowledge' and '\" + $('Index Knowledge Folders').first().json.folder_ids.canon + \"' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false\" }}",
+        "returnAll": false,
+        "limit": 1,
+        "filter": {},
+        "options": {
+          "fields": [
+            "id",
+            "name",
+            "mimeType",
+            "parents"
+          ]
+        }
+      },
+      "id": "b6a6f481-1500-4c00-8b04-013000000001",
+      "name": "Find Canon Knowledge Folder",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        860,
+        0
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "m8Ze5QDWBQQ0zNjj",
+          "name": "Google Drive account"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const clone = (value) => {\n  if (value === undefined || value === null) return {};\n  return JSON.parse(JSON.stringify(value));\n};\nconst state = clone($('Index Knowledge Folders').first()?.json);\nconst folder = $input.all().map(item => item?.json ?? {}).find(row => row.id) ?? {};\nconst knowledgeFolderId = String(folder.id ?? '').trim();\nstate.folder_ids = state.folder_ids && typeof state.folder_ids === 'object' ? state.folder_ids : {};\nstate.folder_ids.canon_knowledge = knowledgeFolderId;\nstate.knowledge_initialized = Boolean(knowledgeFolderId);\nstate.knowledge_initialization = {\n  initialized: state.knowledge_initialized,\n  knowledge_folder_id: knowledgeFolderId,\n  status: state.knowledge_initialized ? 'initialized' : 'not_initialized'\n};\nstate.context_meta = state.context_meta && typeof state.context_meta === 'object' ? state.context_meta : {};\nstate.context_meta.missing_sources = Array.isArray(state.context_meta.missing_sources) ? state.context_meta.missing_sources : [];\nstate.context_meta.warnings = Array.isArray(state.context_meta.warnings) ? state.context_meta.warnings : [];\nif (!state.knowledge_initialized) {\n  if (!state.context_meta.missing_sources.includes('03_Canon/Knowledge')) state.context_meta.missing_sources.push('03_Canon/Knowledge');\n  if (!state.context_meta.warnings.some(w => w?.code === 'KNOWLEDGE_NOT_INITIALIZED')) state.context_meta.warnings.push({code:'KNOWLEDGE_NOT_INITIALIZED',severity:'high',source:'03_Canon/Knowledge'});\n}\nreturn [{json:state}];"
+      },
+      "id": "b6a6f481-1500-4c00-8b04-013000000002",
+      "name": "Attach Canon Knowledge Folder",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1080,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "b6a6f481-1500-4c00-8b04-013000000004",
+              "leftValue": "={{ $json.knowledge_initialized }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b6a6f481-1500-4c00-8b04-013000000003",
+      "name": "Knowledge Initialized?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1300,
         0
       ]
     }
@@ -937,7 +1019,7 @@
       "main": [
         [
           {
-            "node": "Find StoryBible JSON",
+            "node": "Find Canon Knowledge Folder",
             "type": "main",
             "index": 0
           }
@@ -1290,6 +1372,46 @@
         [
           {
             "node": "Return Chapter Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Canon Knowledge Folder": {
+      "main": [
+        [
+          {
+            "node": "Attach Canon Knowledge Folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Attach Canon Knowledge Folder": {
+      "main": [
+        [
+          {
+            "node": "Knowledge Initialized?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Knowledge Initialized?": {
+      "main": [
+        [
+          {
+            "node": "Find StoryBible JSON",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Read Chapter Database",
             "type": "main",
             "index": 0
           }
